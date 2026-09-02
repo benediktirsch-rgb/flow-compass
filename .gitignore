@@ -1,0 +1,54 @@
+# ── Flow Compass — was NICHT in die Versionsverwaltung gehört ────────────────
+# Grundsatz (02.09.2026): dieses Repo enthält den Produktcode des Flow Compass.
+# Alles, was zu EINER Person gehört — Checkins, Boards, Kennzahlen, Zugangsdaten —
+# bleibt in der Arbeitskopie und kommt nie in einen Commit.
+
+desktop.ini
+Thumbs.db
+.DS_Store
+node_modules/
+
+# Sitzungsstand von Claude Code, persönliche Arbeitsnotizen
+.claude/
+CLAUDE.local.md
+_to_delete/
+*.log
+
+# ── Zugangsdaten ─────────────────────────────────────────────────────────────
+jira-keys.json
+john-api-key.txt
+*-api-key.txt
+.env
+*.secret
+!jira-keys.example.json
+
+# ── Persönliche Datenschicht der eigenen Instanz ─────────────────────────────
+# dashboard.html lädt diese Dateien; für eine frische Instanz kommen sie aus
+# produkt/compass/instanz.example.js bzw. aus dem Demo-Build (site/compass-demo/).
+dashboard-data.js
+kennzahlen-data.js
+rhythmus-data.js
+ki-trainer-data.js
+kundenlage-data.js
+aufraeumen-data.js
+INITIATIVE-*.md
+_integrationen-vorgeschlagen.md
+
+# Checkins, Boards, Anfragen, Rückfragen-Gedächtnis, Vorlieben, Postfach, Slack
+checkins/
+boards/
+anfragen/
+antworten.json
+einstellungen.json
+postfach.json
+slack.json
+kalender-titel.tsv
+kalender-urls.json
+
+# Die eigene veröffentlichte Instanz (Build von build-compass.ps1, per FTPS hochgeladen);
+# nur die handgepflegte .htaccess (Zugangsschutz) bleibt im Repo
+site/compass/*
+!site/compass/.htaccess
+
+# Kundeninstanzen (build-compass-produkt.ps1 -Instanz): Namen, Board-URLs, Zugangs-Hashes
+instanzen/

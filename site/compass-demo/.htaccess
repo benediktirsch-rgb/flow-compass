@@ -1,0 +1,38 @@
+# Flow-Compass-Demo — Haertungs-Header (VA-13513, 24.08.2026)
+# Gilt nur fuer diesen Ordner. Eine site/.htaccess darf es nicht geben (siehe
+# .github/workflows/deploy.yml) — die im Domain-Root pflegt Bene im KAS.
+
+<IfModule mod_headers.c>
+  # Kein Einbetten in fremde Seiten (Clickjacking) — CSP frame-ancestors ist die
+  # moderne Form, X-Frame-Options der Rueckfall fuer aeltere Browser.
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Content-Security-Policy "frame-ancestors 'self'"
+
+  # Kein Raten des Inhaltstyps.
+  Header always set X-Content-Type-Options "nosniff"
+
+  # Nur https, ein Jahr. Bewusst OHNE preload und OHNE includeSubDomains:
+  # unter dieser Domain haengen weitere Hosts, die Bene nicht alle kontrolliert.
+  Header always set Strict-Transport-Security "max-age=31536000"
+
+  # Keine Adresse dieser Seite an fremde Ziele weiterreichen.
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Die Demo braucht weder Kamera noch Mikrofon noch Standort.
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+</IfModule>
+
+# Konfiguration und Datenschicht nie aus dem Cache verwenden, ohne zu fragen.
+# Grund (24.08.2026): die Demo zog ueber instanz.js echte Team-Daten. Der Server
+# lieferte die korrigierte Datei binnen Minuten - Browser mit der alten Fassung im
+# Cache holten die Daten aber weiter. Ohne Cache-Control raet Apache die Frische.
+# 'no-cache' heisst nicht 'nicht speichern', sondern 'vor Gebrauch rueckfragen'.
+<FilesMatch ".(js|html)$">
+  <IfModule mod_headers.c>
+    Header always set Cache-Control "no-cache"
+  </IfModule>
+</FilesMatch>
+
+# Eine volle Content-Security-Policy (script-src usw.) fehlt bewusst: die Seite
+# lebt von Inline-Skript und Inline-Style. Sie kaeme nur mit Hashes oder Nonces
+# und gehoert deshalb in ein eigenes Ticket — erst Report-Only messen, dann scharf.

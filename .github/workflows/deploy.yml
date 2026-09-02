@@ -1,0 +1,33 @@
+name: Deploy Flow Compass Demo nach KAS (vishnu-artists.de/compass-demo)
+
+# Nur die anonymisierte Demo (site/compass-demo, gebaut von build-compass-produkt.ps1) geht über
+# GitHub live. Die persönliche Instanz (site/compass) ist nicht im Repo und wird von
+# publish-compass.ps1 direkt per FTPS hochgeladen; Kundeninstanzen ebenso.
+# Eigener Sync-State (nicht der des aufgelösten Repos analytics-dashboard): ein fremder State
+# würde beim ersten Lauf Dateien löschen, die hier nicht liegen.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'site/compass-demo/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: FTPS-Deploy Compass-Demo
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server:   ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./site/compass-demo/
+          server-dir: ./vishnu-artists.com/compass-demo/
+          state-name: .ftp-deploy-flow-compass-demo-state.json

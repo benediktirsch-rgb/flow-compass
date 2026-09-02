@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kundenlage · Flow Compass</title>
+<!-- Sprache folgt dem Compass (localStorage compassLang) — auch hier vor dem <body>. -->
+<script src="compass-i18n.js"></script>
+<style>
+:root{
+  --bg:#0e1016;--panel:#171a22;--panel2:#1e222c;--line:#2a2f3a;--ink:#eef1f6;--sub:#9aa2b1;--dim:#6b7280;
+  --va:#1a44ea;--accent:#7c5cff;--ok:#3ecf8e;--warn:#f0b429;--bad:#ef5f5f;--brass:#d6a44b;
+  --radius:16px;--shadow:0 8px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#1a1f2e 0%,var(--bg) 55%);color:var(--ink);
+  font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;font-size:15px;line-height:1.5;min-height:100vh}
+a{color:#8ab4ff;text-decoration:none}a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--brass);outline-offset:3px;border-radius:6px}
+.top{display:flex;align-items:center;gap:14px;padding:22px 30px 6px;flex-wrap:wrap}
+.top h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.3px}
+.top .spacer{flex:1}
+.back{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700;color:var(--sub)}
+.back:hover{color:var(--ink);text-decoration:none}
+.pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--sub)}
+.wrap{padding:14px 30px 60px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);min-width:0}
+.s4{grid-column:span 4}.s5{grid-column:span 5}.s7{grid-column:span 7}.s8{grid-column:span 8}.s12{grid-column:span 12}
+@media(max-width:1100px){.s4,.s5{grid-column:span 6}.s7,.s8{grid-column:span 12}}
+@media(max-width:720px){.card{grid-column:span 12 !important}.wrap,.top{padding-left:16px;padding-right:16px}}
+.card h3{margin:0 0 14px;font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px}
+.card h3 .cnt{margin-left:auto;font-size:11px;color:var(--dim);font-weight:700}
+.kpis{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.kpi{flex:1;min-width:158px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+  position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--dim)}
+.kpi.w::before{background:var(--warn)}.kpi.o::before{background:var(--ok)}.kpi.b::before{background:var(--brass)}
+.kpi .v{font-size:28px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.kpi .l{font-size:12.5px;font-weight:700;margin-top:2px}
+.kpi .n{font-size:11.5px;color:var(--sub);margin-top:4px;line-height:1.4}
+.kern{display:flex;flex-direction:column;gap:8px}
+.kern div{display:flex;align-items:center;gap:10px;font-size:13.5px;padding:7px 10px;background:var(--panel2);
+  border:1px solid var(--line);border-radius:10px}
+.kern b{font-weight:700}
+.kern .st{margin-left:auto;font-size:11px;font-weight:700;color:var(--sub)}
+.kern .st.ja{color:var(--ok)}
+.kunde{border:1px solid var(--line);background:var(--panel2);border-radius:14px;padding:16px 18px;margin-bottom:12px}
+.kunde:last-child{margin-bottom:0}
+.kunde .kopf{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.kunde .kopf b{font-size:17px}
+.kunde .kopf .spacer{flex:1}
+.kunde .rolle{color:var(--sub);font-size:13px;margin-top:2px}
+.kunde .zitat{border-left:3px solid var(--brass);padding-left:12px;margin:12px 0;color:#cfd4de;font-style:italic;font-size:14px}
+.kunde .facts{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.kunde .facts span{font-size:11.5px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:var(--sub)}
+.stat{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:4px 10px;border:1px solid var(--line)}
+.stat.angefragt{color:var(--warn);border-color:var(--warn)}
+.stat.freigegeben,.stat.imbau{color:#8ab4ff;border-color:#3d5fb0}
+.stat.aktiv{color:var(--ok);border-color:var(--ok)}
+.steps{display:flex;gap:4px;margin-top:14px;flex-wrap:wrap}
+.steps i{width:100%;max-width:34px;height:7px;border-radius:3px;background:#333a48;flex:1}
+.steps i.done{background:var(--ok)}.steps i.now{background:var(--warn)}
+.stepnote{font-size:11.5px;color:var(--sub);margin-top:7px}
+.leer{color:var(--dim);font-size:13.5px;padding:10px 0}
+.foot{color:var(--dim);font-size:12px;margin-top:22px;line-height:1.7}
+.foot code{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:11.5px}
+
+/* ---- Arabisch / RTL (28.08.2026): dieselbe Sprachwahl wie im Compass ----
+   Nur was fest auf links/rechts steht, muss gedreht werden; Flex und Grid
+   folgen dem dir-Attribut von selbst. Instrument Serif hat keine arabischen
+   Zeichen, deshalb eine Systemschriftfolge (nichts nachladen). */
+html[lang="ar"]{font-family:'Noto Naskh Arabic','Segoe UI',Tahoma,'Arial Unicode MS',sans-serif}
+[dir="rtl"] .card h3 .cnt{margin-left:0;margin-right:auto}
+[dir="rtl"] .kern .st{margin-left:0;margin-right:auto}
+[dir="rtl"] .kunde .zitat{border-left:0;border-right:3px solid var(--brass);padding-left:0;padding-right:12px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>🧭 Kundenlage</h1>
+  <span class="pill" id="stand">—</span>
+  <span class="spacer"></span>
+  <a class="back" href="dashboard.html">← Compass</a>
+</div>
+
+<div class="wrap">
+  <div class="kpis" id="kpis"></div>
+  <div class="grid">
+    <div class="card s5"><h3>Eingeladen <span class="cnt" id="kern-cnt"></span></h3><div class="kern" id="kern"></div></div>
+    <div class="card s7"><h3>Registrierungen <span class="cnt" id="kunden-cnt"></span></h3><div id="kunden"></div></div>
+    <div class="card s12"><h3>Produktrückmeldungen</h3><div id="rueck"></div></div>
+  </div>
+  <p class="foot" id="foot"></p>
+</div>
+
+<script src="kundenlage-data.js"></script>
+<script>
+(function () {
+  var K = window.KUNDEN;
+  if (!K) { document.getElementById('kunden').textContent = 'kundenlage-data.js fehlt.'; return; }
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[<>&"]/g, function (c) {
+    return ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]; }); };
+  var d = function (iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '.' + p[1] + '.' + p[0]; };
+
+  $('stand').textContent = 'Stand ' + K.stand;
+
+  var zahl = function (s) { return K.kunden.filter(function (k) { return k.status === s; }).length; };
+  var kpis = [
+    ['b', K.eingeladen.length, 'Eingeladen', 'Erste Welle, ' + K.eingeladen[0].welle + ' — alle als Testplatz.'],
+    ['w', zahl('angefragt'), 'Wartet auf Freigabe', 'Zahlungseingang prüfen, dann im Vorgang auf „Ready to work".'],
+    ['', zahl('freigegeben') + zahl('imbau'), 'In Einrichtung', 'Freigegeben, Startmail raus, Instanz entsteht.'],
+    ['o', zahl('aktiv'), 'Aktiv', 'Übergeben, läuft allein.']
+  ];
+  $('kpis').innerHTML = kpis.map(function (k) {
+    return '<div class="kpi ' + k[0] + '"><div class="v">' + k[1] + '</div><div class="l">' + esc(k[2]) +
+           '</div><div class="n">' + esc(k[3]) + '</div></div>';
+  }).join('');
+
+  var offen = K.eingeladen.filter(function (e) { return !e.registriert; }).length;
+  $('kern-cnt').textContent = offen + ' noch offen';
+  $('kern').innerHTML = K.eingeladen.map(function (e) {
+    var ja = !!e.registriert;
+    return '<div><b>' + esc(e.name) + '</b><span class="pill">' + esc(e.platz) + '</span>' +
+      '<span class="st' + (ja ? ' ja' : '') + '">' + (ja ? 'registriert · ' + esc(e.registriert) : 'noch nicht registriert') + '</span></div>';
+  }).join('');
+
+  $('kunden-cnt').textContent = K.kunden.length + ' gesamt';
+  $('kunden').innerHTML = K.kunden.length ? K.kunden.map(function (k) {
+    var streifen = K.schritte.map(function (_, i) {
+      return '<i class="' + (i < k.schritte ? 'done' : (i === k.schritte ? 'now' : '')) + '"></i>';
+    }).join('');
+    var naechster = k.schritte < K.schritte.length ? K.schritte[k.schritte] : 'fertig';
+    var facts = []
+      .concat(k.kontexte.map(function (c) { return c; }))
+      .concat(['WIP ' + k.wip, k.teamCockpit ? 'Team-Cockpit' : 'solo'])
+      .concat(k.quellen);
+    return '<div class="kunde">' +
+      '<div class="kopf"><b>' + esc(k.name) + '</b><span class="stat ' + esc(k.status) + '">' + esc(k.status) + '</span>' +
+      '<span class="pill">' + esc(k.jiraStatus) + '</span>' +
+      '<span class="spacer"></span><a href="https://vishnuartists.atlassian.net/browse/' + esc(k.key) + '" target="_blank" rel="noopener">' + esc(k.key) + ' ↗</a></div>' +
+      '<div class="rolle">' + esc(k.rolle) + ' · <a href="mailto:' + esc(k.mail) + '">' + esc(k.mail) + '</a></div>' +
+      (k.schmerz ? '<div class="zitat">„' + esc(k.schmerz) + '"</div>' : '') +
+      '<div class="facts">' + facts.map(function (f) { return '<span>' + esc(f) + '</span>'; }).join('') + '</div>' +
+      '<div class="steps">' + streifen + '</div>' +
+      '<div class="stepnote">' + k.schritte + ' von ' + K.schritte.length + ' Schritten · als Nächstes: <b>' + esc(naechster) + '</b>' +
+      ' · registriert ' + d(k.registriert) + ' · zugesagt bis <b>' + d(k.zusageBis) + '</b>' +
+      (k.kundeInformiert ? ' · Startmail raus' : '') + '</div>' +
+      '</div>';
+  }).join('') : '<div class="leer">Noch keine Registrierung.</div>';
+
+  var r = K.rueckmeldungen;
+  $('rueck').innerHTML =
+    '<div class="kpis" style="margin:0">' +
+    '<div class="kpi w"><div class="v">' + r.offen + '</div><div class="l">offen</div><div class="n">' + esc(r.quelle) + '</div></div>' +
+    '<div class="kpi o"><div class="v">' + r.erledigt + '</div><div class="l">erledigt</div><div class="n">Aus dem Demo-Review abgearbeitet.</div></div>' +
+    '<div class="kpi"><div class="v">' + r.ausInstanzen + '</div><div class="l">aus Instanzen</div><div class="n">Über den Feedback-Knopf eingegangen — Projekt ' + esc(r.projekt) + '.</div></div>' +
+    '</div>';
+
+  $('foot').innerHTML = 'Quelle: ' + esc(K.quelle) + '<br>' +
+    'Wahrheit ist Jira: <code>project = VA AND labels = compass-setup</code> · Rückmeldungen: <code>project = ' + esc(r.projekt) + '</code>. ' +
+    'Aktualisieren mit „Claude, aktualisiere die Kundenlage".';
+})();
+</script>
+</body>
+</html>

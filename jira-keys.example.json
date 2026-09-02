@@ -1,0 +1,7 @@
+{
+  "_hinweis": "Kopiere diese Datei als jira-keys.json (ohne .example) und trage deinen API-Token ein.",
+  "_token": "https://id.atlassian.com/manage-profile/security/api-tokens  →  Create API token (nicht 'with scopes')",
+  "email": "benedikt@vishnuartists.com",
+  "token": "<hier den API-Token einfuegen>",
+  "site": "vishnuartists.atlassian.net"
+}

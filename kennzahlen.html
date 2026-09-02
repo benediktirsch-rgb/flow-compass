@@ -1,0 +1,818 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kennzahlen · Vaikuntha &amp; Vishnu</title>
+<!-- Sprache folgt dem Compass (localStorage compassLang) — auch hier vor dem <body>. -->
+<script src="compass-i18n.js"></script>
+<style>
+:root{
+  --bg:#0e1016;--panel:#171a22;--panel2:#1e222c;--line:#2a2f3a;--ink:#eef1f6;--sub:#9aa2b1;--dim:#6b7280;
+  --va:#1a44ea;--vk:#89c527;--accent:#7c5cff;--ok:#3ecf8e;--warn:#f0b429;--bad:#ef5f5f;
+  --radius:16px;--shadow:0 8px 30px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#1a1f2e 0%,var(--bg) 55%);color:var(--ink);
+  font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;font-size:15px;line-height:1.5;min-height:100vh}
+a{color:#8ab4ff;text-decoration:none}a:hover{text-decoration:underline}
+.top{display:flex;align-items:center;gap:14px;padding:22px 30px 6px;flex-wrap:wrap}
+.top h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.3px}
+.top .spacer{flex:1}
+.back{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:7px 14px;font-size:12.5px;font-weight:700;color:var(--sub)}
+.back:hover{color:var(--ink);text-decoration:none}
+.pill{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--sub)}
+.bar{display:flex;gap:8px;padding:10px 30px 16px;flex-wrap:wrap;align-items:center}
+.seg{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px}
+.seg button{border:none;background:none;color:var(--sub);font:inherit;font-size:13px;font-weight:700;padding:6px 15px;border-radius:999px;cursor:pointer}
+.seg button.on{background:var(--panel2);color:var(--ink)}
+.seg button[disabled]{opacity:.35;cursor:default}
+.seg button:not([disabled]):hover{color:var(--ink)}
+.seg button.on[data-s="vk"]{background:var(--vk);color:#0e1016}
+.seg button.on[data-s="va"]{background:var(--va);color:#fff}
+.wrap{padding:0 30px 60px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);min-width:0}
+.s3{grid-column:span 3}.s4{grid-column:span 4}.s5{grid-column:span 5}.s6{grid-column:span 6}
+.s7{grid-column:span 7}.s8{grid-column:span 8}.s12{grid-column:span 12}
+@media(max-width:1100px){.s3,.s4,.s5{grid-column:span 6}.s7,.s8{grid-column:span 12}}
+@media(max-width:720px){.card{grid-column:span 12 !important}.wrap,.bar,.top{padding-left:16px;padding-right:16px}}
+.card h3{margin:0 0 14px;font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px}
+.card h3 .cnt{margin-left:auto;font-size:11px;color:var(--dim);font-weight:700}
+.kpis{display:flex;gap:12px;flex-wrap:wrap}
+.kpi{flex:1;min-width:150px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden}
+.kpi .v{font-size:28px;font-weight:800;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.kpi .v.na{font-size:16px;color:var(--dim);font-weight:700}
+.kpi .l{font-size:11.5px;color:var(--sub);margin-top:3px}
+.kpi .d{font-size:11px;margin-top:6px;font-weight:700}
+.kpi .d.up{color:var(--ok)}.kpi .d.dn{color:var(--bad)}.kpi .d.flat{color:var(--dim)}
+.kpi .stripe{position:absolute;left:0;top:0;bottom:0;width:3px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px;padding:0 8px 8px 0;font-weight:700}
+td{padding:8px 8px 8px 0;border-top:1px solid var(--line);vertical-align:middle}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:700;white-space:nowrap}
+.sharebar{height:6px;border-radius:3px;background:var(--panel2);overflow:hidden;min-width:60px}
+.sharebar i{display:block;height:100%;border-radius:3px}
+.item{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.item:first-of-type{border-top:none}
+.item .ic{flex:none;width:22px;text-align:center;font-size:14px}
+.item .body{flex:1;min-width:0}
+.item .t{font-size:13.5px}
+.item .m{font-size:11.5px;color:var(--sub);margin-top:3px}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;margin-left:6px}
+.tag.claude{background:#241e3a;color:#b7a8ff}.tag.bene{background:#3a331e;color:#ffd27a}
+.tag.done{background:#1e3a2b;color:#8ff0bd}.tag.open{background:#1e2a3a;color:#8ab4ff}
+.note{font-size:11.5px;color:var(--dim);margin-top:12px;border-top:1px dashed var(--line);padding-top:9px}
+.btn{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 12px;font-size:12px;font-weight:700;
+  color:var(--ink);cursor:pointer;margin:3px 4px 0 0;font-family:inherit}
+.btn:hover{border-color:#3a4150;text-decoration:none}
+.btn.p{background:var(--va);border-color:var(--va);color:#fff}
+.src{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--line)}
+.src:first-of-type{border-top:none}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.dot.live{background:var(--ok);box-shadow:0 0 0 3px rgba(62,207,142,.16)}
+.dot.pending{background:var(--warn);box-shadow:0 0 0 3px rgba(240,180,41,.16)}
+.dot.off{background:var(--dim)}
+.chart{width:100%;height:170px;display:block}
+.legend{display:flex;gap:16px;font-size:11.5px;color:var(--sub);margin-top:8px;flex-wrap:wrap}
+.legend b{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+/* Datumsachse + Tag-Tooltip + Absprung (01.09.2026) — vorher stand unter den
+   Balken nur „von → bis“; welcher Balken welcher Tag war, wusste niemand. */
+.chartwrap{position:relative}
+.chartwrap.klick{cursor:pointer}
+.chart .hi{fill:#fff;opacity:0}
+.xax{display:grid;margin-top:5px;font-size:10px;color:var(--dim);font-variant-numeric:tabular-nums}
+.xax span{text-align:center;white-space:nowrap;overflow:hidden}
+.xax span.wo{color:var(--sub)}
+.tip{position:absolute;left:0;top:0;z-index:8;pointer-events:none;display:none;white-space:nowrap;
+  background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px 11px;
+  font-size:11.5px;line-height:1.5;box-shadow:var(--shadow);transform:translate(-50%,calc(-100% - 10px))}
+.tip.on{display:block}
+.tip.unten{transform:translate(-50%,18px)}
+.tip .d{font-size:12.5px;font-weight:800;margin-bottom:3px}
+.tip .z{display:flex;align-items:center;gap:6px}
+.tip .z i{width:8px;height:8px;border-radius:2px;flex:none}
+.tip .z u{margin-left:auto;padding-left:14px;text-decoration:none;font-weight:700;font-variant-numeric:tabular-nums}
+.tip .go{color:#8ab4ff;font-weight:700;margin-top:5px}
+.absprung{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px;border-top:1px dashed var(--line);padding-top:10px}
+.absprung .btn{margin:0}
+.absprung .why{font-size:11px;color:var(--dim);align-self:center}
+.empty{background:var(--panel2);border:1px dashed var(--line);border-radius:12px;padding:16px;font-size:12.5px;color:var(--sub);line-height:1.65}
+.empty b{color:var(--ink)}
+/* Feedback-Widget */
+.fab{position:fixed;right:22px;bottom:22px;width:54px;height:54px;border-radius:50%;border:none;cursor:pointer;font-size:22px;
+  background:linear-gradient(135deg,#7c5cff,#1a44ea);color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.5);z-index:50}
+.fab:hover{transform:translateY(-2px)}
+.modal{position:fixed;inset:0;background:rgba(6,8,12,.72);display:none;align-items:center;justify-content:center;z-index:60;padding:18px}
+.modal.on{display:flex}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;width:100%;max-width:520px;box-shadow:var(--shadow);max-height:92vh;overflow:auto}
+.sheet h4{margin:0 0 4px;font-size:16px}
+.sheet .sub{font-size:12px;color:var(--sub);margin-bottom:16px}
+.sheet label{display:block;font-size:11.5px;color:var(--sub);font-weight:700;margin:14px 0 6px}
+.sheet input,.sheet textarea,.sheet select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--ink);
+  padding:10px 12px;font-family:inherit;font-size:13.5px}
+.sheet textarea{min-height:96px;resize:vertical}
+.routes{display:flex;gap:8px}
+.routes button{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px;color:var(--sub);
+  font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;text-align:left;line-height:1.35}
+.routes button.on{border-color:var(--accent);color:var(--ink);background:#211d33}
+.routes button small{display:block;font-weight:400;font-size:10.5px;color:var(--dim);margin-top:3px}
+.status{font-size:12.5px;margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);display:none}
+.status.on{display:block}
+.foot{color:var(--dim);font-size:11.5px;text-align:center;padding:26px 0 12px}
+
+/* ---- Arabisch / RTL (28.08.2026): dieselbe Sprachwahl wie im Compass ----
+   Nur was fest auf links/rechts steht, muss gedreht werden; Flex und Grid
+   folgen dem dir-Attribut von selbst. Instrument Serif hat keine arabischen
+   Zeichen, deshalb eine Systemschriftfolge (nichts nachladen). */
+html[lang="ar"]{font-family:'Noto Naskh Arabic','Segoe UI',Tahoma,'Arial Unicode MS',sans-serif}
+[dir="rtl"] .card h3 .cnt{margin-left:0;margin-right:auto}
+[dir="rtl"] th{text-align:right;padding:0 0 8px 8px}
+[dir="rtl"] td{padding:8px 0 8px 8px}
+[dir="rtl"] td.num{text-align:left}
+[dir="rtl"] .tag{margin-left:0;margin-right:6px}
+[dir="rtl"] .legend b{margin-right:0;margin-left:5px}
+[dir="rtl"] .fab{right:auto;left:22px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <a class="back" href="dashboard.html">‹ Flow Compass</a>
+  <h1>📊 Kennzahlen</h1>
+  <span class="pill" id="stand">–</span>
+  <span class="spacer"></span>
+  <button class="btn" id="btnReload">⟳ Live-Quellen neu laden</button>
+</div>
+
+<div class="bar">
+  <div class="seg" id="segSite">
+    <button data-s="all" class="on">Alles</button>
+    <button data-s="vk">🌿 Vaikuntha</button>
+    <button data-s="va">🏢 Vishnu</button>
+  </div>
+  <div class="seg" id="segRange">
+    <button data-r="7">7 Tage</button>
+    <button data-r="28" class="on">28 Tage</button>
+    <button data-r="90">90 Tage</button>
+  </div>
+  <!-- Zeitreise (01.09.2026): ein Fenster zurück/vor, „heute" springt zum Jetzt.
+       Beide Zähler halten 90 Tage — weiter zurück gibt es ehrlich nichts. -->
+  <div class="seg" id="segZeit">
+    <button id="zBack" title="Ein Fenster zurück">‹</button>
+    <button id="zHeute" class="on" title="Zurück zum aktuellen Fenster">heute</button>
+    <button id="zFwd" title="Ein Fenster vor" disabled>›</button>
+  </div>
+  <button class="btn" id="btnVorjahr" title="Dieselben Tage ein Jahr früher dazulegen">↔ Vorjahr</button>
+  <span class="pill" id="fenster">–</span>
+  <span class="spacer"></span>
+  <span class="pill" id="livepill">Quellen: –</span>
+</div>
+
+<div class="wrap"><div class="grid" id="grid"></div></div>
+
+<div class="foot" id="foot"></div>
+
+<button class="fab" id="fab" title="Bug / Feedback melden — landet als Jira-Ticket">💬</button>
+
+<div class="modal" id="modal">
+  <div class="sheet">
+    <h4>🐞 Melden</h4>
+    <div class="sub">Landet als Ticket im aktuellen Sprint (Projekt VA, Board 73).</div>
+
+    <label>Wer soll das übernehmen?</label>
+    <div class="routes" id="routes">
+      <button data-route="claude" class="on">🤖 Claude löst das<small>Wird in der nächsten Session abgearbeitet</small></button>
+      <button data-route="bene">🙋 Mir vorlegen<small>Braucht deine Entscheidung</small></button>
+    </div>
+
+    <label for="fCat">Art</label>
+    <select id="fCat">
+      <option>🐞 Bug</option>
+      <option>💡 Idee</option>
+      <option>📝 Inhalt</option>
+      <option>📊 Kennzahl fehlt</option>
+      <option>Lob</option>
+    </select>
+
+    <label for="fSite">Betrifft</label>
+    <select id="fSite">
+      <option value="vaikuntha.eu">🌿 vaikuntha.eu</option>
+      <option value="/f/ (Vishnu)">🏢 Vishnu-Website (/f/)</option>
+      <option value="Cockpit/Kennzahlen">📊 Dieses Cockpit</option>
+      <option value="Sonstiges">Sonstiges</option>
+    </select>
+
+    <label for="fText">Was ist los?</label>
+    <textarea id="fText" placeholder="Kurz und konkret — was hast du gesehen, was hast du erwartet?"></textarea>
+
+    <div style="margin-top:18px;display:flex;gap:8px">
+      <button class="btn p" id="fSend" style="flex:1">Ticket anlegen</button>
+      <button class="btn" id="fClose">Abbrechen</button>
+    </div>
+    <div class="status" id="fStatus"></div>
+  </div>
+</div>
+
+<script src="kennzahlen-data.js"></script>
+<script>
+const K = window.KPI || {};
+const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const num = n => (n==null ? null : Number(n).toLocaleString('de-DE'));
+
+let site = 'all', range = 28;
+/* Zeitreise: offset = wie viele Tage das Fenster hinter heute liegt (0 = jetzt),
+   vorjahr = dieselben Tage ein Jahr früher als Vergleichslinie dazulegen. */
+let offset = 0, vorjahr = false;
+/* LIVE-Daten je Quelle: { days:{...}, pages:[...], ref:[...] } — bleibt null, bis ein Endpunkt antwortet. */
+const LIVE = {};
+/* Was die Traffic-Karte zuletzt gezeichnet hat — Tage, Reihen, Tagessummen.
+   Tooltip und Absprung lesen daraus; bleibt null, solange nichts Live-Gezeichnetes dasteht. */
+let TW = null;
+
+/* ---------- Live-Quellen abfragen (still scheitern lassen — file:// ist Origin null) ---------- */
+async function ladeQuellen(){
+  const q = K.quellen || [];
+  await Promise.all(q.map(async s => {
+    try{
+      const ctl = new AbortController();
+      const t = setTimeout(()=>ctl.abort(), 6000);
+      const r = await fetch(s.url + (s.url.includes('?')?'&':'?') + 't=' + Date.now(),
+                            {signal: ctl.signal, cache:'no-store'});
+      clearTimeout(t);
+      if(!r.ok) throw new Error(r.status);
+      const d = await r.json();
+      if(d && (d.days || d.pages)) { LIVE[s.id] = d; s.status = 'live'; }
+    }catch(e){ /* Endpunkt noch nicht da → status bleibt pending */ }
+  }));
+  render();
+}
+
+/* ---------- Ableitungen ---------- */
+/* `offset` schiebt das Fenster in Tagen nach hinten (0 = bis heute), `extra`
+   noch einmal darüber hinaus — damit holt sich der Trend die Vorperiode und
+   der Vorjahresvergleich seine Tage, ohne dass jemand zweimal rechnet. */
+function tageFenster(extra){
+  const out = [];
+  const d = new Date(); d.setHours(12,0,0,0);
+  const off = offset + (extra||0);
+  for(let i=range-1;i>=0;i--){
+    const x = new Date(d); x.setDate(d.getDate()-i-off);
+    out.push(x.toISOString().slice(0,10));
+  }
+  return out;
+}
+/* Derselbe Kalendertag ein Jahr früher. 29.02. rutscht dabei auf den 01.03. —
+   das ist die übliche Lesart und in Tagesreihen nicht sichtbar. */
+function vorjahrTag(iso){
+  const d = new Date(String(iso)+'T12:00:00');
+  d.setFullYear(d.getFullYear()-1);
+  return d.toISOString().slice(0,10);
+}
+/* Wie viele Tage des Fensters hat diese Quelle wirklich gemessen? Ein fehlender
+   Schlüssel ist „nicht gemessen“, nicht „null Aufrufe“ — sonst zeichnet das
+   Diagramm für die Zeit vor dem Zählerstart eine Nulllinie, die es nie gab. */
+function gemesseneTage(id, tage){
+  const d = LIVE[id]; if(!d || !d.days) return 0;
+  return tage.filter(t => Object.prototype.hasOwnProperty.call(d.days, t)).length;
+}
+/* Erster und letzter Tag, den eine Quelle vorhält (beide Zähler: 90 Tage). */
+function spanne(id){
+  const d = LIVE[id]; if(!d || !d.days) return null;
+  const k = Object.keys(d.days).sort();
+  return k.length ? {von:k[0], bis:k[k.length-1]} : null;
+}
+function messbeginn(){
+  const v = aktiveIds().map(spanne).filter(Boolean).map(s=>s.von).sort();
+  return v.length ? v[0] : null;
+}
+/* Zwei Formate für denselben Tageswert: der Vaikuntha-Zähler liefert eine blanke Zahl,
+   stats.php seit dem Ausbau am 21.08.2026 ein Objekt {v:Aufrufe, e:…, d:…}. Ohne diese
+   Umrechnung ergibt Number({v:17}) NaN und reißt Summe, Trend und Diagramm mit — die
+   Vishnu-Linie stand deshalb seit dem 21.08. auf „NaN“ (gefunden 31.08.). */
+function tagWert(w){
+  if (w == null) return 0;
+  const n = Number(typeof w === 'object' ? (w.v ?? 0) : w);
+  return Number.isFinite(n) ? n : 0;
+}
+function serie(id){
+  const d = LIVE[id]; if(!d || !d.days) return null;
+  return tageFenster().map(k => tagWert(d.days[k]));
+}
+/* Kein gemessener Tag im Fenster → null („noch nicht gemessen“), nicht 0.
+   Sonst behauptet die Kachel für Zeiträume vor dem Zählerstart null Aufrufe. */
+function summe(id){
+  const t = tageFenster();
+  if(gemesseneTage(id, t) === 0) return null;
+  const s = serie(id);
+  return s ? s.reduce((a,b)=>a+b,0) : null;
+}
+function aktiveIds(){ return site==='all' ? (K.quellen||[]).map(s=>s.id) : [site]; }
+function summeAktiv(){
+  const teile = aktiveIds().map(summe).filter(v => v!=null);
+  return teile.length ? teile.reduce((a,b)=>a+b,0) : null;
+}
+/* Vorperiode gleicher Länge → Trend. Nur wenn genug Historie da ist.
+   Seit dem 01.09.2026 relativ zum gewählten Fenster: blättert man zurück,
+   vergleicht der Trend die beiden Fenster davor — nicht mehr stur „ab heute“. */
+function trend(){
+  const jetztTage = tageFenster(), vorTage = tageFenster(range);
+  let jetzt=0, vorher=0, ok=false;
+  aktiveIds().forEach(id => {
+    const d = LIVE[id]; if(!d||!d.days) return;
+    ok = true;
+    jetztTage.forEach(t => jetzt += tagWert(d.days[t]));
+    vorTage.forEach(t => vorher += tagWert(d.days[t]));
+  });
+  if(!ok || vorher===0) return null;
+  return Math.round((jetzt-vorher)/vorher*100);
+}
+/* Vorjahr: dieselben Kalendertage minus ein Jahr. `gemessen` zählt, an wie vielen
+   dieser Tage überhaupt ein Zähler lief — 0 heißt „nichts gemessen“ und wird als
+   Lücke gezeigt, niemals als Null. */
+function vorjahrReihe(){
+  const vj = tageFenster().map(vorjahrTag);
+  const ids = aktiveIds();
+  let gemessen = 0;
+  const werte = vj.map(t => {
+    let s = 0;
+    ids.forEach(id => {
+      const d = LIVE[id]; if(!d || !d.days) return;
+      if(Object.prototype.hasOwnProperty.call(d.days, t)){ gemessen++; s += tagWert(d.days[t]); }
+    });
+    return s;
+  });
+  return { tage: vj, werte, gemessen, summe: werte.reduce((a,b)=>a+b,0) };
+}
+
+/* ---------- Snapshot-Fallback (K.snapshot, von Claude gezogen) ----------
+   Greift nur, wenn kein Live-Endpunkt antwortet. Liefert die zuletzt
+   dokumentierten Tageswerte statt „noch nicht gemessen“. */
+const SNAP = K.snapshot || null;
+function snapAktiv(){
+  if(!SNAP) return null;
+  const ids = aktiveIds().filter(id => SNAP[id]);
+  if(!ids.length) return null;
+  const teile = ids.map(id => SNAP[id]);
+  return { aufrufe: teile.reduce((a,s)=>a+(s.aufrufe||0),0),
+           abw: teile.length===1 ? teile[0].abweichung : null,
+           tag: teile.map(s=>s.tag).sort().slice(-1)[0], teile, ids };
+}
+
+/* ---------- Karten ---------- */
+function kpiKarten(){
+  const t = summeAktiv();
+  const tr = trend();
+  /* Fallback nur ohne Live-Daten — und nur im aktuellen Fenster. Beim Blättern in
+     die Vergangenheit hieße „Snapshot 30.08.“ sonst, der Endpunkt sei kaputt,
+     obwohl schlicht niemand diese Tage gemessen hat. */
+  const snap = (t==null && offset===0) ? snapAktiv() : null;
+  const b = K.bugs||{};
+  const an = K.anmeldungen||{};
+  const leads = site==='vk' ? null : (an.va ? an.va.leads : null);
+  /* Mitgliederzahl kommt live mit, sobald der Vaikuntha-Endpunkt antwortet. */
+  const mitglLive = LIVE.vk && LIVE.vk.mitglieder ? LIVE.vk.mitglieder.gesamt : null;
+  const mitgl = site==='va' ? null : (mitglLive != null ? mitglLive : (an.vk ? an.vk.mitglieder : null));
+
+  const tile = (v,l,extra,farbe) =>
+    `<div class="kpi">${farbe?`<span class="stripe" style="background:${farbe}"></span>`:''}
+      <div class="v${v==null?' na':''}">${v==null?'noch nicht gemessen':esc(v)}</div>
+      <div class="l">${esc(l)}</div>${extra||''}</div>`;
+
+  let trHtml = tr==null ? '' :
+    `<div class="d ${tr>2?'up':tr<-2?'dn':'flat'}">${tr>0?'▲ +':tr<0?'▼ ':'– '}${Math.abs(tr)} % ggü. Vorperiode</div>`;
+  /* Ohne Live-Daten: Tages-Snapshot (K.snapshot) statt „noch nicht gemessen“ */
+  const fensterTage = tageFenster();
+  let tWert = num(t), tLabel = `Seitenaufrufe · ${range} Tage`
+    + (offset ? ` bis ${dKurz(fensterTage[fensterTage.length-1])}` : '');
+  /* Vorjahr steht unter dem Trend — als Zahl, wenn damals gemessen wurde,
+     sonst als klarer Satz. Eine 0 wäre hier gelogen. */
+  if(vorjahr && t!=null){
+    const vj = vorjahrReihe();
+    trHtml += vj.gemessen
+      ? `<div class="d ${vj.summe && t>vj.summe ? 'up' : vj.summe && t<vj.summe ? 'dn' : 'flat'}">${
+          vj.summe ? (t>vj.summe?'▲ +':t<vj.summe?'▼ ':'– ') + Math.abs(Math.round((t-vj.summe)/vj.summe*100)) + ' % ggü. Vorjahr' : 'Vorjahr: 0'
+        } (${num(vj.summe)} · ${vj.gemessen} gemessene Tage)</div>`
+      : `<div class="d flat">Vorjahr ${esc(dKurz(vj.tage[0]))}–${esc(dKurz(vj.tage[vj.tage.length-1]))}${esc(String(vj.tage[0]).slice(0,4))}: nichts gemessen</div>`;
+  }
+  if(t==null && snap){
+    tWert = num(snap.aufrufe);
+    tLabel = `Seitenaufrufe · Snapshot ${String(snap.tag||'').slice(8,10)}.${String(snap.tag||'').slice(5,7)}.`;
+    trHtml = snap.abw!=null
+      ? `<div class="d ${snap.abw>2?'up':snap.abw<-2?'dn':'flat'}">${snap.abw>0?'▲ +':snap.abw<0?'▼ ':'– '}${Math.abs(snap.abw)} % ggü. Ø 7 Tage</div>`
+      : `<div class="d flat">von Claude gezogen · Live-Endpunkt gerade nicht erreichbar</div>`;
+  }
+
+  return `<div class="card s12"><div class="kpis">
+    ${tile(tWert, tLabel, trHtml, '#7c5cff')}
+    ${tile(num(mitgl), 'Mitglieder (Vaikuntha)', '', '#89c527')}
+    ${tile(num(leads), 'Rückruf-Anfragen (Vishnu)',
+      an.va && an.va.leadsEcht===0 ? '<div class="d flat">davon 0 echt (nur E2E-Test)</div>' : '', '#1a44ea')}
+    ${tile(num(b.offen), 'offene Bugs / Feedback',
+      `<div class="d ${b.offen>0?'flat':'up'}">${esc(b.erledigt||0)} erledigt · ${esc(b.gesamt||0)} gesamt</div>`, '#ef5f5f')}
+  </div></div>`;
+}
+
+function trafficKarte(){
+  TW = null;
+  /* Nur Quellen, die in DIESEM Fenster wirklich gemessen haben — vor dem
+     Zählerstart gibt es keine Nulllinie, sondern eine Auskunft (01.09.2026). */
+  const fenster = tageFenster();
+  const ids = aktiveIds().filter(id => serie(id) && gemesseneTage(id, fenster) > 0);
+  if(!ids.length && offset > 0){
+    const mb = messbeginn();
+    const laeuft = (K.quellen||[]).filter(s=>aktiveIds().indexOf(s.id)>=0 && LIVE[s.id]).length;
+    return `<div class="card s7"><h3>📈 Traffic-Verlauf <span class="cnt">${esc(dKurz(fenster[0]))}–${esc(dLang(fenster[fenster.length-1]).replace(/^\S+, /,''))}</span></h3>
+      <div class="empty"><b>Für dieses Fenster liegt nichts vor.</b><br>
+      ${laeuft ? `Der älteste vorgehaltene Tag ist der ${esc(mb?dLang(mb).replace(/^\S+, /,''):'?')} — die Zähler halten 90 Tage vor.
+        Ältere Zeiträume könnte nur GA4 liefern (Property ${esc((K.ga4||{}).property||'–')}) — dafür fehlt noch das Dienstkonto.`
+        : 'Kein Zähler-Endpunkt antwortet gerade — ohne Live-Daten gibt es auch keine Vergangenheit.'}</div>
+      <div class="absprung"><button class="btn" onclick="zeitSprung(0)">Zurück zu heute</button></div></div>`;
+  }
+  if(!ids.length){
+    const sn = snapAktiv();
+    if(sn){
+      /* Snapshot-Fallback: dokumentierte Tageswerte + 7-Tage-Reihe (Vaikuntha), bis der Live-Fetch wieder antwortet */
+      const teile = sn.teile.map((s,i)=>{
+        const q=(K.quellen||[]).find(x=>x.id===sn.ids[i])||{};
+        const reihe = s.reihe7 && s.reihe7.werte ? s.reihe7.werte : null;
+        const max = reihe ? Math.max(1,...reihe, s.aufrufe||0) : 1;
+        const bars = reihe ? `<svg class="chart" viewBox="0 0 100 100" preserveAspectRatio="none" style="height:70px">${
+          [...reihe, s.aufrufe].map((v,j,arr)=>{ const bw=100/arr.length, h=(v/max)*94; return `<rect x="${(j*bw+bw*.15).toFixed(2)}" y="${(100-h).toFixed(2)}" width="${(bw*.7).toFixed(2)}" height="${h.toFixed(2)}" fill="${q.farbe||'#7c5cff'}" opacity="${j===arr.length-1?1:.55}"><title>${v} Aufrufe</title></rect>`; }).join('')}</svg>` : '';
+        return `<div class="item"><div class="ic">📈</div><div class="body">
+          <div class="t"><b>${esc(q.name||sn.ids[i])}</b>: ${num(s.aufrufe)} Aufrufe am ${esc(String(s.tag||'').slice(8,10))}.${esc(String(s.tag||'').slice(5,7))}.
+            ${s.abweichung!=null?`<span class="tag ${s.abweichung<-2?'open':'done'}">${s.abweichung>0?'+':''}${s.abweichung} % ggü. Ø 7 T (${s.schnitt7})</span>`:''}</div>
+          ${bars}<div class="m">${esc(s.note||'')}${s.reihe7?` · Reihe ${esc(s.reihe7.von.slice(8,10))}.–${esc(s.reihe7.bis.slice(8,10))}.${esc(s.reihe7.bis.slice(5,7))}.: ${s.reihe7.werte.join(', ')}`:''}</div></div></div>`;
+      }).join('');
+      return `<div class="card s7"><h3>📈 Traffic-Verlauf <span class="cnt">Snapshot ${esc(SNAP.datum||'')} · Live-Fetch nicht erreichbar</span></h3>${teile}
+        <div class="note">Der Browser konnte die Zähler-Endpunkte gerade nicht laden (Origin/Netz). Gezeigt wird der von Claude dokumentierte Tagesstand aus kennzahlen-data.js.</div></div>`;
+    }
+    return `<div class="card s7"><h3>📈 Traffic-Verlauf</h3>
+      <div class="empty"><b>Noch keine Messdaten.</b><br>
+      Sobald ein Zähler-Endpunkt antwortet, steht hier der Tagesverlauf — mit Trend gegen die Vorperiode.
+      Was dafür fehlt, steht rechts unter „Datenquellen“.</div></div>`;
+  }
+  const tage = fenster;
+  const reihen = ids.map(id => ({id, farbe:(K.quellen.find(s=>s.id===id)||{}).farbe||'#7c5cff',
+                                 name:(K.quellen.find(s=>s.id===id)||{}).name||id, werte:serie(id)}));
+  /* Skala über die Tagessumme, nicht über den größten Einzelwert: die Balken sind
+     gestapelt — mit zwei Quellen an einem Tag ragte der Stapel bisher oben aus dem
+     Bild, sobald „Alles“ gewählt war (gefunden 01.09.2026). */
+  const summen = tage.map((d,i) => reihen.reduce((a,r)=>a+(r.werte[i]||0), 0));
+  const vj = vorjahr ? vorjahrReihe() : null;
+  const max = Math.max(1, ...summen, ...(vj && vj.gemessen ? vj.werte : []));
+  const maxTag = Math.max(...summen);          // stärkster Tag im Fenster selbst
+  const iMax = summen.indexOf(maxTag);         // (die Skala kann höher liegen, wenn das Vorjahr größer war)
+  const W=100, H=100, bw = W/tage.length;
+  let bars='';
+  tage.forEach((d,i)=>{
+    let y0 = H;
+    reihen.forEach(r=>{
+      const h = (r.werte[i]/max)*H*0.94;
+      if(h<=0) return;
+      y0 -= h;
+      bars += `<rect x="${(i*bw+bw*0.15).toFixed(2)}" y="${y0.toFixed(2)}" width="${(bw*0.7).toFixed(2)}" height="${h.toFixed(2)}"
+                fill="${r.farbe}" opacity=".85"><title>${esc(dLang(d))}: ${r.werte[i]} (${r.name})</title></rect>`;
+    });
+  });
+  /* Vorjahr als Linie über den Balken — nur, wenn damals wirklich gezählt wurde.
+     Eine Linie auf 0 sähe aus wie „damals kam niemand“; richtig ist „damals hat
+     niemand gemessen“, und das gehört als Satz unter die Karte, nicht ins Bild. */
+  let vjLinie = '';
+  if(vj && vj.gemessen){
+    const pkt = vj.werte.map((v,i)=>`${(i*bw+bw*0.5).toFixed(2)},${(H-(v/max)*H*0.94).toFixed(2)}`).join(' ');
+    vjLinie = `<polyline points="${pkt}" fill="none" stroke="#e6c15a" stroke-width="1.1" stroke-linejoin="round"
+                 vector-effect="non-scaling-stroke" opacity=".9"></polyline>`;
+  }
+  /* Datumsachse: bei 28 Tagen jede vierte Marke, bei 7 jeden Tag — vom Ende her
+     gezählt, damit der letzte (heutige) Tag immer beschriftet ist. */
+  const schritt = Math.max(1, Math.round(tage.length/7));
+  const achse = tage.map((d,i)=>{
+    const zeig = (tage.length-1-i) % schritt === 0;
+    return `<span class="${i===tage.length-1?'wo':''}">${zeig?esc(dKurz(d)):''}</span>`;
+  }).join('');
+  /* Absprung in die Analytics hinter der Zahl. Kein Eintrag in K.quellen[].analytics
+     → kein Knopf; GA4 erst, wenn es wirklich angebunden ist. */
+  const ziele = ids.map(id => analyticsZiel(id)).filter(Boolean);
+  const ga = K.ga4||{};
+  if(ga.status==='live' && ga.url) ziele.push({name:'Google Analytics (GA4)', url:ga.url, hinweis:''});
+  TW = { tage, reihen, summen, vj };
+  const knoepfe = ziele.length
+    ? ziele.map(z=>`<a class="btn" target="_blank" rel="noopener" href="${esc(z.url)}" title="${esc(z.hinweis)}">↗ ${esc(z.name)}</a>`).join('')
+      + `<span class="why">Klick auf einen Tag springt ${reihen.length>1?'zur Quelle mit dem größten Anteil':'hinüber'}${
+          ziele.some(z=>z.tagUrl)?' — mit dem Datum, wo das Werkzeug es kann':''}.</span>`
+    : `<span class="why">Hinter diesen Zahlen steht kein zweites Werkzeug — diese Auswertung ist die Auswertung.</span>`;
+  const vjHinweis = !vj ? '' : vj.gemessen
+    ? `<div class="note">Vorjahr ${esc(dKurz(vj.tage[0]))}–${esc(dKurz(vj.tage[vj.tage.length-1]))}${esc(String(vj.tage[0]).slice(0,4))}:
+        ${num(vj.summe)} Aufrufe an ${vj.gemessen} gemessenen Tagen — die goldene Linie.</div>`
+    : `<div class="note">Vorjahr ${esc(dKurz(vj.tage[0]))}–${esc(dKurz(vj.tage[vj.tage.length-1]))}${esc(String(vj.tage[0]).slice(0,4))}:
+        <b>nichts gemessen.</b> Die Zähler halten 90 Tage vor; der älteste Tag, den sie überhaupt noch kennen, ist der
+        ${esc(dLang(messbeginn()||'').replace(/^\S+, /,''))}. Einen echten Vorjahresvergleich kann erst GA4 liefern
+        (Property ${esc((K.ga4||{}).property||'–')}, Dienstkonto-JSON fehlt) — bis dahin bleibt die Linie leer statt bei null.</div>`;
+  return `<div class="card s7"><h3>📈 Traffic-Verlauf <span class="cnt">Max ${maxTag}/Tag am ${esc(dKurz(tage[iMax]))}</span></h3>
+    <div class="chartwrap${ziele.length?' klick':''}" id="tw">
+      <svg class="chart" viewBox="0 0 100 100" preserveAspectRatio="none"><rect class="hi" id="twHi" x="0" y="0"
+        width="${bw.toFixed(2)}" height="100"></rect>${bars}${vjLinie}</svg>
+      <div class="tip" id="twTip"></div>
+    </div>
+    <div class="xax" style="grid-template-columns:repeat(${tage.length},1fr)">${achse}</div>
+    <div class="legend">${reihen.map(r=>`<span><b style="background:${r.farbe}"></b>${esc(r.name)} · ${r.werte.reduce((a,b)=>a+b,0)}</span>`).join('')}
+      ${vj && vj.gemessen ? `<span><b style="background:#e6c15a"></b>Vorjahr · ${vj.summe}</span>` : ''}
+      <span style="color:var(--dim)">${esc(dKurz(tage[0]))} → ${esc(dLang(tage[tage.length-1]).replace(/^\S+, /,''))}${
+        offset ? ` · ${offset} Tage zurück` : ''}</span></div>
+    <div class="absprung">${knoepfe}</div>${vjHinweis}</div>`;
+}
+
+/* ---------- Datum + Absprung (01.09.2026) ----------
+   Vorher stand unter den Balken nur „2026-08-05 → 2026-09-01“: welcher Balken
+   welcher Tag war, ließ sich nur abzählen, und von der Kurve führte kein Weg
+   in das Werkzeug, das die Zahl erzeugt hat. */
+const WT = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+function dKurz(iso){ return String(iso).slice(8,10)+'.'+String(iso).slice(5,7)+'.'; }
+function dLang(iso){
+  const d = new Date(String(iso)+'T12:00:00');
+  const wt = isNaN(d) ? '' : WT[d.getDay()]+', ';
+  return wt + dKurz(iso) + String(iso).slice(0,4);
+}
+/* Ziel je Quelle; mit `tag` das Datum in die URL, wenn das Werkzeug einen
+   Tagesaufruf kennt (K.quellen[].analytics.tagUrl mit {tag}/{tagK}). */
+function analyticsZiel(id, tag){
+  const q = (K.quellen||[]).find(s=>s.id===id) || {};
+  const a = q.analytics;
+  if(!a || !a.url) return null;
+  const url = (tag && a.tagUrl)
+    ? a.tagUrl.replace(/\{tag\}/g, tag).replace(/\{tagK\}/g, String(tag).replace(/-/g,''))
+    : a.url;
+  return { id, name: a.name || q.name || id, url, hinweis: a.hinweis || '', tagUrl: !!a.tagUrl };
+}
+/* Bei „Alles“ gehört der Klick der Quelle, die den Tag getragen hat. */
+function zielFuerTag(i){
+  if(!TW) return null;
+  let best = null, bestWert = -1;
+  TW.reihen.forEach(r=>{ if((r.werte[i]||0) > bestWert){ bestWert = r.werte[i]||0; best = r.id; } });
+  return best==null ? null : analyticsZiel(best, TW.tage[i]);
+}
+function tipHtml(i){
+  const zeilen = TW.reihen.map(r=>`<div class="z"><i style="background:${r.farbe}"></i>${esc(r.name)}<u>${num(r.werte[i])}</u></div>`).join('');
+  const summe = TW.reihen.length>1
+    ? `<div class="z" style="border-top:1px solid var(--line);margin-top:4px;padding-top:4px">Summe<u>${num(TW.summen[i])}</u></div>` : '';
+  const vjZeile = TW.vj && TW.vj.gemessen
+    ? `<div class="z" style="opacity:.85"><i style="background:#e6c15a"></i>${esc(dKurz(TW.vj.tage[i])+String(TW.vj.tage[i]).slice(0,4))}<u>${num(TW.vj.werte[i])}</u></div>` : '';
+  const z = zielFuerTag(i);
+  return `<div class="d">${esc(dLang(TW.tage[i]))}</div>${zeilen}${summe}${vjZeile}`
+       + (z ? `<div class="go">↗ ${esc(z.name)}${z.tagUrl?' · dieser Tag':''}</div>` : '');
+}
+/* Nach jedem render() neu verdrahten — die Karte wird komplett neu geschrieben. */
+function bindTraffic(){
+  const w = document.getElementById('tw'); if(!w || !TW) return;
+  const tip = document.getElementById('twTip'), hi = document.getElementById('twHi');
+  const idx = e => {
+    const r = w.getBoundingClientRect();
+    return Math.max(0, Math.min(TW.tage.length-1, Math.floor((e.clientX-r.left)/r.width*TW.tage.length)));
+  };
+  w.addEventListener('mousemove', e=>{
+    const i = idx(e), r = w.getBoundingClientRect(), b = 100/TW.tage.length;
+    hi.setAttribute('x', (i*b).toFixed(2));
+    hi.style.opacity = '.07';
+    tip.innerHTML = tipHtml(i);
+    tip.classList.add('on');
+    /* Oben im Diagramm klappt der Tooltip nach unten, sonst stünde er außerhalb der Karte. */
+    const y = e.clientY - r.top;
+    tip.classList.toggle('unten', y < 92);
+    tip.style.left = Math.round(Math.max(0, Math.min(r.width, (i+0.5)*r.width/TW.tage.length))) + 'px';
+    tip.style.top  = Math.round(y) + 'px';
+  });
+  w.addEventListener('mouseleave', ()=>{ tip.classList.remove('on'); hi.style.opacity = '0'; });
+  w.addEventListener('click', e=>{
+    const z = zielFuerTag(idx(e));
+    if(z) window.open(z.url, '_blank', 'noopener');
+  });
+}
+
+function topSeiten(){
+  const rows = [];
+  aktiveIds().forEach(id=>{
+    const d = LIVE[id]; if(!d||!d.pages) return;
+    const q = (K.quellen||[]).find(s=>s.id===id)||{};
+    d.pages.forEach(p => rows.push({...p, farbe:q.farbe, quelle:q.name}));
+  });
+  rows.sort((a,b)=>b.views-a.views);
+  if(!rows.length){
+    return `<div class="card s5"><h3>🏆 Beliebteste Seiten</h3>
+      <div class="empty"><b>Zählt noch niemand pro Seite.</b><br>
+      Der Vaikuntha-Zähler summiert bisher nur pro Tag, die Vishnu-Seite misst gar nicht.
+      Beide Erweiterungen sind gebaut — sie brauchen einen Upload bzw. einen Push.</div></div>`;
+  }
+  const max = rows[0].views;
+  /* Absprung (01.09.2026): stats.php misst je Seite Eingänge, Ausgänge und
+     Verweildauer — im Cockpit stand davon bisher nichts. `exitPct` ist der
+     Anteil der gemessenen Aufrufe, nach denen der Besuch endete; der Vaikuntha-
+     Zähler liefert das (noch) nicht, dort bleibt die Spalte leer statt 0 %. */
+  const mess = rows.reduce((a,p)=>a+(p.measured||0), 0);
+  const raus = rows.reduce((a,p)=>a+(p.exits||0), 0);
+  const gesamtAbsprung = mess ? Math.round(raus/mess*100) : null;
+  const zeit = s => s==null ? '–' : (s>=60 ? Math.floor(s/60)+':'+String(s%60).padStart(2,'0')+' min' : s+' s');
+  const ampel = v => v==null ? 'var(--dim)' : v>=70 ? 'var(--bad)' : v>=45 ? 'var(--warn)' : 'var(--ok)';
+  return `<div class="card s5"><h3>🏆 Beliebteste Seiten <span class="cnt">Summen seit Messbeginn${
+      gesamtAbsprung!=null?` · Absprung ${gesamtAbsprung} %`:''}</span></h3>
+    <table><thead><tr><th>Seite</th><th style="width:44px"></th><th class="num">Aufrufe</th>
+      <th class="num" title="Anteil der gemessenen Aufrufe, nach denen der Besuch endete">Absprung</th>
+      <th class="num" title="Ø Verweildauer auf der Seite">Ø Zeit</th></tr></thead><tbody>
+    ${rows.slice(0,10).map(p=>`<tr>
+      <td><div>${esc(p.title||p.path)}</div><div style="font-size:11px;color:var(--dim)">${esc(p.path)}</div></td>
+      <td><div class="sharebar"><i style="width:${Math.round(p.views/max*100)}%;background:${p.farbe}"></i></div></td>
+      <td class="num">${num(p.views)}</td>
+      <td class="num" style="color:${ampel(p.exitPct)}" title="${p.exitPct==null?'Dieser Zähler misst keine Ausgänge.':esc(p.exits+' von '+p.measured+' gemessenen Aufrufen endeten hier')}">${
+        p.exitPct==null?'–':p.exitPct+' %'}</td>
+      <td class="num" style="color:var(--sub)" title="${p.dwellN?esc(p.dwellN+' Messungen'):'nicht gemessen'}">${zeit(p.dwell)}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="note">Aufrufe, Absprung und Verweildauer sind Summen seit dem Start des jeweiligen Zählers — sie folgen dem
+      gewählten Zeitfenster nicht, weil beide Endpunkte Seiten nur als Gesamtsumme führen. Absprung und Zeit misst bisher nur
+      der Vishnu-Zähler; für Vaikuntha müsste das Plugin Ein-/Ausgänge mitschreiben.</div></div>`;
+}
+
+function anmeldungenKarte(){
+  const a = K.anmeldungen||{};
+  let h = `<div class="card s4"><h3>✍️ Anmeldungen &amp; Anfragen</h3>`;
+  if(site!=='va' && a.vk){
+    const m = LIVE.vk && LIVE.vk.mitglieder ? LIVE.vk.mitglieder : null;
+    const wert = m ? m.gesamt : a.vk.mitglieder;
+    h += `<div class="item"><div class="ic">🌿</div><div class="body">
+      <div class="t">Vaikuntha — Mitglieder: <b>${wert==null?'<span style="color:var(--dim)">noch nicht angebunden</span>':num(wert)}</b>
+        ${m?`<span class="tag open">+${esc(m.neu30)} in 30 T · ${esc(m.aktiv30)} aktiv</span>`:''}</div>
+      <div class="m">${esc(m ? 'Live aus dem Vaikuntha-Zähler.' : a.vk.note)}</div></div></div>`;
+  }
+  if(site!=='vk' && a.va){
+    h += `<div class="item"><div class="ic">📞</div><div class="body">
+      <div class="t">Vishnu — Rückruf-Anfragen: <b>${num(a.va.leads)}</b>
+        <span class="tag open">${esc(a.va.leadsEcht)} echt</span></div>
+      <div class="m">${esc(a.va.note)}</div></div></div>`;
+  }
+  return h + `</div>`;
+}
+
+function bugKarte(){
+  const b = K.bugs||{}; const liste = b.liste||[];
+  /* Zuordnung an der Ticketnummer, nicht am Pfad. Bis zum 31.08. hing sie an „/f/“ im Pfad —
+     seit die Variante F auf vishnuartists.com im Wurzelverzeichnis liegt, hat kein neuer
+     Vishnu-Befund mehr ein /f/, und er waere still unter Vaikuntha gelandet. */
+  const istVk = r => /^(VAEV|VK)-/i.test(String(r[0])) || /vaikuntha/i.test(String(r[3]));
+  const sichtbar = liste.filter(r => site==='all' ? true :
+      (site==='va' ? !istVk(r) : istVk(r)));
+  return `<div class="card s8"><h3>🐞 Gemeldete Bugs &amp; Feedback
+      <span class="cnt">${esc(b.offen||0)} offen · Label web-pro-bene</span></h3>
+    ${sichtbar.length ? sichtbar.map(r=>{
+      const done = r[1]==='Done';
+      return `<div class="item"><div class="ic">${done?'✅':'🐞'}</div><div class="body">
+        <div class="t"><a href="${(K.relay||{}).jira||''}${esc(r[0])}" target="_blank">${esc(r[0])}</a> ${esc(r[2])}
+          <span class="tag ${done?'done':'open'}">${esc(r[1])}</span>
+          <span class="tag ${r[5]==='claude'?'claude':'bene'}">${r[5]==='claude'?'🤖 Claude':'🙋 du'}</span></div>
+        <div class="m">${esc(r[3])} · gemeldet ${esc(r[4])} — ${esc(r[6])}</div></div></div>`;
+    }).join('') : '<div class="empty">Für dieses Segment ist nichts offen.</div>'}
+    <div class="note">${esc(b.note||'')}</div>
+    <div style="margin-top:10px">
+      <button class="btn p" onclick="openFb()">💬 Neues melden</button>
+      <a class="btn" target="_blank" href="https://vishnuartists.atlassian.net/issues/?jql=labels%3D%22web-pro-bene%22%20ORDER%20BY%20created%20DESC">Alle in Jira ↗</a>
+    </div></div>`;
+}
+
+function quellenKarte(){
+  const q = K.quellen||[];
+  const ga = K.ga4||{};
+  const label = {live:'live', pending:'wartet auf Deploy', off:'aus'};
+  return `<div class="card s4"><h3>🔌 Datenquellen <span class="cnt">ehrlich, nicht geschönt</span></h3>
+    ${q.map(s=>`<div class="src"><span class="dot ${s.status}"></span><div style="flex:1;min-width:0">
+      <div class="t" style="font-size:13px"><b>${esc(s.name)}</b> <span class="pill">${label[s.status]}</span></div>
+      <div class="m" style="font-size:11.5px;color:var(--sub);margin-top:3px">${esc(s.hinweis)}</div></div></div>`).join('')}
+    <div class="src"><span class="dot ${ga.status}"></span><div style="flex:1">
+      <div class="t" style="font-size:13px"><b>GA4</b> <span class="pill">${label[ga.status]}</span></div>
+      <div class="m" style="font-size:11.5px;color:var(--sub);margin-top:3px">${esc(ga.hinweis)}</div></div></div>
+    <div class="note">Jira-Zahlen zieht Claude (Browser kommt wegen Auth+CORS nicht ran) — „Claude, aktualisiere die Kennzahlen“.</div>
+  </div>`;
+}
+
+function durchsatzKarte(){
+  const d = K.durchsatz||{};
+  return `<div class="card s4"><h3>⚙️ Dein Durchsatz</h3>
+    <div class="kpis">
+      <div class="kpi"><div class="v">${num(d.offen)}</div><div class="l">offene Tickets</div></div>
+      <div class="kpi"><div class="v">${num(d.done14)}</div><div class="l">erledigt · 14 Tage</div></div>
+    </div>
+    <div class="note">${esc(d.note||'')} — fließt in den Freitags-Review im Cockpit ein.</div></div>`;
+}
+
+function render(){
+  const q = K.quellen||[];
+  const live = q.filter(s=>s.status==='live').length;
+  document.getElementById('livepill').textContent = `Quellen: ${live}/${q.length} live`;
+  document.getElementById('stand').textContent = 'Stand: ' + (K.stand||'?');
+  const f = tageFenster();
+  document.getElementById('fenster').textContent =
+    `${dKurz(f[0])} – ${dLang(f[f.length-1]).replace(/^\S+, /,'')}` + (offset ? ` · ${offset} T zurück` : ' · bis heute');
+  document.getElementById('grid').innerHTML =
+    kpiKarten() + trafficKarte() + topSeiten() + anmeldungenKarte() + durchsatzKarte() +
+    bugKarte() + quellenKarte();
+  document.getElementById('foot').textContent =
+    'Web-Analytics-Cockpit · lokal · ' + (K.quelle||'');
+  bindTraffic();
+}
+
+/* ---------- Bedienung ---------- */
+document.querySelectorAll('#segSite button').forEach(b=>b.addEventListener('click',()=>{
+  site=b.dataset.s;
+  document.querySelectorAll('#segSite button').forEach(x=>x.classList.toggle('on',x===b));
+  render();
+}));
+document.querySelectorAll('#segRange button').forEach(b=>b.addEventListener('click',()=>{
+  range=Number(b.dataset.r);
+  document.querySelectorAll('#segRange button').forEach(x=>x.classList.toggle('on',x===b));
+  render();
+}));
+/* Zeitreise: ein Fenster zurück/vor. Weiter als 400 Tage lassen wir nicht zu —
+   dort steht ohnehin nichts, und die leere Karte reicht als Auskunft. */
+function zeitSprung(neu){
+  offset = Math.max(0, Math.min(400, neu));
+  document.getElementById('zHeute').classList.toggle('on', offset===0);
+  document.getElementById('zFwd').disabled = offset===0;
+  render();
+}
+document.getElementById('zBack').addEventListener('click', ()=>zeitSprung(offset+range));
+document.getElementById('zFwd').addEventListener('click', ()=>zeitSprung(offset-range));
+document.getElementById('zHeute').addEventListener('click', ()=>zeitSprung(0));
+document.getElementById('btnVorjahr').addEventListener('click', e=>{
+  vorjahr = !vorjahr;
+  e.currentTarget.classList.toggle('p', vorjahr);
+  render();
+});
+/* Pfeiltasten blättern, solange kein Eingabefeld den Fokus hat. */
+document.addEventListener('keydown', e=>{
+  if(modal.classList.contains('on') || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  if(e.key==='ArrowLeft')  zeitSprung(offset+range);
+  if(e.key==='ArrowRight') zeitSprung(offset-range);
+});
+document.getElementById('btnReload').addEventListener('click',ladeQuellen);
+
+/* ---------- Feedback → Jira ---------- */
+let route='claude';
+const modal=document.getElementById('modal');
+function openFb(){ modal.classList.add('on'); document.getElementById('fText').focus(); }
+function closeFb(){
+  modal.classList.remove('on');
+  /* #melden aus der Adresse nehmen, sonst öffnet ein Reload das Modal erneut */
+  if(location.hash==='#melden') history.replaceState(null,'',location.pathname+location.search);
+}
+document.getElementById('fab').addEventListener('click',openFb);
+document.getElementById('fClose').addEventListener('click',closeFb);
+modal.addEventListener('click',e=>{ if(e.target===modal) closeFb(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&modal.classList.contains('on')) closeFb(); });
+/* Aufruf aus dem Compass (19.08.): kennzahlen.html#melden bzw. ?melden=1 → Melde-Modal sofort öffnen */
+function meldenAuto(){
+  if(location.hash==='#melden' || new URLSearchParams(location.search).get('melden')==='1') openFb();
+}
+window.addEventListener('hashchange',meldenAuto);
+document.querySelectorAll('#routes button').forEach(b=>b.addEventListener('click',()=>{
+  route=b.dataset.route;
+  document.querySelectorAll('#routes button').forEach(x=>x.classList.toggle('on',x===b));
+}));
+
+document.getElementById('fSend').addEventListener('click', async ()=>{
+  const text=document.getElementById('fText').value.trim();
+  const st=document.getElementById('fStatus');
+  if(!text){ st.className='status on'; st.textContent='Bitte kurz beschreiben, worum es geht.'; return; }
+  const btn=document.getElementById('fSend'); btn.disabled=true; btn.textContent='Lege Ticket an …';
+  /* Route steckt zusätzlich in der Kategorie — so greift sie auch mit dem
+     aktuell deployten Relay, das das Feld `route` noch nicht kennt. */
+  const marker = route==='claude' ? '🤖 Claude' : '🙋 Bene';
+  const payload = {
+    cat:  `${marker} · ${document.getElementById('fCat').value}`,
+    text: text,
+    name: 'Bene (Cockpit)',
+    page: document.getElementById('fSite').value,
+    lang: 'de',
+    route: route
+  };
+  try{
+    const r = await fetch((K.relay||{}).url, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const res = await r.json();
+    st.className='status on';
+    if(res.key){
+      st.innerHTML = `Angelegt: <a href="${(K.relay||{}).jira}${res.key}" target="_blank"><b>${res.key}</b></a> `
+        + (res.sprint?'im aktuellen Sprint':'im Backlog') + ' · '
+        + (route==='claude' ? 'Claude arbeitet es in der nächsten Session ab.' : 'liegt zur Klärung bei dir.');
+    } else {
+      st.textContent = 'Angekommen — das Relay hat es zwischengespeichert und legt das Ticket nach, sobald es die Jira-Zugangsdaten hat.';
+    }
+    document.getElementById('fText').value='';
+  }catch(e){
+    st.className='status on';
+    st.textContent='Keine Verbindung zum Relay. Sag mir den Punkt einfach im Chat — ich lege das Ticket dann direkt an.';
+  }
+  btn.disabled=false; btn.textContent='Ticket anlegen';
+});
+
+render();
+ladeQuellen();
+meldenAuto();
+</script>
+</body>
+</html>

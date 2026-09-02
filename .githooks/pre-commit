@@ -1,0 +1,92 @@
+#!/bin/sh
+# ── Schutz-Hook (versioniert in .githooks/, aktiv ueber: git config core.hooksPath .githooks) ──
+# Gleiche Bauart wie in den Cockpit-Repos, auf den Privat-Cluster zugeschnitten. Verhindert:
+#   1. Staged LOESCHUNGEN, die niemand wollte.
+#   2. Zugangsdaten im Commit (API-Keys, Tokens).
+#   3. CRLF / UTF-8-BOM in Textdateien.
+#   4. Einen Index, der nicht mehr zu HEAD passt.
+# Dazu ein Hinweis, wenn eine zweite Session im selben Ordner arbeitet.
+# Bewusstes Uebersteuern je Punkt:
+#   ALLOW_DELETE=1 / ALLOW_SECRET=1 / ALLOW_EOL=1 / ALLOW_FREMD=1 git commit …
+fail=0
+say() { printf '%s\n' "$*" >&2; }
+CR=$(printf '\r')
+
+# Nur TEXTdateien pruefen. Was binaer ist, entscheidet Git selbst (numstat zeigt "-"
+# statt Zeilenzahlen) — eine Endungsliste vergisst immer eine Endung, zuletzt .woff2.
+textdateien=$(git diff --cached --numstat --diff-filter=AM | grep -v '^-' | cut -f3)
+
+# 0) Arbeitet hier gerade eine ANDERE Session? (Leases von git-flow.ps1 -Modus claim)
+LEASES=/c/dev/_tools/.sessions
+if [ -z "$ALLOW_FREMD" ] && [ -d "$LEASES" ]; then
+  _repo=$(basename "$(git rev-parse --show-toplevel 2>/dev/null)")
+  _staged=$(git diff --cached --name-only)
+  for _l in "$LEASES"/*.json; do
+    [ -f "$_l" ] || continue
+    grep -q "\"repo\": *\"$_repo\"" "$_l" || continue
+    _sit=$(sed -n 's/.*"sitzung": *"\([^"]*\)".*/\1/p' "$_l" | head -1)
+    [ "$_sit" = "${GIT_FLOW_SESSION:-}" ] && continue
+    _ziel=$(sed -n 's/.*"ziel": *"\([^"]*\)".*/\1/p' "$_l" | head -1)
+    _pfade=$(sed -n 's/.*"pfadeflach": *"\([^"]*\)".*/\1/p' "$_l" | head -1 | tr '|' ' ')
+    _koll=''
+    for _p in $_pfade; do
+      [ -n "$_p" ] || continue
+      for _f in $_staged; do
+        case "$_f" in "$_p"*) _koll="$_koll $_f";; esac
+      done
+    done
+    if [ -n "$_koll" ]; then
+      say "x pre-commit: Diese Dateien beansprucht die Session \"$_sit\" (Ziel: ${_ziel:-—}):"
+      for _f in $_koll; do say "    $_f"; done
+      say "  Erst dort committen lassen — oder bewusst: ALLOW_FREMD=1 git commit …"
+      fail=1
+    else
+      say "i pre-commit: Im Ordner arbeitet ausserdem \"$_sit\" (Ziel: ${_ziel:-—})."
+      say "  Bitte git status --short lesen und nur eigene Dateien committen."
+    fi
+  done
+fi
+
+# 1) Geloeschte Dateien im Commit?
+del=$(git diff --cached --name-only --diff-filter=D)
+if [ -n "$del" ] && [ -z "$ALLOW_DELETE" ]; then
+  say "x pre-commit: Der Commit LOESCHT getrackte Dateien:"
+  printf '%s\n' "$del" | sed 's/^/    /' >&2
+  say "  Wenn das Absicht ist:  ALLOW_DELETE=1 git commit …   — sonst: git restore --staged <datei>"
+  fail=1
+fi
+
+# 2) Zugangsdaten? Der Privat-Cluster haelt Vertrauliches — Keys leben in Umgebungsvariablen.
+if [ -n "$textdateien" ] && [ -z "$ALLOW_SECRET" ]; then
+  for f in $textdateien; do
+    if git show ":$f" 2>/dev/null | grep -q -E 'sk-ant-[A-Za-z0-9_-]{16}|ATATT[A-Za-z0-9]{16}|xoxb-[0-9]{10}'; then
+      say "x pre-commit: Sieht nach einem echten Zugangsschluessel aus: $f"
+      say "  Key widerrufen, in eine Umgebungsvariable legen, Datei bereinigen."
+      say "  Fehlalarm? ALLOW_SECRET=1 git commit …"
+      fail=1
+    fi
+  done
+fi
+
+# 3) CRLF oder UTF-8-BOM? Geprueft wird der INDEX — also das, was wirklich im Commit
+#    landet. eol=lf normalisiert beim add; der Arbeitsbaum darf ruhig CRLF haben.
+#    .ps1 behalten ihr BOM (PowerShell 5.1), .cmd/.bat ihr CRLF.
+if [ -n "$textdateien" ] && [ -z "$ALLOW_EOL" ]; then
+  for f in $textdateien; do
+    case "$f" in *.ps1|*.cmd|*.bat) continue;; esac
+    if git show ":$f" 2>/dev/null | head -c 3 | od -An -tx1 | grep -q 'ef bb bf'; then
+      say "x pre-commit: UTF-8-BOM in $f  (Soll: UTF-8 ohne BOM)"
+      fail=1
+    fi
+    if git show ":$f" 2>/dev/null | head -c 200000 | grep -q "$CR"; then
+      say "x pre-commit: CRLF im Index von $f  (Soll: LF)"
+      say "  Meist fehlt .gitattributes oder es wurde mit -crlf geaddet."
+      fail=1
+    fi
+  done
+fi
+
+# 4) Index gegen den Arbeitsbaum auffrischen (Drive-Sync / Parallel-Session)
+git update-index --refresh -q >/dev/null 2>&1
+
+exit $fail
