@@ -209,6 +209,12 @@ param(
   [string]$VereinUrl = 'https://vaikuntha.eu/wp-json/vaikuntha/v1/stats',
   [int]$VereinCacheSec = 3600,       # Tageszahlen aendern sich in Stunden, nicht in Minuten
   [int]$VereinTimeoutSec = 12,
+  # Finanzlauf (02.09.2026): Kennzahlen, Entscheidungen und GF-Sync aus der Finanzverwaltung auf
+  # vishnuartists.com. Ausweis ist der SHA-256 der User-Umgebungsvariable FINANZ_TOKEN — derselbe,
+  # den kennzahlen.py und belege_abgleich.py benutzen. Stimmen gehen denselben Weg zurueck.
+  [string]$FinanzUrl = 'https://vishnuartists.com/finanzlauf/',
+  [int]$FinanzCacheSec = 300,        # Kontostand aendert sich einmal im Monat, Stimmen sofort — 5 Min ist der Kompromiss
+  [int]$FinanzTimeoutSec = 12,
   [int]$RoutinenCacheSec = 600,      # Sitzungsdateien aendern sich langsam; 10 Min reichen
   [int]$RoutinenToleranzStd = 3,     # so lange darf eine Routine nach ihrem Termin ausstehen (Rechner war aus, Nachlauf)
   [int]$WachtCacheSec = 900,        # Erreichbarkeit: alle 15 Minuten neu
@@ -1870,6 +1876,101 @@ function Get-Verein([bool]$fresh) {
 }
 
 # ---------------------------------------------------------------------------
+# Finanzlauf — /api/finanzen (02.09.2026, Bene: "da muss immer alles ankommen")
+#   Die Finanzverwaltung lebt auf vishnuartists.com/finanzlauf (Kontostand, Deckung, Monats-
+#   ergebnis, Belegstand, neun Entscheidungen des Strategiepapiers mit Stimmen von Bene und
+#   Philipp, naechster GF-Sync, Luxemburg). Der Compass liegt auf einer anderen Herkunft und hat
+#   dort kein Cookie — deshalb holt dieser Server die Zahlen mit dem Token und reicht sie durch.
+#   Eine Stimme aus dem Compass geht ueber POST /api/finanzen/entscheidung an api.php zurueck,
+#   dort als 'Benedikt Irsch' (daten.php › $TOKEN_STIMMT_ALS) — nur der Token auf diesem Rechner
+#   darf das, und nur unter diesem Namen. Ohne Token: {ok:false, error:'NO_KEY'}, die Karte sagt
+#   das im Klartext. Fehler werden nie gecacht; nach einer Stimme wird der Cache verworfen.
+# ---------------------------------------------------------------------------
+$script:FinanzCache = @{ zeit = $null; out = $null }
+function Get-FinanzToken {
+  $t = [Environment]::GetEnvironmentVariable('FINANZ_TOKEN', 'User')
+  if (-not $t) { $t = $env:FINANZ_TOKEN }
+  [string]$t
+}
+function Get-FinanzAusweis([string]$token) {
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try { -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($token)) | ForEach-Object { $_.ToString('x2') }) } finally { $sha.Dispose() }
+}
+function Get-Finanzen([bool]$fresh) {
+  $cc = $script:FinanzCache
+  if (-not $fresh -and $cc.out -and $cc.zeit -and ((Get-Date) - $cc.zeit).TotalSeconds -lt $FinanzCacheSec) { return $cc.out }
+  $token = Get-FinanzToken
+  if (-not $token) {
+    return @{ ok = $false; error = 'NO_KEY'
+              hint = 'FINANZ_TOKEN fehlt. Setzen: [Environment]::SetEnvironmentVariable(''FINANZ_TOKEN'',''<token>'',''User'') — danach john-server neu starten.' }
+  }
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $r = Invoke-RestMethod -Uri ($FinanzUrl + 'kpi.php?voll=1') -Method Get -TimeoutSec $FinanzTimeoutSec `
+           -Headers @{ 'X-Finanz-Token' = (Get-FinanzAusweis $token) } -UserAgent 'Vishnu-Flow-Compass-Finanz/1.0'
+  } catch {
+    $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+    $code = $null; try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+    return @{ ok = $false; error = $(if ($code -eq 401) { 'AUTH_INVALID' } else { 'UNREACHABLE' }); status = $code
+              hint = $(if ($code -eq 401) { 'Der Token wird abgewiesen (401) — FINANZ_TOKEN hier und das GitHub-Secret sind nicht mehr dasselbe?' }
+                       else { 'finanzlauf/kpi.php nicht erreichbar: ' + $e.Message }) }
+  }
+  if (-not $r.ok) { return @{ ok = $false; error = 'UNREACHABLE'; hint = 'kpi.php antwortet ohne ok' } }
+  # Durchreichen, was die Karte braucht — plus die absolute Adresse, damit im Compass-HTML kein
+  # Domainname stehen muss (der Produkt-Build prueft die Ausgabe auf solche Woerter).
+  $ent = @()
+  foreach ($x in @($r.entscheidungen)) {
+    if (-not $x) { continue }
+    $st = @{}
+    foreach ($p in @($x.stimmen.PSObject.Properties)) { if ($p) { $st[$p.Name] = @{ wahl = $p.Value.wahl; kommentar = [string]$p.Value.kommentar; zeit = [string]$p.Value.zeit; spaeter = [string]$p.Value.spaeter } } }
+    $ent += , @{ id = [string]$x.id; titel = [string]$x.titel; frage = [string]$x.frage; warum = [string]$x.warum
+                 optionen = @($x.optionen | ForEach-Object { [string]$_ }); empfehlung = [int]$x.empfehlung
+                 stimmen = $st; einig = [bool]$x.einig
+                 umsetzung = $(if ($x.umsetzung) { @{ status = [string]$x.umsetzung.status; notiz = [string]$x.umsetzung.notiz } } else { $null }) }
+  }
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); cacheSec = $FinanzCacheSec
+            url = $FinanzUrl; urlStrategie = ($FinanzUrl + 'strategie.php'); urlSync = ($FinanzUrl + 'sync.php'); urlLauf = ($FinanzUrl + 'lauf.php')
+            ich = [string]$r.ich; teilnehmer = @($r.teilnehmer | ForEach-Object { [string]$_ })
+            zahlen = [bool]$r.zahlen; stichtag = [string]$r.stichtag; ausgewertet = [string]$r.ausgewertet
+            kontostand = $(if ($r.zahlen) { [double]$r.kontostand } else { $null })
+            deckung = $(if ($r.zahlen -and $r.deckung -ne $null) { [double]$r.deckung } else { $null })
+            ergebnis = $(if ($r.zahlen) { [double]$r.ergebnis } else { $null }); vormonat = $(if ($r.zahlen -and $r.vormonat -ne $null) { [double]$r.vormonat } else { $null })
+            monat = [string]$r.monat; kosten = $(if ($r.zahlen) { [double]$r.kosten } else { $null }); einnahmen = $(if ($r.zahlen) { [double]$r.einnahmen } else { $null })
+            warnung = [bool]$r.warnung
+            belege = @{ offen = [int]$r.belege.offen; gesamt = [int]$r.belege.gesamt }
+            entscheidungen = $ent
+            agenda = @(@($r.agenda) | Where-Object { $_ } | ForEach-Object { @{ id = [string]$_.id; text = [string]$_.text; wer = [string]$_.wer } })
+            sync = $(if ($r.sync) { @{ titel = [string]$r.sync.titel; naechster = [string]$r.sync.naechster; von = [string]$r.sync.von; bis = [string]$r.sync.bis; takt = [int]$r.sync.takt_wochen } } else { $null })
+            lux = $(if ($r.lux) { @{ bar = [double]$r.lux.bar; forderung = [double]$r.lux.forderung_gmbh; stichtag = [string]$r.lux.stichtag } } else { $null })
+            fristen = @(@($r.fristen) | Where-Object { $_ } | ForEach-Object { @{ datum = [string]$_.datum; titel = [string]$_.titel } }) }
+  $script:FinanzCache = @{ zeit = Get-Date; out = $out }
+  $out
+}
+function Send-Finanzstimme($in) {
+  $token = Get-FinanzToken
+  if (-not $token) { return @{ ok = $false; error = 'NO_KEY' } }
+  $id = [string]$in.id
+  if ($id -notmatch '^E[0-9]{1,2}$') { return @{ ok = $false; error = 'BAD_ID' } }
+  $als = [string]$in.als; if (-not $als) { $als = 'Benedikt Irsch' }
+  $body = @{ typ = 'entscheidung'; id = $id; als = $als }
+  if ($in.PSObject.Properties['wahl'])      { $body.wahl = $in.wahl }
+  if ($in.PSObject.Properties['kommentar']) { $body.kommentar = [string]$in.kommentar }
+  if ($in.PSObject.Properties['spaeter'])   { $body.spaeter = $true }
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $r = Invoke-RestMethod -Uri ($FinanzUrl + 'api.php') -Method Post -TimeoutSec $FinanzTimeoutSec -ContentType 'application/json; charset=utf-8' `
+           -Headers @{ 'X-Finanz-Token' = (Get-FinanzAusweis $token) } -UserAgent 'Vishnu-Flow-Compass-Finanz/1.0' `
+           -Body ([Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Compress)))
+  } catch {
+    $code = $null; try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+    return @{ ok = $false; error = $(if ($code -eq 403) { 'FORBIDDEN' } elseif ($code -eq 401) { 'AUTH_INVALID' } else { 'UNREACHABLE' }); status = $code }
+  }
+  $script:FinanzCache = @{ zeit = $null; out = $null }     # naechster Abruf holt den neuen Stand
+  Write-Host ("[{0}] Finanzen: Stimme {1} -> {2}" -f (Get-Date -Format 'HH:mm:ss'), $id, $(if ($body.ContainsKey('wahl')) { $body.wahl } else { 'Kommentar/spaeter' })) -ForegroundColor Green
+  @{ ok = [bool]$r.ok; stand = $r.stand }
+}
+
+# ---------------------------------------------------------------------------
 # Routinen-Waechter — /api/routinen (31.08.2026)
 #   Elf Routinen arbeiten fuer Bene, und der Compass sagte ueber keine davon ein Wort. Heikel ist
 #   das, weil das Scheitern still ist: bleibt eine Routine weg, rechnen die Karten ihre Alter
@@ -2507,6 +2608,19 @@ try {
 
       if ($path -eq '/api/routinen') {
         Send-Json $ctx (Get-Routinen ($req.QueryString['fresh'] -eq '1'))
+        continue
+      }
+
+      if ($path -eq '/api/finanzen') {
+        $f = Get-Finanzen ($req.QueryString['fresh'] -eq '1')
+        Send-Json $ctx $f 200                                   # {ok:false} ist eine Antwort, kein HTTP-Fehler
+        continue
+      }
+      if ($path -eq '/api/finanzen/entscheidung' -and $req.HttpMethod -eq 'POST') {
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        if (-not $in) { Send-Json $ctx @{ ok = $false; error = 'NO_BODY' } 400; continue }
+        Send-Json $ctx (Send-Finanzstimme $in) 200
         continue
       }
 

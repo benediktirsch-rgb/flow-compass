@@ -1319,7 +1319,9 @@ function kopfMalen(){
 const ANTW_TEXT=new Set();
 const frageSchluessel=t=>String(t||'').toLowerCase().replace(/[^0-9a-zäöüß]+/g,' ').trim();
 function beantwortet(q){ return !!S.antworten[q.id] || (q.frage && ANTW_TEXT.has(frageSchluessel(q.frage))); }
-function offeneFragen(){ return (R.rueckfragen||[]).filter(q=>!beantwortet(q)); }
+/* Dazu die offenen Entscheidungen der Finanzverwaltung (finFragen, 02.09.) — sie leben auf dem
+   Server, nicht in S.antworten: beantwortet ist, was dort eine Stimme hat. */
+function offeneFragen(){ return (R.rueckfragen||[]).filter(q=>!beantwortet(q)).concat(typeof finFragen==='function'?finFragen():[]); }
 /* Das Eine von heute: zuerst aus diesem Browser (localStorage), sonst aus dem
    Morgencheck-Protokoll in rhythmus-data.js. Sonst stünde auf dem Handy „noch
    nicht gesetzt“, obwohl der Checkin längst gemacht ist. */
@@ -1556,6 +1558,7 @@ function verdrahten(s){
     S.antworten[id]={a:b.dataset.a,ts:heute()};
     speichern(); kopfMalen();
     antwortSenden(id,b.dataset.a);   /* damit die Frage auch in jeder anderen Fassung verschwindet (31.08.) */
+    finStimmeAusRitual(id,b.dataset.a); /* Finanz-Entscheidung: als Stimme zurück auf die Website (02.09.) */
   }));
 }
 
@@ -1765,7 +1768,7 @@ async function boardLaden(){
    hin und übernimmt, was er noch nicht kennt. Ist der Server aus, bleibt alles
    beim Alten — der lokale Stand gilt weiter, und der nächste Ladeversuch holt es nach.
    ========================================================================== */
-function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id); return q?q.frage:''; }
+function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null); return q?q.frage:''; }
 function antwortMerken(frage){ const k=frageSchluessel(frage); if(k) ANTW_TEXT.add(k); }
 /* Eine frisch gegebene Antwort sofort hinschicken. Fehlschlag ist unkritisch:
    sie steht im localStorage, geht mit dem Checkin mit und wird beim nächsten
@@ -2114,7 +2117,10 @@ const CTX={
   vorbereiten:[['📝','Rechnungsreview-Vorlage','Claude kann eine Checkliste + Zusammenfassung generieren'],
                ['📝','Kosten-/Nutzen Domain-Umzug','Budget für vishnuartists.com']],
   jira:'va-fin', trello:null,
-  kpis:()=>[[tageBisMonatsende(),'Tage bis Monatsende · Rechnungsreview','fi','🧾'],
+  kpis:()=>[[FIN.data&&FIN.data.zahlen?fmtEur(FIN.data.kontostand)+' €':'–','Kontostand','fi','🏦'],
+        [FIN.data&&FIN.data.zahlen&&FIN.data.deckung!=null?FIN.data.deckung.toFixed(1).replace('.',',')+' Mon':'–','Liquiditätsdeckung · Ziel 3','fi','🛟'],
+        [FIN.data?finOffen().length:'–','Entscheidungen warten','fi','🗳️'],
+        [tageBisMonatsende(),'Tage bis Monatsende · Rechnungsreview','fi','🧾'],
         [CTX.fi.next.filter(r=>r[3]==='red').length,'dringend (Sicherheit)','fi','🔐'],
         [CTX.fi.next.length,'offene Schritte','fi','⚡'],
         [ktxKarten('fi'),'Karten auf Mein Board','bene','🧭']]
@@ -3867,6 +3873,89 @@ const ROUT={ data:null, fehler:null, geladen:false };
    Der Snapshot in kennzahlen-data.js bleibt als Rückfallebene: ist der Server aus oder fehlt der
    Token, steht dort weiter der letzte von Hand gemessene Stand — nur eben ehrlich beschriftet. */
 const VEREIN={ data:null, fehler:null, geladen:false };
+/* Finanzen (02.09., Bene: „da muss immer alles ankommen“): GET /api/finanzen — der john-server holt
+   Kontostand, Liquiditätsdeckung, Monatsergebnis, Belegstand, die Entscheidungen des Strategiepapiers
+   mit beiden Stimmen und den nächsten GF-Sync aus der Finanzverwaltung (Token auf diesem Rechner).
+   Nichts davon steht in einer *-data.js — die wird veröffentlicht, Kontostände nicht. */
+const FIN={ data:null, fehler:null, geladen:false };
+/* Die Live-Zahlen über die Projektkarte legen — wie vereinUebernehmen(): eine Wahrheit, nicht zwei. */
+function finUebernehmen(){
+  const f=FIN.data; if(!f||!D.projekte||!D.projekte.finance) return;
+  const kp=[];
+  if(f.zahlen){ kp.push([fmtEur(f.kontostand)+' €','Kontostand '+(f.stichtag||'')]); kp.push([f.deckung==null?'–':f.deckung.toFixed(1).replace('.',','),'Monate Deckung']); }
+  kp.push([f.belege.offen+' / '+f.belege.gesamt,'Belege offen']);
+  const off=finOffen().length; if(off) kp.push([off,'Entscheidungen offen']);
+  D.projekte.finance.kpis=kp;
+}
+/* Meine offenen Entscheidungen: Wahl fehlt, und heute nicht auf „später“ gelegt. */
+function finOffen(){
+  const f=FIN.data; if(!f||!f.entscheidungen) return [];
+  const ich=f.ich||'';
+  return f.entscheidungen.filter(e=>{ const m=(e.stimmen||{})[ich]; if(m&&m.wahl!=null) return false;
+    const sp=S.antworten['fin-'+e.id]; return !(sp&&sp.ts===heute()); });
+}
+/* Als Rückfragen: dieselbe Form wie rhythmus-data.js › rueckfragen, damit Morgencheck, Reco-Karte
+   und Board sie ohne Sonderweg zeigen. `fin:true` sagt dem Klick-Handler, wohin die Antwort geht. */
+function finFragen(){
+  return finOffen().map(e=>{ const f=FIN.data, andere=Object.keys(e.stimmen||{}).filter(p=>p!==f.ich&&e.stimmen[p].wahl!=null)
+      .map(p=>p.split(' ')[0]+': „'+(e.optionen[e.stimmen[p].wahl]||'?')+'“');
+    return { id:'fin-'+e.id, fin:e.id, projekt:'Finanzen · Strategiepapier · '+e.id, frage:e.titel+' — '+e.frage,
+      warum:e.warum+(andere.length?' · Stimme '+andere.join(', '):'')+' · Empfehlung: '+(e.optionen[e.empfehlung]||'–'),
+      optionen:e.optionen.slice() }; });
+}
+/* Antwort aus dem Ritual an die Finanzverwaltung durchreichen (Stimme „ich“, Server kennt den Namen). */
+function finStimmeAusRitual(id,antwort){
+  if(!/^fin-E\d+$/.test(id)||!FIN.data) return;
+  const eid=id.slice(4), e=(FIN.data.entscheidungen||[]).find(x=>x.id===eid); if(!e) return;
+  const i=e.optionen.indexOf(antwort);
+  const body=(i>=0)?{id:eid,wahl:i}:{id:eid,spaeter:true};
+  if(i>=0){ e.stimmen=e.stimmen||{}; e.stimmen[FIN.data.ich||'ich']={wahl:i,kommentar:'',zeit:new Date().toISOString()}; }
+  try{ fetch(JOHN_API+'/api/finanzen/entscheidung',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+        .then(r=>r.json()).then(()=>{ finRefresh(); }).catch(()=>{}); }catch(err){}
+}
+function finCard(){
+  return `<div class="card s6 tone-fi" id="finCard"><h3>💶 Finanzen <span class="cnt" id="finStand">lädt …</span></h3>
+    <div id="finBody"><div class="empty">Finanzverwaltung wird geladen …</div></div></div>`;
+}
+function finRefresh(){
+  const body=document.getElementById('finBody'), stand=document.getElementById('finStand');
+  if(!body||!stand) return;
+  if(!FIN.geladen){ stand.textContent='lädt …'; return; }
+  if(!FIN.data){
+    stand.textContent = FIN.fehler ? (FIN.fehler.error==='NO_KEY'?'kein Token':'Fehler') : 'offline';
+    body.innerHTML = FIN.fehler
+      ? `<div class="empty">Finanzverwaltung meldet: ${esc(FIN.fehler.error||'unbekannter Fehler')}${FIN.fehler.hint?' — '+esc(FIN.fehler.hint):''}</div>`
+      : `<div class="empty">John-Server nicht erreichbar${JOHN_API?` (${esc(JOHN_API)})`:''} — <code>john-server.cmd</code> starten, dann ↻ Neu laden.
+         Ohne Server kommt kein Kontostand hierher; leer heißt hier also nichts.</div>`;
+    return;
+  }
+  const f=FIN.data, ich=f.ich||'';
+  stand.textContent = f.zahlen ? `Stand ${esc(f.stichtag||'?')}` : 'keine Auswertung';
+  const deck=f.deckung==null?'–':f.deckung.toFixed(1).replace('.',',');
+  const tonD=f.deckung==null?'gry':(f.deckung>=3?'grn':f.deckung>=2?'amb':'red');
+  const kpi=f.zahlen?`<div class="kpis">
+      <div class="kpi"><div class="v">${fmtEur(f.kontostand)} €</div><div class="l">Kontostand</div></div>
+      <div class="kpi"><div class="v"><span class="tag ${tonD}">${deck} Mon</span></div><div class="l">Deckung · Ziel 3</div></div>
+      <div class="kpi"><div class="v">${f.ergebnis>=0?'+':'−'}${fmtEur(Math.abs(f.ergebnis))} €</div><div class="l">Ergebnis ${esc(f.monat||'')}</div></div>
+      <div class="kpi"><div class="v">${f.belege.offen}<span class="l"> / ${f.belege.gesamt}</span></div><div class="l">Belege offen</div></div>
+    </div>`:`<div class="empty">Noch keine Auswertung hochgeladen — <code>kennzahlen.py --hochladen</code> nach dem Monatslauf.</div>`;
+  const offen=finOffen();
+  const einig=(f.entscheidungen||[]).filter(e=>e.einig).length, uneinig=(f.entscheidungen||[]).filter(e=>{ const w=Object.values(e.stimmen||{}).filter(s=>s.wahl!=null); return w.length>=2&&!e.einig; }).length;
+  const wartet=(f.entscheidungen||[]).filter(e=>{ const m=(e.stimmen||{})[ich]; const andere=Object.keys(e.stimmen||{}).filter(p=>p!==ich&&e.stimmen[p].wahl!=null); return m&&m.wahl!=null&&!andere.length; }).length;
+  const ent=`<div class="m" style="margin-top:8px"><b>Entscheidungen:</b> ${offen.length?`<span class="tag amb">${offen.length} warten auf dich</span>`:'<span class="tag grn">alle abgestimmt</span>'}
+      ${einig?` <span class="tag grn">${einig} einig</span>`:''}${uneinig?` <span class="tag red">${uneinig} uneinig → Sync</span>`:''}${wartet?` <span class="tag gry">${wartet} warten auf die zweite Stimme</span>`:''}</div>
+    ${offen.slice(0,3).map(e=>`<div class="item"><div class="ic">🗳️</div><div class="body"><div class="t">${esc(e.id)} · ${esc(e.titel)}</div>
+      <div class="m">Empfehlung: ${esc(e.optionen[e.empfehlung]||'–')}</div></div></div>`).join('')}`;
+  const sy=f.sync?`<div class="m" style="margin-top:6px">📅 ${esc(f.sync.titel)} ${esc(f.sync.naechster.slice(8,10)+'.'+f.sync.naechster.slice(5,7)+'.')} · ${esc(f.sync.von)}–${esc(f.sync.bis)}${f.agenda&&f.agenda.length?` · ${f.agenda.length} Punkt${f.agenda.length===1?'':'e'} auf der Tagesordnung`:''}</div>`:'';
+  const fr=(f.fristen||[]).slice(0,2).map(x=>`<span class="tag gry">${esc(x.datum.slice(8,10)+'.'+x.datum.slice(5,7)+'.')} ${esc(x.titel)}</span>`).join(' ');
+  const lux=f.lux?`<div class="m" style="margin-top:6px">🇱🇺 Liquidation: bar ≈ ${fmtEur(f.lux.bar)} € · Forderung gegen die GmbH ${fmtEur(f.lux.forderung)} € (Stand ${esc(f.lux.stichtag)})</div>`:'';
+  body.innerHTML = kpi + ent + sy + (fr?`<div class="m" style="margin-top:6px">${fr}</div>`:'') + lux
+    + `<div class="chipbar" style="margin-top:8px">${offen.length?`<button class="btn a" onclick="starte('fragen')">🗳️ Jetzt abstimmen</button>`:''}
+       <a class="btn" href="${esc(f.url)}" target="_blank" rel="noopener">💶 Finanzverwaltung</a>
+       <a class="btn" href="${esc(f.urlStrategie)}" target="_blank" rel="noopener">📄 Strategiepapier</a>
+       <a class="btn" href="${esc(f.urlSync)}" target="_blank" rel="noopener">🤝 GF-Sync</a></div>
+    <div class="mini">Quelle: Finanzverwaltung (Kontoauszug-Auswertung, ${esc(f.ausgewertet||'?')}) · alle ${Math.round((f.cacheSec||300)/60)} Min</div>`;
+}
 /* Die Live-Zahlen über den Snapshot legen. Bewusst als Überschreiben der bestehenden Objekte
    (SNAP.vk, D.projekte.vaikuntha) statt als zweite Quelle: sonst müsste jede Karte, jede Blüte
    und Johns Kontext einzeln lernen, dass es zwei Wahrheiten gibt — und irgendeine würde es
@@ -4024,6 +4113,16 @@ const LOTUS_KATALOG={
             vgl:'Vormonat',mtag:()=>monatKey(0),platzhalter:'€ Monat',quelle:'manuell (Monatswert eintragen — es ist keine Buchhaltung angebunden)',
             wert:()=>({heute:manuellWert('geld',monatKey(0)),gestern:manuellWert('geld',monatKey(1)),
                        sub:`${monatName(monatKey(0))} · Vormonat ${fmtEur(manuellWert('geld',monatKey(1)))} €`})},
+  /* Finanzverwaltung (02.09.): vier Blüten aus /api/finanzen. Ohne Server oder Token: null → keine Blüte,
+     keine erfundene Zahl. Zielbänder aus dem Strategiepapier: drei Monate Deckung sind das Ziel. */
+  kontostand:{icon:'🏦',label:'Kontostand',einheit:'€',besser:'mehr',fmt:fmtEur,vgl:'Auswertung davor',quelle:'Finanzverwaltung (Kontoauszug-Auswertung, live über john-server)',
+            wert:d=>d.finanz&&d.finanz.zahlen?{heute:d.finanz.kontostand,gestern:histWert('kontostand'),sub:`Stand ${d.finanz.stichtag||'?'} · Deckung ${d.finanz.deckung==null?'–':d.finanz.deckung.toFixed(1).replace('.',',')} Mon`}:null},
+  deckung: {icon:'🛟',label:'Liquiditätsdeckung',einheit:'Mon',besser:'mehr',ziele:[1,2,3],fmt:v=>v==null?'–':v.toFixed(1).replace('.',','),quelle:'Finanzverwaltung: Kontostand ÷ Sechs-Monats-Schnitt der Ausgaben (live über john-server)',
+            wert:d=>d.finanz&&d.finanz.zahlen&&d.finanz.deckung!=null?{heute:d.finanz.deckung,gestern:histWert('deckung'),sub:`Ziel 3 Monate · Kosten Ø ${fmtEur(d.finanz.kosten)} €/Mon`}:null},
+  ergebnis:{icon:'📈',label:'Monatsergebnis',einheit:'€',besser:'mehr',ziele:[0,10000,20000],fmt:fmtEur,vgl:'Vormonat',quelle:'Finanzverwaltung: Eingänge minus Ausgänge des letzten ausgewerteten Monats (live über john-server)',
+            wert:d=>d.finanz&&d.finanz.zahlen?{heute:d.finanz.ergebnis,gestern:d.finanz.vormonat,sub:`${d.finanz.monat||''} · Vormonat ${fmtEur(d.finanz.vormonat)} €`}:null},
+  belege:  {icon:'🧾',label:'Belege offen',besser:'weniger',ziele:[15,8,0],quelle:'Finanzverwaltung: Nachreichungsliste der Steuerberatung (live über john-server)',
+            wert:d=>d.finanz?{heute:d.finanz.belege.offen,gestern:histWert('belege'),sub:`von ${d.finanz.belege.gesamt} Positionen · Ziel 0`}:null},
   energie: {icon:'⚡',label:'Energie heute',besser:'mehr',ziele:[4,7,9],manuell:true,manMax:10,platzhalter:'1–10',
             quelle:'manuell (1–10, deine eigene Einschätzung — das misst dir niemand)',
             wert:()=>({heute:manuellWert('energie',heute()),gestern:manuellWert('energie',gesternKey()),sub:'selbst eingeschätzt · Skala 1–10'})},
@@ -4388,7 +4487,7 @@ function lotusRender(neuChips){
 }
 async function lotusLaden(){
   const jget=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); const j=await r.json(); return (j&&j.ok!==false)?j:null; }catch(e){ return null; } };
-  const [arbeit,jira,porsche,kal,git,wacht,postf,slack,sich,wetter,rout,verein]=await Promise.all([
+  const [arbeit,jira,porsche,kal,git,wacht,postf,slack,sich,wetter,rout,verein,finanz]=await Promise.all([
     jget(JOHN_API+'/api/arbeit'),
     jget(JOHN_API+'/api/kpi/jira'),
     (async()=>{ try{ const r=await fetch(PORSCHE_STE+'data/aggregated.json?t='+Date.now()); const d=await r.json(); return d&&d.vs?d:null; }catch(e){ return null; } })(),
@@ -4412,7 +4511,10 @@ async function lotusLaden(){
     (async()=>{ try{ const r=await fetch(JOHN_API+'/api/routinen',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
     /* Vereins-Puls (31.08.): ohne Token antwortet vaikuntha.eu mit NO_KEY — das muss die Karte sagen
        dürfen, sonst sieht ein fehlender Schlüssel aus wie ein Verein ohne Mitglieder. */
-    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/vaikuntha',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/vaikuntha',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
+    /* Finanzen (02.09.): ohne Token antwortet der Server mit NO_KEY — das muss die Karte sagen dürfen,
+       sonst sieht ein fehlender Schlüssel aus wie eine Firma ohne Konto. */
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/finanzen',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
   ]);
   KAL.data=(kal&&kal.ok)?kal:null; KAL.fehler=(kal&&kal.ok===false)?kal:null; KAL.geladen=true;
   GIT.data=(git&&git.ok)?git:null; GIT.fehler=(git&&git.ok===false)?git:null; GIT.geladen=true; gitRefresh();
@@ -4424,9 +4526,11 @@ async function lotusLaden(){
   ROUT.data=(rout&&rout.ok)?rout:null; ROUT.fehler=(rout&&rout.ok===false)?rout:null; ROUT.geladen=true;
   VEREIN.data=(verein&&verein.ok)?verein:null; VEREIN.fehler=(verein&&verein.ok===false)?verein:null; VEREIN.geladen=true;
   vereinUebernehmen();                      /* Live-Zahlen über den Snapshot legen, BEVOR gerendert wird */
-  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data}; LOT.geladen=true;
+  FIN.data=(finanz&&finanz.ok)?finanz:null; FIN.fehler=(finanz&&finanz.ok===false)?finanz:null; FIN.geladen=true;
+  finUebernehmen();
+  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data}; LOT.geladen=true;
   if(arbeit) arbeitXpVerbuchen(arbeit);
-  kalenderRefresh(); wachtRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh();
+  kalenderRefresh(); wachtRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh();
   lotusRender(false);
   fortschrittRefresh();
   if(!(S.summary&&S.summary.datum===heute())) summaryHolen(false);
@@ -5004,7 +5108,7 @@ function render(c){
      Rückfragen, die Bene deshalb nie sah („keine Fragen an mich“). Sechs Leute, die auf eine
      Antwort warten, sind ein nächster Schritt, kein Kanalzustand. */
   h+=secHtml('schritte',
-      kalenderCard() + postfCard() + slrCard() + wetterCard()
+      kalenderCard() + postfCard() + slrCard() + wetterCard() + finCard()
     + `<div class="card s6 ${tone}"><h3>⚡ Jetzt wichtig</h3>${itemsHtml(d.next,'dashboard.html › CTX.'+c+'.next',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>📅 Termine</h3>${itemsHtml(d.termine,'dashboard.html › CTX.'+c+'.termine',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>🗂️ Vorbereiten</h3>${itemsHtml(d.vorbereiten,'dashboard.html › CTX.'+c+'.vorbereiten',qo)}</div>`
@@ -5048,7 +5152,7 @@ function render(c){
   /* 31.08.: Postfach, Sicherungen, Wetter und Routinen fehlten hier. Ihre Karten rendern leer und
      werden aus dem geladenen Zustand gefüllt — nach jedem erneuten render() (Kontextwechsel!)
      standen sie darum dauerhaft auf „lädt …“, obwohl die Daten längst da waren. */
-  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh();
+  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh();
   if(KAN.mode==='personal'){ if(KAN.view==='board'){ pkDnD(); if(!PK.geladen) pkLaden(false); } else trelloLive(); }
   else { if(VA.tickets.length) vaPaint(); else vaLaden(false); }
 }
