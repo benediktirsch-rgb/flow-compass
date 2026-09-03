@@ -133,7 +133,7 @@ param(
   [hashtable]$TrelloBoards = @{ arbeit = 'Zw3jgjsR'; privat = 'jO3Q7d8Z' },
   [int]$TrelloCacheSec = 60,
   # Vishnu-Cockpit-Daten (Board VA, stündlich von der GitHub-Action erzeugt) für das native Kanban im Compass
-  [string]$VaDataUrl = 'https://vishnu-artists.de/va/va-data.json',
+  [string]$VaDataUrl = 'https://va.vishnuartists.com/va-data.json',
   [int]$VaCacheSec = 300,
   # Kalender: geheime iCal-Adressen in GCAL_ICS (User-Env, mit ';' getrennt) — siehe Abschnitt "Kalender" unten.
   [int]$KalenderCacheSec = 600,
@@ -159,6 +159,10 @@ param(
     @{ name = 'vishnu-artists.de';   url = 'https://vishnu-artists.de/';          typ = 'Vishnu' }
     @{ name = 'Flow Compass';        url = 'https://vishnu-artists.de/compass/';  typ = 'Vishnu'; geschuetzt = $true }
     @{ name = 'Vishnu Cockpit';      url = 'https://vishnu-artists.de/va/';       typ = 'Vishnu'; geschuetzt = $true }
+    # Subdomains seit 03.09.2026 — ein Ursprung je Werkzeug; die .de-Adressen bleiben, bis sie weiterleiten.
+    @{ name = 'Flow Compass (bene.)'; url = 'https://bene.vishnuartists.com/';    typ = 'Vishnu'; geschuetzt = $true }
+    @{ name = 'Vishnu Cockpit (va.)'; url = 'https://va.vishnuartists.com/';      typ = 'Vishnu'; geschuetzt = $true }
+    @{ name = 'Compass-Demo (demo.)'; url = 'https://demo.vishnuartists.com/';    typ = 'Vishnu' }
     @{ name = 'vishnuartists.com';   url = 'https://vishnuartists.com/';          typ = 'Vishnu' }
     @{ name = 'vaikuntha.eu';        url = 'https://vaikuntha.eu/';               typ = 'Vaikuntha' }
     @{ name = 'naturnah-lernen.de';  url = 'https://naturnah-lernen.de/';         typ = 'Vaikuntha' }
@@ -200,7 +204,7 @@ param(
     @{ id = 'ki-trainer-wochencheck';       art = 'claude';  cron = '0 14 * * 5';       ktx = 'pr'
        name = 'KI-Trainer-Wochencheck';     wirkung = 'Lern-Tickets der Folgewoche, Confluence-Stand' }
     @{ id = 'Vishnu Flow Compass publish';  art = 'windows'; cron = '*/30 * * * *';     ktx = 'pr'
-       name = 'Compass veröffentlichen';    wirkung = 'baut site/compass und pusht → vishnu-artists.de/compass' }
+       name = 'Compass veröffentlichen';    wirkung = 'baut Compass, Demo und Instanzen und lädt sie auf bene./demo./<team>.vishnuartists.com' }
     @{ id = 'porsche-agile-triage';         art = 'cloud';   cron = '0 8,16 * * 1-5';   ktx = 'va'
        name = 'Porsche AGILE triagieren';   wirkung = 'labelt und kommentiert AGILE-Tickets (Cloud-Aufgabe)' }
   ),

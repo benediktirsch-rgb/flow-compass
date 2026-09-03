@@ -596,6 +596,8 @@ $eigennamen = @(
   @('(Pilot: Bene)',         ''),
   @('„Bene“ trifft „Benedikt Irsch“', '„Alex“ trifft „Alexandra Winter“'),
   @('vishnu-artists.de/va',  'deine Team-Cockpit-Adresse'),
+  @('bene.vishnuartists.com', 'deine Compass-Adresse'),
+  @('va.vishnuartists.com',  'deine Team-Cockpit-Adresse'),
   @('vishnuartists.com',     'example.com'),
   @('vishnuartists.atlassian.net', 'deine-firma.example'),
   @('porsche-customer.github.io', 'example.com'),

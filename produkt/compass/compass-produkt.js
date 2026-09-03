@@ -216,7 +216,7 @@
         }),
         trello: { privat: { url: ((INST.trello.privat || {}).url) || '' }, arbeit: { url: ((INST.trello.arbeit || {}).url) || '' } },
         jira: { browse: INST.jira.browse || '', board: INST.jira.board || '', keys: (INST.jira.keys || []).slice() },
-        team: { an: !!INST.team.an, url: INST.team.url || 'https://vishnu-artists.de/va/' },
+        team: { an: !!INST.team.an, url: INST.team.url || '' },
         board: { wip: INST.board.wip || 3 }
       };
       this.schritt = typeof schritt === 'number' ? schritt : 0;
@@ -250,7 +250,7 @@
         d.trello = { privat: { label: 'Mein privates Board', url: v('suTrelloPrivat') }, arbeit: { label: 'Team-Board', url: v('suTrelloArbeit') } };
         d.jira = { browse: v('suJiraBrowse'), board: v('suJiraBoard'), keys: (v('suJiraKeys') || '').split(/[,;\s]+/).map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean) };
         const t = document.getElementById('suTeamAn');
-        d.team = { an: !!(t && t.checked), url: v('suTeamUrl') || 'https://vishnu-artists.de/va/' };
+        d.team = { an: !!(t && t.checked), url: v('suTeamUrl') || '' };
         /* Kontext 1 bekommt die Team-Quellen, sofern nichts anderes gesetzt ist */
         if (d.kontexte[0]) {
           if (!d.kontexte[0].trello && d.trello.arbeit.url) d.kontexte[0].trello = 'arbeit';

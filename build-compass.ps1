@@ -126,4 +126,4 @@ Get-ChildItem $Ziel -File | Sort-Object Name | ForEach-Object {
 Write-Host ''
 Write-Host "Compass gebaut → $Ziel"
 Write-Host 'Weiter: git status --short → git add site/compass → git commit -m "compass: Livegang-Build <Datum>" → git push origin main'
-Write-Host 'Danach: https://vishnu-artists.de/compass/ (Passphrase siehe Übergabe; ändern per Konsole compass.hash(...) → COMPASS.gate.hash)'
+Write-Host 'Danach: https://bene.vishnuartists.com/ (Passphrase siehe Übergabe; ändern per Konsole compass.hash(...) → COMPASS.gate.hash)'

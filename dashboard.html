@@ -1119,10 +1119,11 @@ const COMPASS={
     listen:{ bereit:/^(sofort|heute|jetzt|ready|next|to ?do|bereit|diese woche)/i, wartet:/^(waiting|wartet|warten|blocked|blockiert|feedback|delegiert)/i,
              doing:/^(doing|in arbeit|in progress|läuft)/i, done:/^(done|erledigt|fertig)/i, bald:/^(n[äa]chste woche|bald|soon)/i } },
   cockpit:{
-    label:'Vishnu Kanban · alle Projekte', url:'https://vishnu-artists.de/va/',
+    label:'Vishnu Kanban · alle Projekte', url:'https://va.vishnuartists.com/',
     jira:'https://vishnuartists.atlassian.net/secure/RapidBoard.jspa?rapidView=38',
     /* Datenquelle des nativen Team-Boards: dieselbe Datei, aus der das Cockpit lebt (stündlich aus Jira).
-       Live (compass + va auf derselben Domain) direkt, lokal über den John-Server (/api/va), weil KAS kein CORS sendet. */
+       Seit 03.09.2026 liegen Compass (bene.) und Cockpit (va.) auf eigenen Subdomains: live geht der Abruf über den
+       John-Server oder direkt mit Zugangsdaten (va. erlaubt bene. per CORS-Header), lokal über den John-Server (/api/va). */
     daten:'va-data.json', jiraBase:'https://vishnuartists.atlassian.net/browse/',
     /* Einstiegspunkte = Deep-Links (?go=…) ins Cockpit; steuern auch das eingebettete Cockpit per postMessage */
     entries:[
@@ -2894,7 +2895,9 @@ async function vaLaden(fresh){
   VA.fehler='';
   for(const [url,quelle] of wege){
     try{
-      const r=await fetch(url+(sameOrigin&&fresh?('?t='+Date.now()):''),{cache:fresh?'no-store':'default'});
+      /* Direktabruf vom Cockpit (anderer Ursprung seit 03.09.): Zugangsdaten mitschicken, sonst antwortet
+         der Zugangsschutz mit 401. Gleicher Ursprung oder John-Server: wie gehabt. */
+      const r=await fetch(url+(sameOrigin&&fresh?('?t='+Date.now()):''),{cache:fresh?'no-store':'default',credentials:(!sameOrigin&&url===direkt)?'include':'same-origin'});
       if(!r.ok) throw new Error('HTTP '+r.status);
       const d=await r.json();
       if(lauf!==VA.lauf) return;

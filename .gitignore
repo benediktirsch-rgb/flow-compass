@@ -49,6 +49,11 @@ kalender-urls.json
 # nur die handgepflegte .htaccess (Zugangsschutz) bleibt im Repo
 site/compass/*
 !site/compass/.htaccess
+# Hash-Stand der FTPS-Uploads je Subdomain (publish-compass.ps1)
+site/.publish-state/
 
 # Kundeninstanzen (build-compass-produkt.ps1 -Instanz): Namen, Board-URLs, Zugangs-Hashes
 instanzen/
+
+# Übergabe Cowork → Claude Code (persönlich, nie committen)
+_uebergabe/

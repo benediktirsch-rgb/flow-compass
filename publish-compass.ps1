@@ -4,13 +4,16 @@
 #   2b) build-compass-produkt.ps1 → site/compass-demo/  (anonymisierte Verkaufs-Demo; im Repo)
 #      Scheitert der Produkt-Build (Anker fehlt, Wortprüfung), wird das nur geloggt — die eigene
 #      Instanz geht trotzdem live, die alte Demo bleibt stehen.
-#   3) eigene Instanz per FTPS nach /vishnu-artists.com/compass/ — nur Dateien, deren Hash sich seit
-#      dem letzten Upload geändert hat (site/compass/.publish-state.json). Nie löschen.
+#   3) per FTPS auf die Subdomains von vishnuartists.com (seit 03.09.2026, je Ziel ein eigenes
+#      Dokumentenverzeichnis im KAS): eigene Instanz → bene., Demo → demo., Team-/Kundeninstanzen aus
+#      instanzen\<slug> → <sub>. Nur Dateien, deren Hash sich seit dem letzten Upload geändert hat
+#      (site/.publish-state/<sub>.json, gitignored). Nie löschen.
 #      Zugang ausschließlich aus User-Umgebungsvariablen (nie in Datei oder Kommandozeile):
 #        VA_FTP_HOST  z. B. wXXXXXXX.kasserver.com   VA_FTP_USER   VA_FTP_PASS
 #      Fehlen sie, wird das geloggt und der Rest läuft weiter.
 #   4) hat sich die Demo geändert → git add site/compass-demo → commit → git push origin main
-#      (deploy.yml des Repos spielt sie per FTPS nach https://vishnu-artists.de/compass-demo/)
+#      (deploy.yml des Repos spielt sie per FTPS nach https://demo.vishnuartists.com/ — dieselben Bytes wie
+#      Schritt 3, eigener Sync-State; solange dem Repo die Secrets fehlen, liefert nur Schritt 3 wirklich aus)
 #
 #   Warum zwei Wege: die eigene Instanz enthält persönliche Daten und gehört nicht ins Produkt-Repo;
 #   die Demo ist Produkt und darf über GitHub laufen. Bis 02.09.2026 lief beides über das Repo
@@ -23,7 +26,6 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $MyInvocation.MyCommand.Path
 $log  = Join-Path $repo 'publish-compass.log'
 $task = 'Vishnu Flow Compass publish'
-$fernBasis = '/vishnu-artists.com/compass'
 function Log($m) { $line = "{0:yyyy-MM-dd HH:mm:ss}  {1}" -f (Get-Date), $m; Add-Content -Path $log -Value $line -Encoding UTF8; Write-Host $line }
 
 if ($Register) {
@@ -111,21 +113,34 @@ try {
 
 if ($NurBauen) { Log 'NurBauen: fertig, nichts hochgeladen, nichts committet.'; return }
 
-# 3) eigene Instanz per FTPS hochladen — nur geänderte Dateien, nie löschen
-$zugang = Hole-FtpZugang
-$eigen = Join-Path $repo 'site\compass'
-if (-not $zugang) {
-  Log 'WARNUNG: FTP-Zugang fehlt (User-Umgebungsvariablen VA_FTP_HOST / VA_FTP_USER / VA_FTP_PASS) — eigene Instanz nicht hochgeladen.'
-} elseif (-not (Test-Path (Join-Path $eigen 'index.html'))) {
-  Log 'WARNUNG: site\compass\index.html fehlt — nichts hochzuladen.'
-} else {
-  $stateDatei = Join-Path $eigen '.publish-state.json'
+# 3) Hochladen per FTPS — je Ziel eine Subdomain mit eigenem Dokumentenverzeichnis (03.09.2026):
+#      site\compass        → bene.vishnuartists.com   (eigene Instanz, Zugangsschutz per .htaccess)
+#      site\compass-demo   → demo.vishnuartists.com   (öffentliche Demo)
+#      instanzen\<slug>    → <sub>.vishnuartists.com  (Team- und Kundeninstanzen, Zuordnung $INSTANZEN)
+#    Warum Subdomains: bis heute deployten drei Repos in denselben Domain-Ordner von vishnu-artists.de,
+#    Compass und Cockpit teilten sich localStorage und Login, und jede weitere Instanz in einem Unterordner
+#    hätte sich mit den anderen den Speicher geteilt. Ein Ursprung je Instanz — nichts wird geteilt.
+#    Der Hash-Stand liegt je Ziel in site\.publish-state\<sub>.json (gitignored), NICHT mehr im Ordner
+#    selbst: dort würde er in der Demo mit committet. Neues Ziel = leerer Stand = einmal alles hochladen.
+$INSTANZEN = @(
+  @{ name = 'Philipp Heitz'; sub = 'philipp' }
+  @{ name = 'Jan';           sub = 'jan' }
+  @{ name = 'Marwan';        sub = 'marwan' }
+  @{ name = 'Florian';       sub = 'florian' }
+)
+$stateDir = Join-Path $repo 'site\.publish-state'
+if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Force $stateDir | Out-Null }
+
+function Lade-Ordner($zugang, [string]$lokal, [string]$sub, [string]$was) {
+  $fernBasis = '/' + $sub + '.vishnuartists.com'
+  if (-not (Test-Path (Join-Path $lokal 'index.html'))) { Log ("WARNUNG: {0} — {1}\index.html fehlt, nichts hochzuladen." -f $was, $lokal); return }
+  $stateDatei = Join-Path $stateDir "$sub.json"
   $state = @{}
   if (Test-Path $stateDatei) { try { $j = (Get-Content -LiteralPath $stateDatei -Raw -Encoding UTF8) | ConvertFrom-Json; foreach ($p in $j.PSObject.Properties) { $state[$p.Name] = [string]$p.Value } } catch { $state = @{} } }
-  $dateien = @(Get-ChildItem -LiteralPath $eigen -Recurse -File -Force | Where-Object { $_.Name -ne '.publish-state.json' })
+  $dateien = @(Get-ChildItem -LiteralPath $lokal -Recurse -File -Force | Where-Object { $_.Name -notlike '.publish-state*' })
   $hoch = 0; $fehler = 0; $ordnerDa = @{}
   foreach ($f in $dateien) {
-    $rel = $f.FullName.Substring($eigen.Length).TrimStart('\').Replace('\', '/')
+    $rel = $f.FullName.Substring($lokal.Length).TrimStart('\').Replace('\', '/')
     $h = Hash $f.FullName
     if ($state.ContainsKey($rel) -and $state[$rel] -eq $h) { continue }
     try {
@@ -133,10 +148,63 @@ if (-not $zugang) {
       for ($i = 0; $i -lt $teile.Count - 1; $i++) { $pfad = $pfad + '/' + $teile[$i]; if (-not $ordnerDa.ContainsKey($pfad)) { Sichere-FtpOrdner $zugang $pfad; $ordnerDa[$pfad] = $true } }
       Lade-FtpHoch $zugang $f.FullName ($fernBasis + '/' + $rel)
       $state[$rel] = $h; $hoch++
-    } catch { $fehler++; Log "FEHLER beim Upload von $rel : $($_.Exception.Message)" }
+    } catch { $fehler++; Log "FEHLER beim Upload von $rel nach $sub : $($_.Exception.Message)" }
   }
   try { [IO.File]::WriteAllText($stateDatei, ($state | ConvertTo-Json), (New-Object Text.UTF8Encoding($false))) } catch { }
-  Log ("eigene Instanz: {0} Datei(en) hochgeladen, {1} Fehler → https://vishnu-artists.de/compass/" -f $hoch, $fehler)
+  Log ("{0}: {1} Datei(en) hochgeladen, {2} Fehler → https://{3}.vishnuartists.com/" -f $was, $hoch, $fehler, $sub)
+}
+
+# Zugangsschutz je Instanz: dieselbe Zugangsdatei wie das Team-Cockpit (AuthUserFile ist absolut und gilt
+# von jedem Ordner aus), dazu https-Zwang — Basic-Auth über http hieße Team-Passwort im Klartext. Die
+# Datei entsteht nur, wenn keine da ist: eine von Hand angepasste (eigenes Passwort, offen) bleibt stehen.
+$HTACCESS_INSTANZ = @'
+# Flow Compass — Instanz auf eigener Subdomain (erzeugt von publish-compass.ps1, bleibt bei Aenderung stehen)
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+</IfModule>
+AuthType Basic
+AuthName "Vishnu Flow Cockpit"
+AuthUserFile /www/htdocs/w01e7219/vishnu-artists.com/.htpasswd-va
+Require valid-user
+<IfModule mod_headers.c>
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Content-Security-Policy "frame-ancestors 'self'"
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+</IfModule>
+<FilesMatch ".(js|html)$">
+  <IfModule mod_headers.c>
+    Header always set Cache-Control "no-cache"
+  </IfModule>
+</FilesMatch>
+'@
+function Sichere-Htaccess([string]$ordner) {
+  $p = Join-Path $ordner '.htaccess'
+  if (-not (Test-Path $p)) { [IO.File]::WriteAllText($p, $HTACCESS_INSTANZ.Replace("`r`n", "`n"), (New-Object Text.UTF8Encoding($false))) }
+}
+
+$zugang = Hole-FtpZugang
+if (-not $zugang) {
+  Log 'WARNUNG: FTP-Zugang fehlt (User-Umgebungsvariablen VA_FTP_HOST / VA_FTP_USER / VA_FTP_PASS) — nichts hochgeladen.'
+} else {
+  Lade-Ordner $zugang (Join-Path $repo 'site\compass') 'bene' 'eigene Instanz'
+  if ($demoOk) { Lade-Ordner $zugang (Join-Path $repo 'site\compass-demo') 'demo' 'Demo' }
+  # Instanzen: erst neu bauen (instanz.js und Datenschicht bleiben dabei unangetastet, nur Produktcode
+  # wird nachgezogen — so laufen alle Instanzen auf dem Stand von heute), dann hochladen.
+  foreach ($inst in $INSTANZEN) {
+    $slug = ($inst.name.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
+    $ordner = Join-Path $repo "instanzen\$slug"
+    try {
+      $pi = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass-produkt.ps1') -Instanz $inst.name 2>&1
+      if ($LASTEXITCODE -ne 0) { throw (($pi | Select-Object -Last 4) -join ' / ') }
+      Sichere-Htaccess $ordner
+      Lade-Ordner $zugang $ordner $inst.sub ('Instanz ' + $inst.name)
+    } catch { Log ("WARNUNG: Instanz {0} nicht ausgerollt: {1}" -f $inst.name, $_.Exception.Message) }
+  }
 }
 
 # 4) Demo geändert? committen + pushen (nur die Build-Ausgabe, nie die handgepflegte .htaccess)
@@ -152,4 +220,4 @@ if ($gitExit -ne 0) { Log "ABBRUCH: commit fehlgeschlagen (Hook?): $o"; Git rese
 if (-not $hatRemote) { Log ('Demo committet (' + (Git log --oneline -1).Trim() + '), kein Remote — Push entfällt.'); return }
 $o = Git push origin main
 if ($gitExit -ne 0) { Log "FEHLER: push fehlgeschlagen — Commit bleibt lokal, nächster Lauf versucht es erneut: $o"; return }
-Log ('Demo veröffentlicht: ' + (Git log --oneline -1).Trim() + ' → https://vishnu-artists.de/compass-demo/ (Deploy läuft ~1–2 Min)')
+Log ('Demo committet: ' + (Git log --oneline -1).Trim() + ' → deploy.yml zielt auf https://demo.vishnuartists.com/ (läuft nur mit Repo-Secrets)')

@@ -92,7 +92,7 @@ window.COMPASS_INSTANZ = {
   team: {
     an: false,
     label: 'Team-Kanban · alle Projekte',
-    url:   'https://vishnu-artists.de/va/',
+    url:   'https://va.vishnuartists.com/',
     daten: 'va-data.json',
     jiraBase: '',
     entries: [

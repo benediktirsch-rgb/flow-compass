@@ -1,10 +1,14 @@
-name: Deploy Flow Compass Demo nach KAS (vishnu-artists.de/compass-demo)
+name: Deploy Flow Compass Demo nach KAS (demo.vishnuartists.com)
 
 # Nur die anonymisierte Demo (site/compass-demo, gebaut von build-compass-produkt.ps1) geht über
 # GitHub live. Die persönliche Instanz (site/compass) ist nicht im Repo und wird von
 # publish-compass.ps1 direkt per FTPS hochgeladen; Kundeninstanzen ebenso.
 # Eigener Sync-State (nicht der des aufgelösten Repos analytics-dashboard): ein fremder State
 # würde beim ersten Lauf Dateien löschen, die hier nicht liegen.
+# Seit 03.09.2026 ist das Ziel die Subdomain demo.vishnuartists.com (eigenes Dokumentenverzeichnis
+# im KAS) statt des geteilten Domain-Ordners von vishnu-artists.de — ein Ziel je Repo. publish-compass.ps1
+# lädt dieselben Bytes zusätzlich per FTPS hoch (eigener Hash-Stand); solange dem Repo die Secrets
+# FTP_SERVER/FTP_USERNAME/FTP_PASSWORD fehlen, ist das der einzige Weg, der wirklich ausliefert.
 
 on:
   push:
@@ -29,5 +33,5 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           local-dir: ./site/compass-demo/
-          server-dir: ./vishnu-artists.com/compass-demo/
-          state-name: .ftp-deploy-flow-compass-demo-state.json
+          server-dir: ./demo.vishnuartists.com/
+          state-name: .ftp-deploy-flow-compass-demo-subdomain-state.json
