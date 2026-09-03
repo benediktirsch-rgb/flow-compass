@@ -227,6 +227,12 @@ param(
   [string]$FinanzUrl = 'https://vishnuartists.com/finanzlauf/',
   [int]$FinanzCacheSec = 300,        # Kontostand aendert sich einmal im Monat, Stimmen sofort — 5 Min ist der Kompromiss
   [int]$FinanzTimeoutSec = 12,
+  # Nutzerzahlen (03.09.2026, Auftrag aus dem Morgencheck): aktive Nutzer, Registrierungen und
+  # Aktivitaeten-Hitliste aus dem CRM auf vishnuartists.com. Derselbe Ausweis wie beim Finanzlauf —
+  # ein Geheimnis, das niemand neu setzen muss, fehlt auch nie. 15 Min Cache: die Zahlen bewegen
+  # sich in Tagen, nicht in Minuten, und der Server arbeitet seriell.
+  [string]$NutzerUrl = 'https://vishnuartists.com/nutzer-kpi.php',
+  [int]$NutzerCacheSec = 900,
   [int]$RoutinenCacheSec = 600,      # Sitzungsdateien aendern sich langsam; 10 Min reichen
   [int]$RoutinenToleranzStd = 3,     # so lange darf eine Routine nach ihrem Termin ausstehen (Rechner war aus, Nachlauf)
   [int]$WachtCacheSec = 900,        # Erreichbarkeit: alle 15 Minuten neu
@@ -2178,6 +2184,68 @@ function Get-Finanzen([bool]$fresh) {
   $script:FinanzCache = @{ zeit = Get-Date; out = $out }
   $out
 }
+# ---------------------------------------------------------------------------
+# Nutzerzahlen — /api/nutzer (03.09.2026)
+#   Auftrag aus Benes Morgencheck: "baue in meine Kennzahlen aktive Nutzer, neue Registrierungen
+#   und eine Aktivitaeten-Hitliste ein". Gemessen wird im CRM auf vishnuartists.com, NICHT in den
+#   Compass-Instanzen: deren Zustand liegt im localStorage des jeweiligen Browsers und verlaesst
+#   ihn nie. Quelle ist nutzer-kpi.php, Ausweis der SHA-256 des FINANZ_TOKEN (Get-FinanzAusweis).
+#
+#   `voll=1` holt zusaetzlich Namen (aktivste Personen, zuletzt angelegte). Die bleiben zur
+#   Laufzeit hier und gehen in die Karte — NIE in eine *-data.js, die wird alle 30 Minuten
+#   veroeffentlicht. Gleiches Muster wie Postfach und Slack.
+#
+#   Die wichtigste Zahl ist nicht die groesste: `registriert` zaehlt nur, wer sich SELBST
+#   angemeldet hat. Am 03.09. standen dem 260 gepflegte Datensaetze aus CSV-Importen gegenueber —
+#   wer die zusammenzaehlt, misst Importlaeufe und nennt sie Wachstum.
+# ---------------------------------------------------------------------------
+$script:NutzerCache = @{ zeit = $null; out = $null }
+function Get-Nutzer([bool]$fresh) {
+  $cc = $script:NutzerCache
+  if (-not $fresh -and $cc.out -and $cc.zeit -and ((Get-Date) - $cc.zeit).TotalSeconds -lt $NutzerCacheSec) { return $cc.out }
+  $token = Get-FinanzToken
+  if (-not $token) {
+    return @{ ok = $false; error = 'NO_KEY'
+              hint = 'FINANZ_TOKEN fehlt — denselben Token nutzt auch der Finanzlauf. Setzen: [Environment]::SetEnvironmentVariable(''FINANZ_TOKEN'',''<token>'',''User'')' }
+  }
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $r = Invoke-RestMethod -Uri ($NutzerUrl + '?voll=1') -Method Get -TimeoutSec $FinanzTimeoutSec `
+           -Headers @{ 'X-Finanz-Token' = (Get-FinanzAusweis $token) } -UserAgent 'Vishnu-Flow-Compass-Nutzer/1.0'
+  } catch {
+    $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+    $code = $null; try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+    return @{ ok = $false; error = $(if ($code -eq 401) { 'AUTH_INVALID' } elseif ($code -eq 503) { 'NO_DB' } else { 'UNREACHABLE' }); status = $code
+              hint = $(if ($code -eq 401) { 'Der Token wird abgewiesen (401) — FINANZ_TOKEN hier und in feedback-config.php sind nicht dasselbe?' }
+                       elseif ($code -eq 503) { 'Die Website erreicht ihre Datenbank nicht — nicht dieser Server.' }
+                       else { 'nutzer-kpi.php nicht erreichbar: ' + $e.Message }) }
+  }
+  if (-not $r.ok) { return @{ ok = $false; error = 'UNREACHABLE'; hint = 'nutzer-kpi.php antwortet ohne ok' } }
+
+  # Fehlende Tabellen bleiben null und werden benannt — eine 0 hiesse "niemand", und das waere
+  # etwas anderes als "nicht messbar".
+  $mAktiv  = $(if ($r.aktiv)  { @{ heute = [int]$r.aktiv.heute; t7 = [int]$r.aktiv.t7; t30 = [int]$r.aktiv.t30; offen = [int]$r.aktiv.offen } } else { $null })
+  $mKonten = $(if ($r.konten) { @{ gesamt = [int]$r.konten.gesamt; mitLogin = $(if ($r.konten.mitLogin -ne $null) { [int]$r.konten.mitLogin } else { $null }) } } else { $null })
+  $mNeu = $null
+  if ($r.neu) {
+    $mNeu = @{ h24 = [int]$r.neu.h24.selbst; t7 = [int]$r.neu.t7.selbst; t30 = [int]$r.neu.t30.selbst; vor30 = [int]$r.neu.vor30.selbst
+               gepflegt24 = [int]$r.neu.h24.gepflegt; gepflegt30 = [int]$r.neu.t30.gepflegt
+               ereignis30 = $(if ($r.neu.ereignis30 -ne $null) { [int]$r.neu.ereignis30 } else { $null })
+               quellen = @(@($r.neu.quellen30) | Where-Object { $_ } | ForEach-Object { @{ quelle = [string]$_.quelle; n = [int]$_.n; selbst = [bool]$_.selbst } }) }
+  }
+  $mHit = $(if ($r.hitliste) { @{ gesamt = [int]$r.hitliste.gesamt; vor30 = [int]$r.hitliste.vor30
+                                  nachArt = @(@($r.hitliste.nachArt) | Where-Object { $_ } | ForEach-Object { @{ art = [string]$_.art; n = [int]$_.n } }) } } else { $null })
+
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); cacheSec = $NutzerCacheSec; gemessen = [string]$r.stand
+            konten = $mKonten; neu = $mNeu; aktiv = $mAktiv; hitliste = $mHit
+            fehlt = @(@($r.fehlt) | ForEach-Object { [string]$_ })
+            # Namen: nur zur Laufzeit, nie in eine Datei.
+            personen = @(@($r.personen) | Where-Object { $_ } | ForEach-Object { @{ name = [string]$_.name; n = [int]$_.n; zuletzt = [string]$_.zuletzt } })
+            neueste  = @(@($r.neueste)  | Where-Object { $_ } | ForEach-Object { @{ name = [string]$_.name; quelle = [string]$_.quelle; erstellt = [string]$_.erstellt } }) }
+  $script:NutzerCache = @{ zeit = Get-Date; out = $out }
+  $out
+}
+
 function Send-Finanzstimme($in) {
   $token = Get-FinanzToken
   if (-not $token) { return @{ ok = $false; error = 'NO_KEY' } }
@@ -2863,6 +2931,11 @@ try {
       if ($path -eq '/api/finanzen') {
         $f = Get-Finanzen ($req.QueryString['fresh'] -eq '1')
         Send-Json $ctx $f 200                                   # {ok:false} ist eine Antwort, kein HTTP-Fehler
+        continue
+      }
+      if ($path -eq '/api/nutzer') {
+        $n = Get-Nutzer ($req.QueryString['fresh'] -eq '1')
+        Send-Json $ctx $n 200                                   # {ok:false} ist eine Antwort, kein HTTP-Fehler
         continue
       }
       if ($path -eq '/api/finanzen/entscheidung' -and $req.HttpMethod -eq 'POST') {

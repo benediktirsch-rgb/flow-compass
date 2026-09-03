@@ -3966,6 +3966,57 @@ const VEREIN={ data:null, fehler:null, geladen:false };
    mit beiden Stimmen und den nächsten GF-Sync aus der Finanzverwaltung (Token auf diesem Rechner).
    Nichts davon steht in einer *-data.js — die wird veröffentlicht, Kontostände nicht. */
 const FIN={ data:null, fehler:null, geladen:false };
+
+/* ---------- Nutzerzahlen (03.09., Auftrag aus dem Morgencheck) -------------------------
+   „aktive Nutzer, neue Registrierungen und eine Aktivitäten-Hitliste“. Gemessen im CRM auf
+   der Website, nicht in den Compass-Instanzen — deren Zustand liegt im localStorage des
+   jeweiligen Browsers und ist von hier grundsätzlich nicht zählbar.
+   Die Namen aus `personen`/`neueste` bleiben in dieser Karte und dürfen NIE in eine
+   *-data.js wandern; die wird alle 30 Minuten veröffentlicht. Wie Postfach und Slack. */
+const NUTZ={ data:null, fehler:null, geladen:false };
+function nutzCard(){
+  return `<div class="card s6 tone-va" id="nutzCard"><h3>👥 Nutzer <span class="cnt" id="nutzStand">lädt …</span></h3>
+    <div id="nutzBody"><div class="empty">Nutzerzahlen werden geladen …</div></div></div>`;
+}
+function nutzRefresh(){
+  const body=document.getElementById('nutzBody'), stand=document.getElementById('nutzStand');
+  if(!body||!stand) return;
+  if(!NUTZ.geladen){ stand.textContent='lädt …'; return; }
+  if(!NUTZ.data){
+    stand.textContent = NUTZ.fehler ? (NUTZ.fehler.error==='NO_KEY'?'kein Token':(NUTZ.fehler.error==='NO_DB'?'keine Datenbank':'Fehler')) : 'offline';
+    body.innerHTML = NUTZ.fehler
+      ? `<div class="empty">Die Nutzerzählung meldet: ${esc(NUTZ.fehler.error||'unbekannter Fehler')}${NUTZ.fehler.hint?' — '+esc(NUTZ.fehler.hint):''}</div>`
+      : `<div class="empty">Compass-Server nicht erreichbar — hier steht deshalb nichts. Leer heißt <b>nicht</b> „keine Nutzer“.</div>`;
+    return;
+  }
+  const n=NUTZ.data, a=n.aktiv, k=n.konten, ne=n.neu, h=n.hitliste;
+  stand.textContent = a ? (a.t7+' aktiv in 7 T') : 'teilweise';
+  const zeile=(ic,t,m,m2)=>`<div class="item"><div class="ic">${ic}</div><div class="body">
+      <div class="t">${t}</div>${m?`<div class="m">${m}</div>`:''}${m2?`<div class="m">${m2}</div>`:''}</div></div>`;
+  const z=[];
+  if(k) z.push(zeile('👤', `${k.mitLogin==null?'–':k.mitLogin} können sich anmelden`,
+                     `${a?a.t7:'–'} davon in den letzten 7 Tagen · ${k.gesamt} Personen im CRM insgesamt`));
+  if(ne) z.push(zeile('📝', `${ne.t30} ${ne.t30===1?'Registrierung':'Registrierungen'} in 30 Tagen`,
+                     `davor ${ne.vor30}`,
+                     `Die ${ne.gepflegt30} gepflegten Datensätze derselben Zeit sind Importe, keine Nutzer — sie zählen hier bewusst nicht mit.`));
+  if(h) z.push(zeile('📈', `${h.gesamt} Aktivitäten in 30 Tagen`,
+                     `davor ${h.vor30}`,
+                     h.nachArt.length ? h.nachArt.slice(0,5).map(x=>`${esc(x.art)} ${x.n}`).join(' · ') : ''));
+  /* Namen nur hier, nie in einer Datei — siehe Kommentar oben. */
+  if(n.personen&&n.personen.length) z.push(zeile('🏅','Aktivste',n.personen.slice(0,3).map(p=>`${esc(p.name)} (${p.n})`).join(' · ')));
+  if(n.fehlt&&n.fehlt.length) z.push(zeile('⚠️','Teilweise nicht messbar',`Diese Tabellen fehlen: ${n.fehlt.map(esc).join(', ')} — das ist etwas anderes als eine Null.`));
+  /* Der eigentliche Befund gehört in die Karte, nicht in den Kopf des Lesers. */
+  if(k&&a&&k.mitLogin&&a.t30<=2) z.push(`<div class="item link" onclick="window.open('https://example.com/konto.php','_blank')">
+      <div class="ic">➜</div><div class="body"><div class="t">${k.mitLogin} könnten, ${a.t30} tun es</div>
+      <div class="m">Bis zum 03.09. gab es für Neue keinen Weg herein — anmelden.php verschickt nur an bekannte Adressen. Jetzt gibt es konto.php.</div></div></div>`);
+  body.innerHTML =
+    `<div class="kpis" style="margin-bottom:8px">
+       <div class="kpi"><div class="v">${a?a.t7:'–'}</div><div class="l">aktiv (7 T)</div></div>
+       <div class="kpi"><div class="v">${k&&k.mitLogin!=null?k.mitLogin:'–'}</div><div class="l">anmeldefähig</div></div>
+       <div class="kpi"><div class="v">${ne?ne.t30:'–'}</div><div class="l">Registrierungen</div></div>
+       <div class="kpi"><div class="v">${h?h.gesamt:'–'}</div><div class="l">Aktivitäten</div></div>
+     </div>` + z.join('');
+}
 /* Die Live-Zahlen über die Projektkarte legen — wie vereinUebernehmen(): eine Wahrheit, nicht zwei. */
 function finUebernehmen(){
   const f=FIN.data; if(!f||!D.projekte||!D.projekte.finance) return;
@@ -4190,6 +4241,17 @@ const LOTUS_KATALOG={
   tickets: {icon:'✅',label:'Tickets fertig',besser:'mehr',ziele:[1,2,4],quelle:'Jira live (Zugangsdaten im Compass-Server) · sonst kennzahlen-data.js',
             wert:d=>d.jira?{heute:d.jira.doneHeute,gestern:d.jira.doneGestern,sub:`${d.jira.done7} in 7 T · ${d.jira.done14} in 14 T`}
                           :((K.durchsatz&&K.durchsatz.done14!=null)?{heute:null,gestern:null,sub:`${K.durchsatz.done14} in 14 T (Stand ${K.stand||'?'})`,hinweis:'Vorgangssystem nicht angebunden'}:null)},
+  /* Nutzerzahlen (03.09.). Gemessen im CRM auf der Website — die Compass-Instanzen zählen sich
+     nicht selbst, ihr Zustand liegt im localStorage des jeweiligen Browsers.
+     Die Zielbänder sind ein VORSCHLAG und bewusst niedrig angesetzt: am 03.09. waren es 2 aktive
+     Nutzer und 1 Registrierung: ein Band, das bei 50 beginnt, stünde monatelang auf Rot und würde
+     nichts sagen. Sie gehören zur offenen Rückfrage `lotus-ziele`. */
+  nutzerAktiv:{icon:'👥',label:'Aktive Nutzer (7 T)',besser:'mehr',ziele:[3,8,20],quelle:'CRM auf der Website (Tabelle sitzung, live über john-server)',
+            wert:d=>(d.nutzer&&d.nutzer.aktiv)?{heute:d.nutzer.aktiv.t7,gestern:null,
+              sub:`${d.nutzer.aktiv.heute} heute · ${d.nutzer.aktiv.t30} in 30 T`+(d.nutzer.konten&&d.nutzer.konten.mitLogin!=null?` · ${d.nutzer.konten.mitLogin} könnten`:'')}:null},
+  registriert:{icon:'📝',label:'Registrierungen (30 T)',besser:'mehr',ziele:[2,5,12],quelle:'CRM auf der Website (person.quelle, ohne Importe)',
+            wert:d=>(d.nutzer&&d.nutzer.neu)?{heute:d.nutzer.neu.t30,gestern:d.nutzer.neu.vor30,
+              sub:`${d.nutzer.neu.t7} in 7 T · Importe (${d.nutzer.neu.gepflegt30}) zählen nicht mit`}:null},
   offen:   {icon:'🎫',label:'Offene Tickets',besser:'weniger',ziele:[90,60,40],quelle:'Jira live · sonst kennzahlen-data.js',
             wert:d=>{ const h=d.jira?d.jira.offen:((K.durchsatz||{}).offen??null); return h==null?null:{heute:h,gestern:histWert('offen'),sub:d.jira?'live':`Stand ${K.stand||'?'}`}; }},
   lead:    {icon:'⏱️',label:'Lead Time p50',einheit:'T',besser:'weniger',ziele:[30,14,7],quelle:'Jira live (eigene Tickets, 14 T) · sonst Kunde-Team (aggregated.json)',
@@ -4590,7 +4652,7 @@ function lotusRender(neuChips){
 }
 async function lotusLaden(){
   const jget=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); const j=await r.json(); return (j&&j.ok!==false)?j:null; }catch(e){ return null; } };
-  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz]=await Promise.all([
+  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer]=await Promise.all([
     jget(JOHN_API+'/api/arbeit'),
     jget(JOHN_API+'/api/kpi/jira'),
     Promise.resolve(null), /* Kundenzahlen: im Produkt gibt es kein Kundenportal */
@@ -4620,7 +4682,11 @@ async function lotusLaden(){
     (async()=>{ try{ const r=await fetch(JOHN_API+'/api/vaikuntha',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
     /* Finanzen (02.09.): ohne Token antwortet der Server mit NO_KEY — das muss die Karte sagen dürfen,
        sonst sieht ein fehlender Schlüssel aus wie eine Firma ohne Konto. */
-    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/finanzen',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/finanzen',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
+    /* Nutzerzahlen (03.09.): ohne Token oder ohne Datenbank antwortet der Server mit NO_KEY bzw.
+       NO_DB — das muss die Karte sagen dürfen, sonst sieht ein fehlender Schlüssel aus wie ein
+       Produkt ohne Nutzer. Genau das ist hier heikel: die echte Zahl ist ohnehin klein. */
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/nutzer',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
   ]);
   KAL.data=(kal&&kal.ok)?kal:null; KAL.fehler=(kal&&kal.ok===false)?kal:null; KAL.geladen=true;
   GIT.data=(git&&git.ok)?git:null; GIT.fehler=(git&&git.ok===false)?git:null; GIT.geladen=true; gitRefresh();
@@ -4635,9 +4701,10 @@ async function lotusLaden(){
   vereinUebernehmen();                      /* Live-Zahlen über den Snapshot legen, BEVOR gerendert wird */
   FIN.data=(finanz&&finanz.ok)?finanz:null; FIN.fehler=(finanz&&finanz.ok===false)?finanz:null; FIN.geladen=true;
   finUebernehmen();
-  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data}; LOT.geladen=true;
+  NUTZ.data=(nutzer&&nutzer.ok)?nutzer:null; NUTZ.fehler=(nutzer&&nutzer.ok===false)?nutzer:null; NUTZ.geladen=true;
+  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data,nutzer:NUTZ.data}; LOT.geladen=true;
   if(arbeit) arbeitXpVerbuchen(arbeit);
-  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh();
+  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh();
   lotusRender(false);
   fortschrittRefresh();
   if(SUMMARY_NEU||!(S.summary&&S.summary.datum===heute())){ const f=SUMMARY_NEU; SUMMARY_NEU=false; summaryHolen(f); }
@@ -5224,7 +5291,7 @@ function render(c){
      Rückfragen, die die Nutzerin deshalb nie sah („keine Fragen an mich“). Sechs Leute, die auf eine
      Antwort warten, sind ein nächster Schritt, kein Kanalzustand. */
   h+=secHtml('schritte',
-      kalenderCard() + postfCard() + slrCard() + wetterCard() + finCard()
+      kalenderCard() + postfCard() + slrCard() + wetterCard() + finCard() + nutzCard()
     + `<div class="card s6 ${tone}"><h3>⚡ Jetzt wichtig</h3>${itemsHtml(d.next,'dashboard.html › CTX.'+c+'.next',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>📅 Termine</h3>${itemsHtml(d.termine,'dashboard.html › CTX.'+c+'.termine',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>🗂️ Vorbereiten</h3>${itemsHtml(d.vorbereiten,'dashboard.html › CTX.'+c+'.vorbereiten',qo)}</div>`
@@ -5268,7 +5335,7 @@ function render(c){
   /* 31.08.: Postfach, Sicherungen, Wetter und Routinen fehlten hier. Ihre Karten rendern leer und
      werden aus dem geladenen Zustand gefüllt — nach jedem erneuten render() (Kontextwechsel!)
      standen sie darum dauerhaft auf „lädt …“, obwohl die Daten längst da waren. */
-  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh();
+  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh();
   if(KAN.mode==='personal'){ if(KAN.view==='board'){ pkDnD(); if(!PK.geladen) pkLaden(false); } else trelloLive(); }
   else { if(VA.tickets.length) vaPaint(); else vaLaden(false); }
 }
