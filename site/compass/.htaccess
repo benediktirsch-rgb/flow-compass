@@ -22,10 +22,19 @@
 # Das Passwort liegt NICHT im Repo. deploy.yml laedt die Datei aus dem
 # Repo-Secret VA_HTPASSWD in den Domain-Ordner (Anleitung: docs/va-zugangsschutz.md).
 # Nie eine .htpasswd nach site/compass/ legen — der Ordner geht komplett live.
-AuthType Basic
-AuthName "Vishnu Flow Cockpit"
-AuthUserFile /www/htdocs/w01e7219/vishnu-artists.com/.htpasswd-va
-Require valid-user
+# Zugangsschutz nur unter https, ueber http nur die Weiterleitung (03.09.2026): Apache prueft die
+# Anmeldung VOR jeder Weiterleitung aus .htaccess (mod_rewrite und mod_alias laufen erst im Fixup) —
+# ohne diese Trennung fragte der Browser ueber http nach dem Passwort und leitete DANN um. Ueber http
+# wird nie Inhalt geliefert: der Redirect greift vor dem Handler.
+<If "%{HTTPS} != 'on'">
+  Redirect 301 / https://bene.vishnuartists.com/
+</If>
+<Else>
+  AuthType Basic
+  AuthName "Vishnu Flow Cockpit"
+  AuthUserFile /www/htdocs/w01e7219/vishnu-artists.com/.htpasswd-va
+  Require valid-user
+</Else>
 # ---------------------------------------------------------------------------
 # Seit 03.09.2026 liegt diese Instanz auf bene.vishnuartists.com (eigenes Dokumenten-
 # verzeichnis, eigener Ursprung). Die Zugangsdatei bleibt die im Ordner von
@@ -33,11 +42,6 @@ Require valid-user
 # Ursprung heisst aber: der Browser schickt die Zugangsdaten des Cockpits (va.) nicht
 # von selbst mit, jede Instanz meldet sich einmal selbst an. Dazu https-Zwang:
 # Basic-Auth ueber http hiesse Passwort im Klartext.
-<IfModule mod_rewrite.c>
-RewriteEngine On
-RewriteCond %{HTTPS} !=on
-RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
-</IfModule>
 
 <IfModule mod_headers.c>
   # Kein Einbetten in fremde Seiten (Clickjacking) — CSP frame-ancestors ist die
