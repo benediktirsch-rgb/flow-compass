@@ -471,6 +471,15 @@ function Invoke-Tool($name, $inp) {
 # ---------- Anthropic Messages API (raw HTTP; kein SDK für PowerShell) ----------
 $Http = New-Object System.Net.Http.HttpClient
 $Http.Timeout = [TimeSpan]::FromMinutes(12)   # Fable-Turns können lange dauern
+
+# Zweiter Client für die Datenquellen (03.09.2026). Bis hierher hingen VA-Board, Trello, Jira und
+# die ICS-Kalender am selben 12-Minuten-Client wie Claude. Der Server arbeitet seriell — eine
+# einzige zähe Quelle konnte damit das ganze Cockpit für Minuten stilllegen, und weil der Prozess
+# dabei am Leben bleibt, hat ihn auch die Aufgabe „John Server" nie neu gestartet (IgnoreNew sieht
+# eine laufende Instanz). Bei Jira wären es drei Aufrufe hintereinander gewesen, also bis 36 Minuten.
+# 25 s sind großzügig für jede dieser APIs und liegen weit unter jeder Geduld am Bildschirm.
+$HttpKurz = New-Object System.Net.Http.HttpClient
+$HttpKurz.Timeout = [TimeSpan]::FromSeconds(25)
 function Call-Claude($apiKey, $body) {
   $json = ($body | ConvertTo-Json -Depth 30 -Compress)
   $req = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::Post, 'https://api.anthropic.com/v1/messages')
@@ -546,7 +555,7 @@ function Get-VaData([bool]$fresh) {
     $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($auth))
     $req.Headers.TryAddWithoutValidation('Authorization', "Basic $b64") | Out-Null
   }
-  $res = $Http.SendAsync($req).GetAwaiter().GetResult()
+  $res = $HttpKurz.SendAsync($req).GetAwaiter().GetResult()
   $bytes = $res.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
   $txt = [Text.Encoding]::UTF8.GetString($bytes)
   if (-not $res.IsSuccessStatusCode) {
@@ -598,7 +607,7 @@ function Get-TrelloBoard([string]$board, [bool]$fresh) {
        '&members=all&member_fields=fullName,initials' +
        "&key=$([Uri]::EscapeDataString($auth.key))&token=$([Uri]::EscapeDataString($auth.token))"
   $url = "https://api.trello.com/1/boards/${id}?${q}"
-  $res = $Http.GetAsync($url).GetAwaiter().GetResult()
+  $res = $HttpKurz.GetAsync($url).GetAwaiter().GetResult()
   $bytes = $res.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
   $txt = [Text.Encoding]::UTF8.GetString($bytes)
   if (-not $res.IsSuccessStatusCode) { throw "TRELLO $([int]$res.StatusCode): $($txt.Substring(0, [Math]::Min(200, $txt.Length)))" }
@@ -638,7 +647,7 @@ function Invoke-TrelloWrite([string]$board, [string]$method, [string]$path, [has
   $q = "key=$([Uri]::EscapeDataString($auth.key))&token=$([Uri]::EscapeDataString($auth.token))"
   foreach ($k in $form.Keys) { if ($null -ne $form[$k]) { $q += "&$k=$([Uri]::EscapeDataString([string]$form[$k]))" } }
   $req = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::new($method), "https://api.trello.com/1/${path}?${q}")
-  $res = $Http.SendAsync($req).GetAwaiter().GetResult()
+  $res = $HttpKurz.SendAsync($req).GetAwaiter().GetResult()
   $txt = [Text.Encoding]::UTF8.GetString($res.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult())
   if ([int]$res.StatusCode -eq 401 -or [int]$res.StatusCode -eq 403) { throw 'NO_WRITE' }
   if (-not $res.IsSuccessStatusCode) { throw "TRELLO $([int]$res.StatusCode): $($txt.Substring(0, [Math]::Min(200, $txt.Length)))" }
@@ -787,7 +796,7 @@ function Invoke-JiraJson($auth, [string]$path, $body) {
   $req.Headers.TryAddWithoutValidation('Authorization', "Basic $basic") | Out-Null
   $req.Headers.TryAddWithoutValidation('Accept', 'application/json') | Out-Null
   if ($body) { $req.Content = New-Object System.Net.Http.StringContent (($body | ConvertTo-Json -Depth 8 -Compress), [Text.Encoding]::UTF8, 'application/json') }
-  $res = $Http.SendAsync($req).GetAwaiter().GetResult()
+  $res = $HttpKurz.SendAsync($req).GetAwaiter().GetResult()
   $txt = $res.Content.ReadAsStringAsync().GetAwaiter().GetResult()
   if (-not $res.IsSuccessStatusCode) { throw "JIRA $([int]$res.StatusCode): $($txt.Substring(0, [Math]::Min(200, $txt.Length)))" }
   return ($txt | ConvertFrom-Json)
@@ -930,7 +939,7 @@ function Get-KalenderQuellen {
 
 function Get-IcsText([string]$url) {
   $u = $url -replace '^webcal://', 'https://'
-  $res = $Http.GetAsync($u).GetAwaiter().GetResult()
+  $res = $HttpKurz.GetAsync($u).GetAwaiter().GetResult()
   if (-not $res.IsSuccessStatusCode) { throw "HTTP $([int]$res.StatusCode)" }
   $bytes = $res.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
   return [Text.Encoding]::UTF8.GetString($bytes)
@@ -2606,11 +2615,16 @@ function Add-Antwort([string]$id, [string]$a, [string]$ts, [string]$frage, [stri
   return $true
 }
 
-Sync-Drive $(if ($PullFromDrive) { 'pull+push' } else { 'push' })
+# Reihenfolge umgedreht (03.09.2026): erst lauschen, dann spiegeln.
+# Sync-Drive ruft zweimal robocopy gegen H: (DriveFS) — ohne Zeitbremse, /R:1 /W:1 begrenzt nur je
+# Datei. Solange das lief, war Port 8787 NICHT gebunden, und der Compass zeigte „Server nicht
+# erreichbar" statt „lädt" — dieselbe Meldung wie bei einem toten Server, nur dass er gerade hochfuhr.
+# Der Spiegel ist eine Sicherung, kein Startkriterium; er darf danach laufen.
 $listener = New-Object System.Net.HttpListener
 $prefix = "http://localhost:$Port/"
 $listener.Prefixes.Add($prefix)
 $listener.Start()
+Sync-Drive $(if ($PullFromDrive) { 'pull+push' } else { 'push' })
 $RootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\') + '\'
 Write-Host "John-Server läuft: $prefix  (Root: $RootFull)"
 Write-Host "  John-Ordner: $JohnDir"
@@ -2640,6 +2654,13 @@ function Send-Html($ctx, [string]$html, [int]$code = 200) {
 $script:GitCache = $null; $script:GitCacheZeit = [datetime]::MinValue; $script:GitSnapZeit = [datetime]::MinValue
 try {
   while ($listener.IsListening) {
+    # Dieses Fenster — GetContext, die Header-Zuweisungen und UnescapeDataString — lag bisher
+    # ausserhalb jedes catch (das innere beginnt erst nach $path). Mit $ErrorActionPreference='Stop'
+    # wird dort jeder Fehler terminierend: eine verstuemmelte Anfrage ($req.Url = $null) beendete
+    # damit den ganzen Prozess, lautlos, und der Server war weg bis zum naechsten Aufgabenlauf.
+    # Jetzt ueberlebt der Loop einen kaputten Request, statt an ihm zu sterben.
+    $ctx = $null
+    try {
     $ctx = $listener.GetContext()
     $req = $ctx.Request; $res = $ctx.Response
     $res.Headers['Access-Control-Allow-Origin'] = '*'
@@ -3160,5 +3181,11 @@ try {
     } catch {
       try { Send-Json $ctx @{ error = $_.Exception.Message } 500 } catch {}
     }
+    } catch {
+      # Der Rahmen der Anfrage war kaputt (GetContext, Header, UnescapeDataString). Frueher endete
+      # der Prozess hier. Jetzt: eine Zeile ins Log, Verbindung zumachen, weiterlauschen.
+      Write-Host "  Anfrage verworfen: $($_.Exception.Message)" -ForegroundColor DarkYellow
+      try { if ($ctx -and $ctx.Response) { $ctx.Response.Close() } } catch { }
+    }
   }
-} finally { $listener.Stop(); $Http.Dispose(); Sync-Drive 'push'; Write-Host 'John-Server gestoppt.' }
+} finally { $listener.Stop(); $Http.Dispose(); $HttpKurz.Dispose(); Sync-Drive 'push'; Write-Host 'John-Server gestoppt.' }
