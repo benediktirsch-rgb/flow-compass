@@ -105,6 +105,13 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .boardlink{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;color:inherit;text-decoration:none;white-space:nowrap}
 .boardlink:hover{border-color:#6a4b12;color:var(--bene)}
 .boardlink[hidden]{display:none}
+/* Verbindungsanzeige (03.09.): leer, solange nichts bekannt ist — eine Pille, die von Anfang an
+   „live" behauptet, wäre genau die Sorte Zusage, die das Cockpit unglaubwürdig macht. */
+.srvpill{font-size:12px;font-weight:800;border-radius:999px;padding:5px 11px;white-space:nowrap;letter-spacing:.02em}
+.srvpill:empty{display:none}
+.srvpill.srvOk{color:var(--sub);background:var(--panel2);border:1px solid var(--line)}
+.srvpill.srvWeg{color:#7a2e12;background:#fbe6dc;border:1px solid #e7b9a4}
+[data-theme=dark] .srvpill.srvWeg{color:#ffbf9e;background:#3a1e12;border-color:#7a4227}
 
 /* ---------- Rhythmus-Leiste ---------- */
 .rhythm{display:flex;gap:10px;padding:14px 32px 0;flex-wrap:wrap;align-items:stretch}
@@ -971,6 +978,7 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
     <div class="meta"><b id="lvName">Beobachter</b><span id="lvXp">0 XP</span></div>
     <div class="streak" id="streak">🔥 <span id="streakN">0</span> Tage</div>
     <a class="boardlink" id="boardLink" hidden target="_blank" rel="noopener" data-nolang>🌅 Board</a>
+    <span class="srvpill" id="srvStand" data-nolang></span>
   </div>
   <span class="phase" id="phase" title="Tagesphase — der Compass färbt sich mit dem Tag"></span>
   <button class="iconbtn" id="btnTheme" title="Farbschema: Automatisch (folgt dem Tag) → Hell → Dunkel">🌙</button>
@@ -4074,8 +4082,38 @@ function finStimmeAusRitual(id,antwort){
   const i=e.optionen.indexOf(antwort);
   const body=(i>=0)?{id:eid,wahl:i}:{id:eid,spaeter:true};
   if(i>=0){ e.stimmen=e.stimmen||{}; e.stimmen[FIN.data.ich||'ich']={wahl:i,kommentar:'',zeit:new Date().toISOString()}; }
-  try{ fetch(JOHN_API+'/api/finanzen/entscheidung',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
-        .then(r=>r.json()).then(()=>{ finRefresh(); }).catch(()=>{}); }catch(err){}
+  /* Die Stimme wird oben lokal eingetragen, BEVOR der POST läuft — damit die Karte sofort reagiert.
+     Bis 03.09. verschluckte ein leeres .catch() jeden Fehler: ohne Server sah die Entscheidung
+     abgestimmt aus und war nirgends angekommen. Genau der Datenverlust, gegen den es bei der
+     Checkin-Übergabe uebergabeWacht() gibt. Jetzt wird eine misslungene Stimme gemerkt und beim
+     nächsten Verbindungserfolg nachgereicht; scheitert sie, sagt die Oberfläche das auch. */
+  finStimmeSenden(body,e,i);
+}
+/* Nicht angekommene Stimmen überleben den Reload — sie liegen bei den übrigen Compass-Daten. */
+function finOffeneStimmen(){ try{ return JSON.parse(localStorage.getItem('compassFinOffen')||'[]'); }catch(e){ return []; } }
+function finOffenSetzen(l){ try{ localStorage.setItem('compassFinOffen',JSON.stringify(l.slice(-20))); }catch(e){} }
+function finStimmeSenden(body,e,i){
+  fetch(JOHN_API+'/api/finanzen/entscheidung',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    .then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+    .then(j=>{
+      if(j&&j.ok===false) throw new Error(j.error||'abgelehnt');
+      const rest=finOffeneStimmen().filter(x=>x.id!==body.id); finOffenSetzen(rest);
+      finRefresh();
+    })
+    .catch(err=>{
+      const l=finOffeneStimmen().filter(x=>x.id!==body.id); l.push({id:body.id,body:body,ts:Date.now()}); finOffenSetzen(l);
+      if(i>=0&&e&&e.stimmen&&FIN.data) delete e.stimmen[FIN.data.ich||'ich'];   /* nicht abgestimmt tun, was nicht ankam */
+      if(typeof toast==='function') toast('Stimme nicht angekommen ('+(err.message||'Server nicht erreichbar')+') — ich reiche sie nach.');
+      finRefresh();
+    });
+}
+/* Beim nächsten geglückten Ladelauf nachreichen. Ruft die Verbindungswacht auf. */
+function finStimmenNachreichen(){
+  const l=finOffeneStimmen(); if(!l.length||!FIN.data) return;
+  l.forEach(x=>{
+    const e=(FIN.data.entscheidungen||[]).find(y=>y.id===x.body.id);
+    finStimmeSenden(x.body,e,(typeof x.body.wahl==='number')?x.body.wahl:-1);
+  });
 }
 function finCard(){
   return `<div class="card s6 tone-fi" id="finCard"><h3>💶 Finanzen <span class="cnt" id="finStand">lädt …</span></h3>
@@ -4760,6 +4798,18 @@ async function lotusLaden(){
   finUebernehmen();
   NUTZ.data=(nutzer&&nutzer.ok)?nutzer:null; NUTZ.fehler=(nutzer&&nutzer.ok===false)?nutzer:null; NUTZ.geladen=true;
   LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data,nutzer:NUTZ.data}; LOT.geladen=true;
+  /* Verbindungszustand für die Verbindungswacht. Unterschieden wird streng: null = der Abruf kam
+     gar nicht durch (Server weg), ein Objekt = der Server hat geantwortet — auch {ok:false}, denn
+     das heißt „diese eine Quelle fehlt", nicht „der Server ist tot". Nur so kann die Wacht den
+     Takt richtig wählen, statt bei einer fehlenden Kalenderadresse dauernd nachzuklopfen. */
+  if(typeof SRV!=='undefined'&&SRV){
+    const erreicht=[kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer].some(x=>x!==null&&x!==undefined);
+    SRV.ok=erreicht;
+    if(erreicht){ SRV.stand=Date.now(); SRV.fehl=0; } else { SRV.fehl++; }
+    if(typeof srvStandMalen==='function') srvStandMalen();
+    /* Verbindung steht wieder: liegengebliebene Finanz-Stimmen nachreichen (03.09.) */
+    if(erreicht&&typeof finStimmenNachreichen==='function'){ try{ finStimmenNachreichen(); }catch(e){} }
+  }
   if(arbeit) arbeitXpVerbuchen(arbeit);
   kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh();
   lotusRender(false);
@@ -5647,7 +5697,67 @@ function compassGoZeigen(id,erneut){
 }
 (function(){ const g=new URLSearchParams(location.search).get('go'); if(g) setTimeout(()=>compassGo(g),280); })();
 
+/* ---------- Verbindungswacht (03.09.2026) ----------------------------------
+   Bis hierher lud der Compass GENAU EINMAL. Kam der john-server drei Sekunden nach dem Öffnen
+   hoch, blieb die Seite leer, bis die Nutzerin F5 drückte — und jede Zahl war ab dem Ladezeitpunkt
+   eingefroren. Für ein Verfügbarkeitsziel ist das der eigentliche Hebel: nicht wie oft der
+   Server weg ist, sondern ob der Compass von selbst zurückfindet.
+
+   Zwei Takte, ein Grundsatz: im Hintergrundtab wird nicht geklopft (der Server arbeitet seriell,
+   jeder Abruf kostet ihn eine Runde) — dafür sofort wieder, sobald der Tab sichtbar wird oder
+   das Netz zurückkommt. Dasselbe Muster wie uebergabeWacht(), nur für die Daten.
+   Läuft es, wird alle SRV.taktOk aufgefrischt; ist der Server weg, wird häufiger und mit
+   wachsendem Abstand erneut versucht, damit ein toter Server nicht dauerhaft angeklopft wird. */
+const SRV={ok:null,stand:0,fehl:0,laeuft:false,timer:null,taktOk:60000,taktFehl:8000,taktMax:120000,laufMax:150000};
+function srvTaktNext(){
+  if(SRV.ok) return SRV.taktOk;
+  /* Nie verbunden gewesen: vermutlich eine Fassung ohne eigenen Server. Nach ein paar Anläufen
+     nur noch selten klopfen, statt dauerhaft ins Leere zu greifen — kommt später doch einer dazu,
+     holt ihn der Takt oder ein Tabwechsel trotzdem. */
+  if(!SRV.stand&&SRV.fehl>=4) return SRV.taktMax;
+  return Math.min(SRV.taktMax, SRV.taktFehl*Math.pow(2,Math.max(0,SRV.fehl-1)));
+}
+function srvPlanen(){
+  clearTimeout(SRV.timer);
+  SRV.timer=setTimeout(()=>srvNachladen('takt'),srvTaktNext());
+}
+async function srvNachladen(grund){
+  if(SRV.laeuft||document.hidden){ srvPlanen(); return; }
+  SRV.laeuft=true;
+  /* Notbremse: der Compass schickt 15 Abrufe auf einmal, der Server arbeitet sie einzeln ab —
+     nach einem Neustart dauert eine Runde deshalb gut eine halbe Minute. Bliebe ein fetch ganz
+     hängen, stünde SRV.laeuft für immer auf true und die Wacht wäre tot, ohne dass es jemand
+     sieht. Nach SRV.laufMax gilt der Lauf als verloren und der Takt geht weiter; der alte Lauf
+     darf in Ruhe zu Ende laufen, er schreibt dieselben Felder. */
+  const notaus=setTimeout(()=>{ SRV.laeuft=false; srvPlanen(); },SRV.laufMax);
+  try{ await lotusLaden(); }
+  catch(e){ /* lotusLaden fängt selbst ab; hier nur, damit ein Fehler den Takt nicht abreißen lässt */ }
+  finally{ clearTimeout(notaus); SRV.laeuft=false; }
+  srvStandMalen();
+  srvPlanen();
+}
+/* Ehrlich sichtbar machen, wie frisch die Anzeige ist — eine stille Seite, die alte Zahlen zeigt,
+   ist schlimmer als eine, die sagt „seit 4 Minuten keine Verbindung". Hängt sich an die vorhandene
+   Datenstand-Pille im Kopf, falls es sie gibt; sonst passiert nichts. */
+function srvStandMalen(){
+  const el=document.getElementById('srvStand'); if(!el) return;
+  if(SRV.ok===null){ el.textContent=''; el.title=''; return; }
+  if(SRV.ok){ el.textContent='● live'; el.className='srvOk';
+              el.title='Verbunden — zuletzt aktualisiert '+new Date(SRV.stand).toLocaleTimeString(typeof LOC==='function'?LOC():'de-DE'); return; }
+  /* Nie verbunden gewesen = keine Datenquelle angebunden (Demo, frische Kundeninstanz). Das ist
+     kein Ausfall, und „keine Verbindung" wäre dort eine Fehlmeldung — dieselbe Trennung, die die
+     Karten zwischen „nicht angebunden" und „Server aus" machen. Also: gar keine Pille. */
+  if(!SRV.stand){ el.textContent=''; el.title=''; return; }
+  const min=SRV.stand?Math.round((Date.now()-SRV.stand)/60000):0;
+  el.textContent=SRV.stand?('○ Stand vor '+min+' Min'):'○ keine Verbindung';
+  el.className='srvWeg';
+  el.title='Der Compass-Server antwortet nicht. Der Compass versucht es weiter und meldet sich hier, sobald er wieder da ist.';
+}
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) srvNachladen('sichtbar'); });
+window.addEventListener('online',()=>srvNachladen('online'));
+
 lotusLaden();   /* Arbeit/Jira/Kunde laden → Lotus füllen, XP verbuchen, Coach-Summary holen */
+srvPlanen();    /* ab jetzt hält die Verbindungswacht die Anzeige frisch und findet von selbst zurück */
 setTimeout(()=>{ uebergabeNachholen().then(f=>{ if(!f) uebergabeWacht(); }); },1600);
 setTimeout(boardLaden,2600);   /* jüngstes Board für den Link im Kopf (02.09.) */   /* liegengebliebene Übergabe still nachreichen, notfalls im Takt weiter (siehe checkinSenden) */
 antwortenSync();                       /* beantwortete Rückfragen mit dem john-server abgleichen (31.08.) */
