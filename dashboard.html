@@ -226,6 +226,7 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .btn.a{background:linear-gradient(135deg,var(--va),#3d6bff);border:none;color:#fff}
 .btn.g{background:var(--vk);border-color:var(--vk);color:#122005}
 .btn.w{background:var(--bene);border-color:var(--bene);color:#1c1300}
+.btn[hidden]{display:none}
 .tframe{width:100%;height:430px;border:1px solid var(--line);border-radius:12px;background:#fff}
 .tframe.tall{height:640px}
 /* Handy-Rahmen: schmaler iframe → das eingebettete Cockpit schaltet selbst in seine mobile Ansicht (≤ 640/900 px) */
@@ -982,6 +983,7 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
     <div class="ft leer" id="focusText">Noch nicht gesetzt — starte den Morgencheck</div>
   </div>
   <span class="spacer"></span>
+  <a class="btn w" id="btnBoard" hidden target="_blank" rel="noopener">🌅 Board</a>
   <button class="btn a" id="btnMorgen">☀️ Morgencheck · 5 Min <span class="kbd">M</span></button>
   <a class="btn g" href="kennzahlen.html" target="_top">📊 Kennzahlen <span class="kbd">K</span></a>
   <a class="btn g" href="kundenlage.html" target="_top">🧭 Kundenlage</a>
@@ -1305,6 +1307,9 @@ function kopfMalen(){
   if(bl){ const b=S.letztesBoard;
     if(b&&b.url&&b.datum){ bl.hidden=false; bl.href=JOHN_API+b.url; bl.textContent=boardIcon(b.art)+' '+boardName(b.art)+' '+b.datum.slice(8,10)+'.'+b.datum.slice(5,7)+'.'; bl.title='Board vom '+b.datum+' — öffnet in einem neuen Tab'; }
     else bl.hidden=true; }
+  /* Direktzugang zum Board (03.09.): goldener Knopf in der Fokus-Leiste, siehe boardCta(). */
+  const cta=document.getElementById('btnBoard');
+  if(cta){ const c=boardCta(); if(c){ cta.hidden=false; cta.href=c.url; cta.textContent=c.text; cta.title=c.title; } else cta.hidden=true; }
 }
 
 /* ---------- Rhythmus-Leiste ---------- */
@@ -1399,7 +1404,11 @@ function starte(art){
   IDX=0; ENDE=false; ov.classList.add('on'); schrittMalen();
 }
 document.getElementById('ovX').addEventListener('click',()=>beenden());
-function beenden(){ ov.classList.remove('on'); clearInterval(TICK); FLOW=null; ENDE=false; rhythmMalen(); kopfMalen(); }
+/* Nach dem Schließen die Karten neu malen (03.09.2026, Bene: „nach Entscheidung müssen die Fragen
+   verschwinden oder auf grün gesetzt werden“): der Banner „Fragen an dich“ entsteht in render(), und
+   das lief bis hierher erst beim nächsten Laden — drei eben entschiedene Fragen standen danach
+   weiter als „warten auf deine Entscheidung“ oben. */
+function beenden(){ ov.classList.remove('on'); clearInterval(TICK); FLOW=null; ENDE=false; render(aktuell); rhythmMalen(); kopfMalen(); }
 
 function schrittMalen(){
   clearInterval(TICK);
@@ -1531,7 +1540,9 @@ function koerper(s){
     if(fm.text && fm.datum===gestern) vs.push(['🌙','Gestern Abend vorgenommen',fm.text]);
     if(/morgen weiter/.test(hg.bilanz||'') && hg.fokus && hg.fokus!==fm.text) vs.push(['🟡','Gestern bewusst auf heute verschoben',hg.fokus]);
     FLOW.vorschlaege=vs;   /* verdrahten() greift per Index zu — Text nie in ein Attribut (esc lässt " durch) */
-    return `<textarea id="ovIn" placeholder="In einem Satz …"></textarea>
+    /* Abendboard vom letzten Arbeitstag (03.09.2026): im Morgencheck selbst sichtbar, nicht nur im Kopf. */
+    const abB=BOARDS.liste.find(b=>b.art==='abend'&&b.datum===gesternKey())||null;
+    return `${abB?`<div class="hint" style="margin-bottom:8px">🌙 Dein Abendboard von gestern liegt bereit — <a href="${esc(JOHN_API+abB.url)}" target="_blank" rel="noopener">Abendboard öffnen ↗</a></div>`:''}<textarea id="ovIn" placeholder="In einem Satz …"></textarea>
       ${vs.map((v,i)=>`<button type="button" class="btn vorsatz" data-vi="${i}" style="margin-top:8px;display:block;width:100%;text-align:left;white-space:normal">${v[0]} ${esc(v[1])}: „${esc(v[2])}“ <b>— übernehmen</b></button>`).join('')}`;
   }
   return `<textarea id="ovIn" placeholder="In einem Satz …"></textarea>`;
@@ -1753,11 +1764,35 @@ function boardFertig(art,datum,url,box){
   S.letztesBoard={art,datum,url}; speichern(); kopfMalen();
   if(box){ box.className='pushbox ok'; box.innerHTML='<b>'+boardIcon(art)+' '+esc(boardName(art))+' ist fertig.</b> <a class="btn g" style="margin-left:8px;display:inline-block" href="'+esc(JOHN_API+url)+'" target="_blank" rel="noopener">'+boardIcon(art)+' '+esc(boardName(art))+' öffnen</a>'; }
 }
+const BOARDS={liste:[]};
 async function boardLaden(){
   try{
     const r=await fetch(JOHN_API+'/api/board?json=1',{cache:'no-store'}); const d=await r.json();
-    if(d&&d.ok&&d.neuestes&&!d.neuestes.archiv){ S.letztesBoard={art:d.neuestes.art,datum:d.neuestes.datum,url:d.neuestes.url}; speichern(); kopfMalen(); }
+    if(!(d&&d.ok)) return;
+    BOARDS.liste=(d.boards||[]).filter(b=>b&&!b.archiv&&b.datum&&b.url);
+    if(d.neuestes&&!d.neuestes.archiv){ S.letztesBoard={art:d.neuestes.art,datum:d.neuestes.datum,url:d.neuestes.url}; speichern(); }
+    kopfMalen();
   }catch(e){}
+}
+/* Direktzugang oben (03.09.2026, Bene): Der Abendcheck lief, das Abendboard war da — und am Morgen
+   fand es niemand, weil der Link im Kopf klein ist und das Board im Morgencheck gar nicht vorkam.
+   Deshalb ein Knopf neben dem Morgencheck: abends das Abendboard von heute, tagsüber das Morgenboard
+   von heute, vor dem Morgencheck das Abendboard vom letzten Arbeitstag, sonst das jüngste Board der
+   letzten vier Tage. Kein Board → kein Knopf; erfunden wird hier nichts. */
+function boardCta(){
+  const h=heute(), g=gesternKey(), st=new Date().getHours();
+  const liste=BOARDS.liste.length?BOARDS.liste:(S.letztesBoard&&S.letztesBoard.url?[S.letztesBoard]:[]);
+  const find=(art,datum)=>liste.find(b=>b.art===art&&b.datum===datum)||null;
+  let b=null, text='';
+  if(st>=17 && (b=find('abend',h)))  text='🌙 Abendboard · heute';
+  else if((b=find('morgen',h)))      text='🌅 Morgenboard · heute';
+  else if((b=find('abend',g)))       text='🌙 Abendboard · gestern Abend';
+  else {
+    const grenze=new Date(Date.now()-4*864e5).toISOString().slice(0,10);
+    b=liste.filter(x=>x.datum<h&&x.datum>=grenze).sort((x,y)=>x.datum<y.datum?1:-1)[0]||null;
+    if(b) text=boardIcon(b.art)+' '+boardName(b.art)+' · '+b.datum.slice(8,10)+'.'+b.datum.slice(5,7)+'.';
+  }
+  return b?{url:JOHN_API+b.url,text,title:boardName(b.art)+' vom '+b.datum+' — öffnet in einem neuen Tab'}:null;
 }
 
 /* ==========================================================================
@@ -1806,27 +1841,51 @@ async function antwortenSync(){
    von Hand nachträgt (jüngster Eintrag beim Fund: 27.08.). Der john-server hat sie
    dagegen sofort als Datei unter checkins\ liegen und liefert sie über /api/checkin
    mit offenem CORS aus — also holen wir sie dort, genau wie antwortenSync(). */
+let SUMMARY_NEU=false;   /* Summary neu schreiben, sobald die Kennzahlen geladen sind (siehe checkinSync) */
+let CHECKIN_SYNC=null;   /* Promise von checkinSync() — summaryHolen() wartet darauf (03.09.) */
 async function checkinSync(){
   let d=null;
   try{
-    const r=await fetch(JOHN_API+'/api/checkin');
+    const r=await fetch(JOHN_API+'/api/checkin?voll=1&limit=10');
     if(!r.ok) return;
     d=await r.json();
   }catch(e){ return; }                    /* Server aus → lokaler Stand bleibt gültig */
-  const h=heute();
-  const m=((d&&d.checkins)||[]).find(c=>c&&c.art==='morgen'&&c.datum===h);
-  if(!m) return;
-  let neu=false;
-  const fokus=String(m.fokus||(m.antworten&&m.antworten.fokus)||'').trim();
-  if(fokus && !(S.fokus.datum===h && S.fokus.text)){ S.fokus={datum:h,text:fokus}; neu=true; }
-  /* Streak ja, XP nein: der Check ist wirklich gelaufen, nur nicht in diesem Browser.
-     streakFort() setzt lastMorgen und ist für heute schon idempotent — zweimal zählt
-     es also nicht. Die XP bleiben dort, wo der Check geklickt wurde. */
-  if(S.lastMorgen!==h){ streakFort(); neu=true; }
+  const h=heute(), liste=(d&&d.checkins)||[];
+  let neu=false, neuAbend=false;
+  const m=liste.find(c=>c&&c.art==='morgen'&&c.datum===h);
+  if(m){
+    const fokus=String(m.fokus||(m.antworten&&m.antworten.fokus)||'').trim();
+    if(fokus && !(S.fokus.datum===h && S.fokus.text)){ S.fokus={datum:h,text:fokus}; neu=true; }
+    /* Streak ja, XP nein: der Check ist wirklich gelaufen, nur nicht in diesem Browser.
+       streakFort() setzt lastMorgen und ist für heute schon idempotent — zweimal zählt
+       es also nicht. Die XP bleiben dort, wo der Check geklickt wurde. */
+    if(S.lastMorgen!==h){ streakFort(); neu=true; }
+  }
+  /* Abendcheck ebenso (03.09.2026): Bene hatte den Abendcheck am 02.09. um 22:31 im Live-Compass
+     gemacht, der Morgencheck lief auf localhost — und Johns Summary sagte „der Abendcheck fehlte“,
+     weil abendcheckGestern nur S.lastAbend dieses Browsers kannte. Der Server hat die Datei; also
+     kommen lastAbend, die Tages-Historie (Bilanz, Abgelegtes, Erholung, Projekt) und der Vorsatz
+     „das Eine für morgen“ von dort — und die Summary von heute wird danach neu geschrieben. */
+  /* Das Eine der Vortage gehört in die Historie, sonst hält die Summary den Vorsatz aus dem
+     Abendcheck („das Eine für morgen“) für das Eine von gestern. */
+  liste.filter(c=>c&&c.art==='morgen'&&c.datum&&c.datum<h&&String(c.fokus||'').trim()).forEach(c=>{
+    const x=S.hist[c.datum]||{}; if(!x.fokus){ x.fokus=String(c.fokus).trim(); S.hist[c.datum]=x; neu=true; } });
+  const ab=liste.filter(c=>c&&c.art==='abend'&&c.datum&&c.datum<h).sort((a,b)=>a.datum<b.datum?1:-1)[0];
+  if(ab){
+    const a=ab.antworten||{}, w=ab.wahl||{};
+    const felder={bilanz:a.bilanz||w.bilanz||'', ablegen:a.ablegen||'', morgen:a.morgen||'',
+                  erholung:w.erholung||a.erholung||'', projekt:w.projekt||a.projekt||''};
+    const hist=S.hist[ab.datum]||{};
+    Object.keys(felder).forEach(k=>{ if(felder[k]&&!hist[k]){ hist[k]=felder[k]; S.hist[ab.datum]=hist; neu=true; } });
+    if(!(S.lastAbend&&S.lastAbend>=ab.datum)){ S.lastAbend=ab.datum; neu=true; neuAbend=true; }
+    if(felder.morgen && !(S.fokusMorgen&&S.fokusMorgen.text&&S.fokusMorgen.datum>=ab.datum)){ S.fokusMorgen={datum:ab.datum,text:felder.morgen}; neu=true; }
+  }
   /* rhythmMalen() muss mit: die Rituale-Leiste malt sich beim Laden EINMAL, da war die
      Antwort des Servers noch nicht da. Ohne sie stand „Das Eine" richtig oben, die Karte
      Morgencheck daneben aber weiter auf „5 Min · fällig" statt „erledigt". */
   if(neu){ speichern(); render(aktuell); kopfMalen(); rhythmMalen(); }
+  /* Die Summary von heute entstand ohne diesen Abendcheck → neu, sobald die Zahlen da sind. */
+  if(neuAbend && S.summary && S.summary.datum===h){ if(LOT.geladen) setTimeout(()=>summaryHolen(true),0); else SUMMARY_NEU=true; }
 }
 
 /* ---------- Vorlieben wandern mit (31.08.2026, Benes Auftrag) ----------
@@ -2307,8 +2366,26 @@ function wocheCard(){
    Seit 26.08. blättert der Banner: „▸ N weitere“ zeigt die nächsten drei, am Ende geht es „↩ von vorn“ —
    vorher war „+N weitere“ nur ein stummer Zähler und Fragen ab Platz 4 blieben unsichtbar. */
 let FRAGEN_AB=0;
+/* Was heute entschieden wurde — aus S.antworten (Rückfragen + Finanz-Entscheidungen), nur mit Datum von heute. */
+function heuteEntschieden(){
+  const h=heute(), out=[];
+  Object.keys(S.antworten||{}).forEach(id=>{ const w=S.antworten[id]; if(!w||!w.a||w.ts!==h) return;
+    let frage=antwortText(id);
+    if(!frage&&/^fin-/.test(id)&&FIN.data){ const x=(FIN.data.entscheidungen||[]).find(y=>'fin-'+y.id===id); if(x) frage=x.titel+' — '+x.frage; }
+    out.push({id,frage:frage||id,antwort:w.a}); });
+  return out;
+}
 function fragenBanner(){
-  const o=offeneFragen(); if(!o.length){FRAGEN_AB=0; return '';}
+  const o=offeneFragen();
+  if(!o.length){
+    FRAGEN_AB=0;
+    /* Entschieden ist entschieden — und heute sichtbar grün (03.09.2026): statt die Karte still
+       verschwinden zu lassen, zeigt sie den Rest des Tages, was entschieden wurde. */
+    const e=heuteEntschieden(); if(!e.length) return '';
+    return `<div class="card s12 tone-bene" id="fragenBanner"><h3>✅ ${e.length} ${e.length===1?'Entscheidung heute':'Entscheidungen heute'} <span class="cnt"><span class="tag grn">alles beantwortet</span></span></h3>
+    ${e.slice(0,KURZ_N).map(x=>`<div class="item"><div class="ic">✅</div><div class="body"><div class="t">${esc(x.frage)}</div><div class="m">→ ${esc(x.antwort)}</div></div></div>`).join('')}
+    ${e.length>KURZ_N?`<div class="mini">und ${e.length-KURZ_N} weitere — alle stehen im Checkin-Protokoll.</div>`:''}</div>`;
+  }
   if(FRAGEN_AB>=o.length) FRAGEN_AB=0;
   const seite=o.slice(FRAGEN_AB,FRAGEN_AB+KURZ_N);
   const rest=o.length-FRAGEN_AB-seite.length;
@@ -4533,7 +4610,7 @@ async function lotusLaden(){
   kalenderRefresh(); wachtRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh();
   lotusRender(false);
   fortschrittRefresh();
-  if(!(S.summary&&S.summary.datum===heute())) summaryHolen(false);
+  if(SUMMARY_NEU||!(S.summary&&S.summary.datum===heute())){ const f=SUMMARY_NEU; SUMMARY_NEU=false; summaryHolen(f); }
 }
 /* ---------- Praktische Arbeit → XP („Score“): je angefangene 15 aktive Minuten 1 XP, max. 20/Tag, rückwirkend 14 Tage, nie doppelt ---------- */
 function arbeitXpVerbuchen(a){
@@ -4619,6 +4696,10 @@ async function summaryHolen(force){
   const t=document.getElementById('sumText'), wh=document.getElementById('sumWhen');
   if(!force && S.summary && S.summary.datum===heute()){ if(t){ t.textContent=S.summary.text; t.className='lt'; } return; }
   if(t){ t.textContent='John formuliert die zwei Sätze …'; t.className='lt think'; }
+  /* Erst den Server-Stand abwarten (03.09.2026): die erste Summary des Tages entstand, bevor
+     checkinSync() Abendcheck und „das Eine“ übernommen hatte — John schrieb „der Abendcheck blieb
+     aus“ und „setz das Eine“, obwohl beides längst auf dem Server lag. Höchstens 8 s, dann ohne. */
+  if(CHECKIN_SYNC){ try{ await Promise.race([CHECKIN_SYNC,new Promise(r=>setTimeout(r,8000))]); }catch(e){} }
   try{
     const r=await fetch(JOHN_API+'/api/john/summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(summaryDaten())});
     const j=await r.json();
@@ -5352,7 +5433,7 @@ lotusLaden();   /* Arbeit/Jira/Porsche laden → Lotus füllen, XP verbuchen, Jo
 setTimeout(()=>{ uebergabeNachholen().then(f=>{ if(!f) uebergabeWacht(); }); },1600);
 setTimeout(boardLaden,2600);   /* jüngstes Board für den Link im Kopf (02.09.) */   /* liegengebliebene Übergabe still nachreichen, notfalls im Takt weiter (siehe checkinSenden) */
 antwortenSync();                       /* beantwortete Rückfragen mit dem john-server abgleichen (31.08.) */
-checkinSync();                         /* Morgencheck + „Das Eine" aus checkins\ übernehmen, egal in welcher Fassung er lief (31.08.) */
+CHECKIN_SYNC=checkinSync();                         /* Morgencheck + „Das Eine" aus checkins\ übernehmen, egal in welcher Fassung er lief (31.08.) */
 einstellungenSync();                   /* Farbschema, Sprache, Tagesphase — eine Wahl für alle Fassungen (31.08.) */
 
 /* Fällt heute ein Ritual an und wurde es noch nicht gemacht? Dann sanft anbieten. */
