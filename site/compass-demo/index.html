@@ -2821,7 +2821,9 @@ async function vaLaden(fresh){
   VA.fehler='';
   for(const [url,quelle] of wege){
     try{
-      const r=await fetch(url+(sameOrigin&&fresh?('?t='+Date.now()):''),{cache:fresh?'no-store':'default'});
+      /* Direktabruf vom Cockpit (anderer Ursprung seit 03.09.): Zugangsdaten mitschicken, sonst antwortet
+         der Zugangsschutz mit 401. Gleicher Ursprung oder Compass-Server: wie gehabt. */
+      const r=await fetch(url+(sameOrigin&&fresh?('?t='+Date.now()):''),{cache:fresh?'no-store':'default',credentials:(!sameOrigin&&url===direkt)?'include':'same-origin'});
       if(!r.ok) throw new Error('HTTP '+r.status);
       const d=await r.json();
       if(lauf!==VA.lauf) return;
