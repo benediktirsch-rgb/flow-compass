@@ -300,7 +300,12 @@ RepN @'
     let p=Object.keys(pj).map(function(k,i){ return projektCard(pj[k],'tone-'+(INST.ctxKeys[i%INST.ctxKeys.length]||'none'),k); }).join('');
 '@ 'Sektion Arbeit + Projekte'
 
-Rep "    h+=secHtml('kanaele', mailCard()+slackCard()+socialCard()+wachtCard()+routCard()+sichCard());" `
+# depCard() (Deploy-Waechter, 03.09.) faellt in Demo und Kundeninstanzen ersatzlos weg — nicht per
+# Modulschalter, sondern gar nicht. Die Karte vergleicht Live-Adressen gegen HEAD lokaler Git-Repos;
+# ohne Benes Arbeitskopien haette sie in jeder fremden Instanz dauerhaft "nicht pruefbar" stehen,
+# und eine Karte, die bei niemandem etwas messen kann, ist Deko. Der Banner (depGruppe) bleibt im
+# Code, bleibt dort aber still: ohne /api/deploy ist DEP.data null und die Gruppe rendert ''.
+Rep "    h+=secHtml('kanaele', mailCard()+slackCard()+socialCard()+wachtCard()+depCard()+routCard()+sichCard());" `
     "    h+=secHtml('kanaele', mailCard()+slackCard()+(INST.module.social?socialCard():'')+(INST.module.wacht?wachtCard():'')+(INST.module.routinen?routCard():'')+(INST.module.sicherung?sichCard():''));" 'Sektion Kanaele'
 
 # porscheLive() gibt es seit dem 25.08.2026 nicht mehr — die Karte "Car Sales Value Stream"

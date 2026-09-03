@@ -56,6 +56,14 @@
                                  Millisekunden) und wie lange laufen ihre TLS-Zertifikate noch. 15 Min Cache
                                  für die Erreichbarkeit, 12 h für die Zertifikate. Keine Zugangsdaten nötig.
                                  Adressen stehen im Parameter -WachtSeiten; GET /api/wacht/status zeigt sie.
+   19) GET  /api/deploy[?fresh=1] → Deploy-Wächter (03.09.): steht live das, was du freigegeben hast?
+                                 Je Paar ein Abruf der Live-Adresse; verglichen wird der Git-Blob-SHA
+                                 gegen HEAD der Arbeitskopie — also gegen den committeten Stand, nicht
+                                 gegen die Arbeitsdatei (sonst schlägt jeder Neubau der 30-Minuten-Aufgabe
+                                 Alarm, bevor überhaupt etwas freigegeben wurde). Drei Zustände je Paar:
+                                 gleich · alt (der Befund) · unpruefbar (nicht abrufbar — dafür ist der
+                                 Seiten-Wächter zuständig, hier gibt es dafür kein zweites Rot).
+                                 Paare stehen im Parameter -DeployPaare; GET /api/deploy/status zeigt sie.
    14) GET  /api/postfach     → wer wartet auf eine Antwort von dir. Der Server liest hier nur die Datei
                                  postfach.json neben diesem Skript und rechnet das Alter frisch aus; gefüllt
                                  wird sie von der geplanten Aufgabe „compass-postfach“ (Claude + Gmail-Connector),
@@ -232,6 +240,57 @@ param(
   # nicht mehr. 5 s ist die Schwelle, ab der ein Mensch sagt "die Seite hängt".
   [int]$WachtLangsamMs = 5000,
   [int]$WachtZertWarnTage = 21,     # Let's Encrypt erneuert bei 30 Tagen Rest — bleibt es 21 Tage vorher liegen, stimmt etwas nicht
+  # --- Deploy-Waechter (03.09.2026, Rueckfrage `deploy-waechter`, Bene: "bau ihn") -----------------
+  # WOZU: der Seiten-Waechter fragt nur nach dem Statuscode. HTTP 200 heisst "die Seite antwortet",
+  # nicht "die Seite ist aktuell". Am 03.09. lieferte /compass-demo/ (die Verkaufsdemo) 430.909 Bytes
+  # aus, freigegeben waren 447.752 — der Commit vom Vorabend war nie angekommen, weil den neuen Repos
+  # nach der Trennung die FTP-Secrets fehlen und die Workflow-Laeufe rot sind. Der Seiten-Waechter
+  # stand dabei auf gruen, und publish-compass.log schrieb alle 30 Minuten "Demo unveraendert".
+  #
+  # VERGLICHEN WIRD GEGEN HEAD, NICHT GEGEN DIE ARBEITSDATEI. Sonst meldet der Waechter jedes Mal
+  # Alarm, wenn die 30-Minuten-Aufgabe gerade neu gebaut, aber noch nicht committet hat — das waere
+  # Tapete nach einem Tag. "Freigegeben" heisst: committet. Weicht zusaetzlich die Arbeitsdatei vom
+  # HEAD ab, sagt die Karte das getrennt (`lokalOffen`) — das ist deine offene Arbeit, kein Deploy-Fehler.
+  # Verglichen wird der Git-Blob-SHA (sha1("blob <len>\0"+inhalt)), den der Server fuer die Live-Bytes
+  # selbst rechnet: kein Binaerinhalt durch die PowerShell-Pipeline, und die eol=lf-Normalisierung aus
+  # .gitattributes ist automatisch mit drin. Am 03.09. gegengeprueft — zwei Dateien stimmten live auf
+  # den Blob genau ueberein, der FTP-Deploy kopiert also 1:1.
+  #
+  # PFLEGE: neues Paar = eine Zeile hier. `repo` ist die Arbeitskopie, `datei` der Pfad IM Repo
+  # (mit Schraegstrichen, so wie git ihn kennt). Nicht aufnehmen, was sich nicht vergleichen laesst:
+  # Seiten hinter Basic Auth (/va/, /compass/, bene., va. — der Waechter hat keine Zugangsdaten und
+  # soll auch keine haben; die eigene Instanz laedt publish-compass.ps1 selbst hoch und protokolliert
+  # jeden Fehler) und alles, was der Server erst erzeugt (WordPress: vaikuntha.eu). Eine Adresse, die
+  # gar nicht antwortet, ist hier ausdruecklich KEIN Befund, sondern `unpruefbar` — fuer Erreichbarkeit
+  # ist der Seiten-Waechter zustaendig, und zwei Karten, die dasselbe rot faerben, sind eine zu viel.
+  # Die demo.-Zeilen sind seit dem Subdomain-Umzug vom 03.09. dabei; die .de-Zeilen fallen weg,
+  # sobald diese Adressen weiterleiten.
+  [object[]]$DeployPaare = @(
+    @{ name = 'Compass-Demo';            typ = 'Compass'; url = 'https://vishnu-artists.de/compass-demo/index.html'
+       repo = 'C:\dev\persoenliches-dashboard';        datei = 'site/compass-demo/index.html' }
+    @{ name = 'Compass-Demo · Sprachen'; typ = 'Compass'; url = 'https://vishnu-artists.de/compass-demo/compass-i18n.js'
+       repo = 'C:\dev\persoenliches-dashboard';        datei = 'site/compass-demo/compass-i18n.js' }
+    @{ name = 'Compass-Demo (demo.)';    typ = 'Compass'; url = 'https://demo.vishnuartists.com/index.html'
+       repo = 'C:\dev\persoenliches-dashboard';        datei = 'site/compass-demo/index.html' }
+    @{ name = 'Cockpit-Starter';         typ = 'Cockpit'; url = 'https://vishnu-artists.de/flow-cockpit-starter.html'
+       repo = 'C:\dev\flow-cockpit';                   datei = 'site/flow-cockpit-starter.html' }
+    @{ name = 'Cockpit-Hilfe';           typ = 'Cockpit'; url = 'https://vishnu-artists.de/flow-cockpit-hilfe.html'
+       repo = 'C:\dev\flow-cockpit';                   datei = 'site/flow-cockpit-hilfe.html' }
+    @{ name = 'Cockpit-Starter (demo.)'; typ = 'Cockpit'; url = 'https://demo.vishnuartists.com/cockpit/flow-cockpit-starter.html'
+       repo = 'C:\dev\flow-cockpit';                   datei = 'site/flow-cockpit-starter.html' }
+    @{ name = 'vishnu-artists.de';       typ = 'Website'; url = 'https://vishnu-artists.de/index.html'
+       repo = 'C:\dev\vishnuartists-website-redesign'; datei = 'vishnu-artists.de/index.html' }
+    @{ name = 'vishnuartists.com';       typ = 'Website'; url = 'https://vishnuartists.com/index.html'
+       repo = 'C:\dev\vishnuartists-website-redesign'; datei = 'f/index.html' }
+  ),
+  [int]$DeployCacheSec = 900,        # wie beim Seiten-Waechter: ein Deploy dauert Minuten, nicht Sekunden
+  # Deutlich mehr als der Seiten-Waechter (8 s): der holt eine Antwort, dieser laedt den ganzen
+  # Inhalt — 450 KB je Compass-Seite. Beim ersten Lauf nach einem Serverstart kommen DNS und
+  # TLS-Aufbau je Host dazu; mit 10 s fiel am 03.09. eine kerngesunde Adresse einmal auf
+  # "nicht pruefbar", waehrend zwei Laeufe spaeter derselbe Abruf 900 ms brauchte. Lieber ein
+  # grosszuegiges Limit alle 15 Minuten als ein Zustandsfeld, dem man nicht glauben kann.
+  [int]$DeployTimeoutSec = 20,
+  [int]$DeployMaxBytes = 8388608,    # 8 MB Deckel: der Server arbeitet seriell, niemand laedt hier ein Video
   # --- Sicherungs-Waechter (26.08.) ---------------------------------------------------------------
   # Was hier geprueft wird, ist bewusst das, was KEIN Repo hat: der Compass-Ordner selbst, C:\dev\john
   # und checkins\ (Benes Entscheidungsprotokoll). Ihre einzige zweite Kopie ist der Spiegel nach H:,
@@ -1434,6 +1493,175 @@ function Get-Wacht([bool]$fresh) {
   return $out
 }
 
+# ---------- Deploy-Waechter — /api/deploy (03.09.2026, Rueckfrage `deploy-waechter`, Bene: "bau ihn") ----------
+# Der Seiten-Waechter beantwortet "antwortet die Seite?". Dieser hier beantwortet die andere Haelfte:
+# "steht dort auch das, was du freigegeben hast?". Begruendung, Vergleichsmassstab und Pflegeregeln
+# stehen ausfuehrlich oben bei $DeployPaare.
+#
+# Git rechnet den Blob-SHA als sha1("blob <laenge>\0" + inhalt). Genau das machen wir hier fuer die
+# Live-Bytes nach: dann laesst sich der Live-Inhalt mit einem einzigen `git rev-parse HEAD:<datei>`
+# vergleichen, ohne den committeten Inhalt ueberhaupt auszupacken — und ohne Binaerdaten durch die
+# PowerShell-Pipeline zu ziehen, wo jede Textkodierung sie still veraendern wuerde.
+function Get-DeployBlobSha([byte[]]$Bytes) {
+  if ($Bytes -eq $null) { return $null }
+  $kopf = [Text.Encoding]::ASCII.GetBytes("blob $($Bytes.Length)" + [char]0)
+  $alles = New-Object byte[] ($kopf.Length + $Bytes.Length)
+  [Array]::Copy($kopf, 0, $alles, 0, $kopf.Length)
+  [Array]::Copy($Bytes, 0, $alles, $kopf.Length, $Bytes.Length)
+  $s = $null
+  try { $s = [Security.Cryptography.SHA1]::Create(); return ([BitConverter]::ToString($s.ComputeHash($alles))).Replace('-', '').ToLower() }
+  finally { if ($s) { try { $s.Dispose() } catch {} } }
+}
+# Live-Abruf. Bewusst HttpWebRequest statt Invoke-WebRequest: wir brauchen die rohen Bytes, und
+# Invoke-WebRequest dekodiert den Inhalt anhand des Content-Type-Kopfes zu einem String — damit waere
+# jeder Byte-Vergleich wertlos. Der Deckel ($DeployMaxBytes) verhindert, dass eine falsch eingetragene
+# Adresse den seriell arbeitenden Server minutenlang mit einem Download blockiert.
+function Get-DeployLive([string]$url) {
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  $req = $null; $resp = $null; $strom = $null; $puffer = $null; $abgebrochen = $false
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $req = [Net.HttpWebRequest]::Create($url)
+    $req.Timeout = $DeployTimeoutSec * 1000
+    $req.ReadWriteTimeout = $DeployTimeoutSec * 1000
+    $req.UserAgent = 'Vishnu-Flow-Compass-Waechter/1.0'
+    $req.AllowAutoRedirect = $true
+    # KeepAlive aus. .NET erlaubt je Host nur zwei gleichzeitige Verbindungen, und jede Antwort, die
+    # nicht sauber zu Ende gelesen wird (Deckel, 404, TLS-Abbruch), gibt ihren Platz nicht zurueck —
+    # der uebernaechste Abruf desselben Hosts wartet dann bis zum Timeout. Genau das war am 03.09. im
+    # Test zu sehen: eine kerngesunde Adresse meldete "Timeout", ohne dass an ihr etwas war. Ohne
+    # KeepAlive wird jede Verbindung nach der Antwort geschlossen und kann gar nicht erst haengen
+    # bleiben. Preis ist ein zusaetzlicher Handschlag je Paar — bei acht Paaren alle 15 Minuten
+    # zahlt das niemand, ein blockierter Server dagegen kostet das ganze Cockpit.
+    $req.KeepAlive = $false
+    $resp = $req.GetResponse()
+    $strom = $resp.GetResponseStream()
+    $puffer = New-Object IO.MemoryStream
+    $block = New-Object byte[] 65536
+    while ($true) {
+      $n = $strom.Read($block, 0, $block.Length)
+      if ($n -le 0) { break }
+      $puffer.Write($block, 0, $n)
+      if ($puffer.Length -gt $DeployMaxBytes) {
+        # Nur wegwerfen reicht nicht: eine halb gelesene Antwort gibt ihre Verbindung nicht an den
+        # Pool zurueck, und der naechste Abruf desselben Hosts wartet dann bis zum Timeout auf einen
+        # freien Platz (03.09. im Test gesehen — die uebernaechste Pruefung meldete "Timeout").
+        # Darum abbrechen, nicht nur schliessen.
+        $abgebrochen = $true
+        return @{ ok = $false; status = [int]$resp.StatusCode; ms = [int]$sw.ElapsedMilliseconds
+                  fehler = "größer als der Deckel von $([int]($DeployMaxBytes/1MB)) MB — Adresse prüfen" }
+      }
+    }
+    $sw.Stop()
+    return @{ ok = $true; status = [int]$resp.StatusCode; ms = [int]$sw.ElapsedMilliseconds; bytes = $puffer.ToArray() }
+  } catch {
+    $sw.Stop()
+    # $req.GetResponse() ist ein Methodenaufruf — PowerShell verpackt die WebException deshalb in eine
+    # MethodInvocationException. Ohne diesen Gang durch die Kette bliebe der Statuscode bei 404 leer,
+    # und die Karte schriebe "keine Antwort", obwohl der Server sehr wohl geantwortet hat (03.09. im Test gesehen).
+    # Dieselbe Falle wie oben beim Deckel, nur unauffaelliger: auch die FEHLER-Antwort (404, 500, 401)
+    # haelt eine Verbindung, und .NET erlaubt je Host nur zwei gleichzeitig. Wird sie nicht geschlossen,
+    # wartet der uebernaechste Abruf desselben Hosts bis zum Timeout auf einen freien Platz — im Test
+    # am 03.09. meldete danach eine kerngesunde Adresse "Timeout fuer Vorgang ueberschritten".
+    $status = $null
+    $e = $_.Exception
+    while ($e) {
+      if ($e -is [Net.WebException] -and $e.Response) {
+        try { $status = [int]$e.Response.StatusCode } catch {}
+        try { $e.Response.Close() } catch {}
+        break
+      }
+      $e = $e.InnerException
+    }
+    # Die aeusserste .NET-Meldung ist Verpackung; in der Karte soll der Grund stehen, nicht der Weg dorthin.
+    $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+    $grund = $(if ($status) { "HTTP $status — $($e.Message)" } else { $e.Message })
+    return @{ ok = $false; status = $status; ms = [int]$sw.ElapsedMilliseconds; fehler = $grund }
+  } finally {
+    if ($puffer) { try { $puffer.Dispose() } catch {} }
+    if ($strom) { try { $strom.Dispose() } catch {} }
+    if ($resp) { try { $resp.Close() } catch {} }
+    if ($abgebrochen -and $req) { try { $req.Abort() } catch {} }
+  }
+}
+function Get-DeploySoll($paar) {
+  # Was gilt als "freigegeben": der Blob im HEAD. Dazu getrennt der Stand der Arbeitsdatei, damit die
+  # Karte "der Deploy hinkt" von "du hast noch nicht freigegeben" unterscheiden kann.
+  $out = @{ sollSha = $null; sollBytes = $null; arbeitSha = $null; lokalOffen = $false; fehler = $null }
+  try {
+    if (-not (Test-Path -LiteralPath $paar.repo)) { $out.fehler = 'Arbeitskopie nicht gefunden'; return $out }
+    $sha = & git -C $paar.repo rev-parse "HEAD:$($paar.datei)" 2>$null
+    if ($LASTEXITCODE -eq 0 -and $sha) {
+      $out.sollSha = ([string]$sha).Trim()
+      $groesse = & git -C $paar.repo cat-file -s $out.sollSha 2>$null
+      if ($LASTEXITCODE -eq 0 -and $groesse) { $out.sollBytes = [int](([string]$groesse).Trim()) }
+    } else {
+      $out.fehler = 'im letzten Commit nicht enthalten'
+    }
+    $arbeitsdatei = Join-Path $paar.repo ($paar.datei -replace '/', '\')
+    if (Test-Path -LiteralPath $arbeitsdatei) {
+      $out.arbeitSha = Get-DeployBlobSha ([IO.File]::ReadAllBytes($arbeitsdatei))
+      $out.lokalOffen = ($out.sollSha -and $out.arbeitSha -ne $out.sollSha)
+    }
+  } catch { $out.fehler = $_.Exception.Message }
+  return $out
+}
+function Test-DeployPaar($paar) {
+  $soll = Get-DeploySoll $paar
+  $live = Get-DeployLive $paar.url
+  $liveSha = $(if ($live.ok) { Get-DeployBlobSha $live.bytes } else { $null })
+  $liveBytes = $(if ($live.ok) { [int]$live.bytes.Length } else { $null })
+  # Drei Zustaende, und nur einer davon ist ein Befund:
+  #   gleich      live == HEAD. Alles ausgeliefert.
+  #   alt         live != HEAD. Das ist der Fall, fuer den es diese Karte gibt.
+  #   unpruefbar  live nicht abrufbar oder nichts zum Vergleichen da. KEIN Alarm — dafuer gibt es
+  #               den Seiten-Waechter; hier waere es nur dieselbe Stoerung ein zweites Mal in Rot.
+  $zustand = 'unpruefbar'; $grund = $null
+  if (-not $live.ok) { $grund = $(if ($live.fehler) { $live.fehler } else { "HTTP $($live.status)" }) }
+  elseif (-not $soll.sollSha) { $grund = $(if ($soll.fehler) { $soll.fehler } else { 'kein freigegebener Stand' }) }
+  elseif ($liveSha -eq $soll.sollSha) { $zustand = 'gleich' }
+  else { $zustand = 'alt' }
+  return @{
+    name = $paar.name; typ = $paar.typ; url = $paar.url
+    repo = (Split-Path $paar.repo -Leaf); datei = $paar.datei
+    zustand = $zustand; grund = $grund
+    status = $live.status; ms = $live.ms
+    liveBytes = $liveBytes; sollBytes = $soll.sollBytes
+    unterschiedBytes = $(if ($liveBytes -ne $null -and $soll.sollBytes -ne $null) { $liveBytes - $soll.sollBytes } else { $null })
+    lokalOffen = [bool]$soll.lokalOffen
+  }
+}
+$script:DeployCache = @{ zeit = $null; out = $null }
+function Get-Deploy([bool]$fresh) {
+  $c = $script:DeployCache
+  if (-not $fresh -and $c.out -and $c.zeit -and ((Get-Date) - $c.zeit).TotalSeconds -lt $DeployCacheSec) { return $c.out }
+  $paare = @()
+  foreach ($p in $DeployPaare) { $paare += , (Test-DeployPaar $p) }
+  $alt = @($paare | Where-Object { $_.zustand -eq 'alt' })
+  $gleich = @($paare | Where-Object { $_.zustand -eq 'gleich' })
+  $unpruefbar = @($paare | Where-Object { $_.zustand -eq 'unpruefbar' })
+  $offen = @($paare | Where-Object { $_.lokalOffen })
+  $out = @{
+    ok = $true; stand = (Get-Date).ToString('o')
+    paare = $paare
+    zusammenfassung = @{
+      gesamt = $paare.Count; gleich = $gleich.Count; alt = $alt.Count; unpruefbar = $unpruefbar.Count
+      lokalOffen = $offen.Count
+      # alsGut heisst hier NICHT "alles gruen", sondern "nichts hinkt hinterher". Ein unpruefbares
+      # Paar ist kein Befund dieser Karte — aber die Karte sagt trotzdem, dass sie es nicht wusste.
+      alsGut = ($alt.Count -eq 0)
+      altNamen = @($alt | ForEach-Object { $_.name })
+    }
+    schwellen = @{ timeoutSec = $DeployTimeoutSec; maxBytes = $DeployMaxBytes }
+    cacheSec = $DeployCacheSec
+  }
+  if ($alt.Count) {
+    Write-Host "  Deploy-Wächter: $($alt.Count) von $($paare.Count) Adressen liefern einen älteren Stand aus — $(($alt | ForEach-Object { $_.name }) -join ', ')" -ForegroundColor Yellow
+  }
+  $script:DeployCache = @{ zeit = Get-Date; out = $out }
+  return $out
+}
+
 # ---------- Wetter am Veranstaltungsort (27.08.2026, Rueckfrage `wetter-vaikuntha`, Bene: "Ja, bau es") ----------
 # Zwei Quellen, zwei getrennte Caches: Open-Meteo (Vorhersage, 1 h) und die Events-API von vaikuntha.eu
 # (Termine, 6 h). Faellt die Events-API aus, kommt trotzdem Wetter — nur eben ohne Terminmarkierung
@@ -2398,6 +2626,23 @@ try {
           schwellen = @{ langsamMs = $WachtLangsamMs; zertWarnTage = $WachtZertWarnTage; timeoutSec = $WachtTimeoutSec }
           cacheSec = $WachtCacheSec; tlsCacheSec = $WachtTlsCacheSec
           gemessen = $(if ($script:WachtCache.zeit) { $script:WachtCache.zeit.ToString('o') } else { $null }) }
+        continue
+      }
+      if ($path -eq '/api/deploy') {
+        try {
+          Send-Json $ctx (Get-Deploy ($req.QueryString['fresh'] -eq '1'))
+        } catch {
+          Write-Host "  Deploy-Wächter-Fehler: $($_.Exception.Message)" -ForegroundColor Red
+          Send-Json $ctx @{ ok = $false; error = $_.Exception.Message } 502
+        }
+        continue
+      }
+      if ($path -eq '/api/deploy/status') {
+        Send-Json $ctx @{ ok = $true
+          paare = @($DeployPaare | ForEach-Object { @{ name = $_.name; typ = $_.typ; url = $_.url; repo = (Split-Path $_.repo -Leaf); datei = $_.datei } })
+          schwellen = @{ timeoutSec = $DeployTimeoutSec; maxBytes = $DeployMaxBytes }
+          cacheSec = $DeployCacheSec
+          gemessen = $(if ($script:DeployCache.zeit) { $script:DeployCache.zeit.ToString('o') } else { $null }) }
         continue
       }
       if ($path -eq '/api/wetter') {
