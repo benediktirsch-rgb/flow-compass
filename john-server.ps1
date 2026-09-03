@@ -2109,6 +2109,18 @@ function Get-Verein([bool]$fresh) {
             crm = @{ gesamt = [int]$c.gesamt; mitglieder = [int]$c.mitglieder; neu7 = [int]$c.neu7; neu30 = [int]$c.neu30
                      neu90 = [int]$c.neu90; konversion = [int]$c.konversion; aktiv90 = [int]$c.aktiv90
                      still365 = [int]$c.still365; abmeldungen365 = [int]$c.abmeldungen365; stand = [string]$c.stand } }
+  # Website-Zugaenge (03.09.2026, Bene: "bau mir die Freigabe in Morgen- und Abendcheck ein"): das
+  # Startseiten-Plugin (2.4.0) haengt 'freigaben' an — offene Registrierungen samt Token-Links.
+  # Namen und Adressen bleiben in dieser Antwort (localhost) und wandern in keine *-data.js.
+  $fl = @()
+  if ($r.freigaben -and $r.freigaben.liste) {
+    foreach ($x in @($r.freigaben.liste)) {
+      if ($x) { $fl += , @{ uid = [int]$x.uid; name = [string]$x.name; email = [string]$x.email; seit = [string]$x.seit
+                            registriert = [string]$x.registriert; ja = [string]$x.ja; nein = [string]$x.nein } }
+    }
+  }
+  $out.freigaben = @{ n = $fl.Count; liste = $fl; seite = [string]$(if ($r.freigaben) { $r.freigaben.seite } else { '' })
+                      unterstuetzt = [bool]$r.freigaben }
   $script:VereinCache = @{ zeit = Get-Date; out = $out }
   $out
 }
@@ -2943,6 +2955,37 @@ try {
         $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
         if (-not $in) { Send-Json $ctx @{ ok = $false; error = 'NO_BODY' } 400; continue }
         Send-Json $ctx (Send-Finanzstimme $in) 200
+        continue
+      }
+
+      if ($path -eq '/api/vaikuntha/freigabe') {
+        # Website-Zugang freigeben oder ablehnen (03.09.2026). Der Compass schickt {uid, do}; der Server
+        # nimmt den Token-Link aus dem frischen Vereins-Stand und ruft ihn auf — derselbe Link wie in
+        # der Vorlage-Mail, ohne Passwort und ohne Cookie. Danach ist der Cache leer.
+        if ($req.HttpMethod -ne 'POST') { Send-Json $ctx @{ ok = $false; error = 'NUR_POST' } 405; continue }
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        $uid = 0; try { $uid = [int]$in.uid } catch { }
+        $do = [string]$in.do
+        if (-not $uid -or ($do -ne 'ja' -and $do -ne 'nein')) {
+          Send-Json $ctx @{ ok = $false; error = 'UNVOLLSTAENDIG'; hint = 'uid und do (ja|nein) sind Pflicht.' } 400; continue }
+        $v = Get-Verein $true
+        if (-not $v.ok) { Send-Json $ctx $v 200; continue }
+        $eintrag = @(@($v.freigaben.liste) | Where-Object { $_ -and $_.uid -eq $uid })
+        if (-not $eintrag.Count) {
+          Send-Json $ctx @{ ok = $false; error = 'NICHT_OFFEN'; hint = 'Dieser Zugang wartet nicht (mehr) auf Freigabe.' } 404; continue }
+        $e0 = $eintrag[0]; $link = [string]$e0[$do]
+        $antwort = ''
+        try {
+          [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+          $antwort = [string](Invoke-WebRequest -Uri $link -Method Get -TimeoutSec $VereinTimeoutSec -UseBasicParsing -UserAgent 'Vishnu-Flow-Compass-Verein/1.0').Content
+        } catch { $antwort = 'FEHLER: ' + $_.Exception.Message }
+        $script:VereinCache = @{ zeit = $null; out = $null }
+        $ok = [bool]($antwort -match 'Freigegeben|Abgelehnt')
+        Write-Host ("[{0}] Zugang {1} -> {2} ({3})" -f (Get-Date -Format 'HH:mm:ss'), $e0.name, $do, $(if ($ok) { 'ok' } else { 'fehlgeschlagen' })) -ForegroundColor Green
+        $text = $(if ($ok) { $(if ($do -eq 'ja') { 'Freigegeben — die Person hat die Mail mit dem Login-Link bekommen.' } else { 'Abgelehnt — das Konto ist gelöscht.' }) }
+                  else { (($antwort -replace '<[^>]+>', ' ') -replace '\s+', ' ').Trim() })
+        Send-Json $ctx @{ ok = $ok; uid = $uid; do = $do; name = $e0.name; email = $e0.email; text = $text } $(if ($ok) { 200 } else { 500 })
         continue
       }
 

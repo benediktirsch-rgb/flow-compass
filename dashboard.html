@@ -1358,10 +1358,12 @@ function rhythmMalen(){
   const offen = offeneFragen().length;
   const abendOk = S.lastAbend===heute();
   const abendZeit = new Date().getHours()>=17;
+  const zug=zugaengeOffen().length;   /* Website-Zugänge, die auf vaikuntha.eu warten (03.09.) */
   const rits=[
     {id:'morgen', ic:'☀️', t:'Morgencheck', s:'5 Minuten, dann läuft der Tag', due:!morgenOk, done:morgenOk, badge: morgenOk?'erledigt':'5 Min'},
     {id:'wochenstart', ic:'🧭', t:'Wochenstart', s: tag===1?'Heute — Woche setzen':'montags', due: tag===1&&!wsOk, done: wsOk, badge: wsOk?'gesetzt':(tag===1?'fällig':'Mo')},
     {id:'fragen', ic:'💬', t:'Rückfragen von Claude', s: offen?`${offen} warten auf eine Entscheidung`:'alles beantwortet', due: offen>0, done: offen===0, badge: offen?`${offen} offen`:'klar'},
+    ...(zug?[{id:'zugaenge', ic:'🔐', t:'Website-Zugänge', s:`${zug} ${zug===1?'Registrierung wartet':'Registrierungen warten'} auf vaikuntha.eu auf deine Freigabe`, due:true, done:false, badge:`${zug} offen`}]:[]),
     {id:'abend', ic:'🌙', t:'Abendcheck', s: abendOk?'Tag geschlossen — der Abend gehört dir':(abendZeit?'Tag schließen · Sport, Erholung, dein Projekt':'ab 17 Uhr · Sport, Erholung, dein Projekt'), due: abendZeit&&!abendOk, done: abendOk, badge: abendOk?'erledigt':(abendZeit?'4 Min':'ab 17 h')},
     {id:'wochenreview', ic:'🪞', t:'Wochen-Rückschau', s: tag===5?'Heute — Woche abschließen':'freitags', due: tag===5&&!revOk, done: revOk, badge: revOk?'erledigt':(tag===5?'fällig':'Fr')}
   ];
@@ -1390,9 +1392,17 @@ function starte(art){
   const gitSchritt={id:'freigaben',typ:'freigabe',icon:'📦',titel:'Liegengebliebenes freigeben',
     frage:'Was seit gestern uncommittet herumliegt — freigeben oder liegen lassen?',
     hint:'Freigeben = committen und pushen. Ohne Ziel-Angabe hat sich keine Session gemeldet: dann lieber später und nachfragen.',sek:150};
-  if(art==='morgen')            FLOW={art,titel:'Morgencheck',schritte:(R.morgen||[]).concat(gitPakete().length?[gitSchritt]:[]),xp:R.xp.morgencheck};
+  /* Website-Zugänge (03.09.2026, Bene: „bau mir die Freigabe in Morgen- und Abendcheck ein“): wartet auf
+     vaikuntha.eu jemand auf die Freigabe, bekommen Morgen- UND Abendcheck einen Schritt dazu — sonst nicht.
+     Die Liste kommt live vom john-server (GET /api/vaikuntha › freigaben), entschieden wird per POST. */
+  const zugangSchritt={id:'zugaenge',typ:'zugaenge',icon:'🔐',titel:'Website-Zugänge freigeben',
+    frage:'Wer hat sich auf vaikuntha.eu registriert — freigeben oder ablehnen?',
+    hint:'Freigeben schaltet den Login frei und schickt der Person den Login-Link. Ablehnen löscht das Konto. Bis dahin bleibt die Person draußen.',sek:60};
+  const zugMehr=()=>zugaengeOffen().length?[zugangSchritt]:[];
+  if(art==='morgen')            FLOW={art,titel:'Morgencheck',schritte:(R.morgen||[]).concat(gitPakete().length?[gitSchritt]:[]).concat(zugMehr()),xp:R.xp.morgencheck};
   else if(art==='freigaben')    FLOW={art,titel:'Freigaben',schritte:[gitSchritt],xp:0};
-  else if(art==='abend')        FLOW={art,titel:'Abendcheck',schritte:(R.abend||[]),xp:R.xp.abendcheck||10};
+  else if(art==='zugaenge')     FLOW={art,titel:'Website-Zugänge',schritte:[zugangSchritt],xp:0};
+  else if(art==='abend')        FLOW={art,titel:'Abendcheck',schritte:(R.abend||[]).concat(zugMehr()),xp:R.xp.abendcheck||10};
   else if(art==='wochenstart')  FLOW={art,titel:'Wochenstart',schritte:(R.wochenstart||[]).map(s=>({...s,typ:'text',titel:s.frage,sek:75})),xp:R.xp.wochenstart};
   else if(art==='wochenreview') FLOW={art,titel:'Rückschau',schritte:[
                                        /* Personal-Kanban-Retro zuerst: erst sehen (Board-Zahlen), dann bewerten */
@@ -1511,6 +1521,21 @@ function koerper(s){
           <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button></div>
         <div class="hint gitout" style="margin-top:6px"></div></div>`;
     }).join('');
+  }
+  if(s.typ==='zugaenge'){
+    const z=zugaengeOffen();
+    if(!VEREIN.geladen) return `<div class="empty">Vereins-Stand wird geladen …</div>`;
+    if(!VEREIN.data) return `<div class="empty">John-Server oder vaikuntha.eu nicht erreichbar — ob jemand wartet, weiß ich gerade nicht.</div>`;
+    if(!z.length) return `<div class="empty">Niemand wartet — alle Registrierungen auf vaikuntha.eu sind freigegeben.</div>`;
+    return z.map(x=>`<div class="qa" data-zugang="${x.uid}">
+        <div class="qp">vaikuntha.eu · registriert ${esc(zugangSeit(x))}</div>
+        <div class="qq">${esc(x.name)}</div>
+        <div class="qw">${esc(x.email)}</div>
+        <div class="opts" style="margin-top:8px">
+          <button onclick="zugangEntscheiden(${Number(x.uid)},'ja',this)">✅ Freigeben</button>
+          <button onclick="zugangEntscheiden(${Number(x.uid)},'nein',this)">🗑️ Ablehnen</button>
+          <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button></div>
+        <div class="hint zugout" style="margin-top:6px"></div></div>`).join('');
   }
   if(s.typ==='auftrag'){
     return `<textarea id="ovIn" placeholder="z. B. Aufräum-Vorschlag umsetzen, Domain-Umzugsplan, Kennzahlen ziehen">${esc(S.auftrag||'')}</textarea>`;
@@ -4227,6 +4252,37 @@ function gitUmfang(p){
   if(p.geloescht) teile.push(p.geloescht+' gelöscht');
   const z=(p.plus||p.minus)?` · +${p.plus}/−${p.minus} Zeilen`:'';
   return teile.join(', ')+z; }
+/* Website-Zugänge (03.09.2026): Liste aus dem Vereins-Puls, Entscheidung über den john-server. */
+function zugaengeOffen(){ return (((VEREIN.data||{}).freigaben||{}).liste)||[]; }
+function zugangSeit(x){
+  const d=new Date(String(x.seit||x.registriert||'').replace(' ','T'));
+  return isNaN(d)?'':d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+async function zugangEntscheiden(uid,tun,btn){
+  const box=btn.closest('.qa')||document, out=box.querySelector('.zugout');
+  const name=(zugaengeOffen().find(x=>Number(x.uid)===Number(uid))||{}).name||('#'+uid);
+  if(tun==='nein' && !confirm('Konto von '+name+' wirklich löschen?')) return;
+  const knoepfe=[...box.querySelectorAll('button')];
+  knoepfe.forEach(b=>b.disabled=true); btn.textContent=tun==='ja'?'gebe frei …':'lehne ab …';
+  try{
+    const r=await fetch(JOHN_API+'/api/vaikuntha/freigabe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({uid:uid,do:tun})});
+    const j=await r.json();
+    if(j&&j.ok){
+      btn.textContent=tun==='ja'?'✓ freigegeben':'✓ abgelehnt'; box.classList.add('beantwortet');
+      if(out){ out.classList.remove('err'); out.textContent=j.text||''; }
+      if(FLOW){ FLOW.antworten=FLOW.antworten||{}; const alt=FLOW.antworten['zugaenge']||'';
+        FLOW.antworten['zugaenge']=(alt?alt+' · ':'')+(tun==='ja'?'freigegeben: ':'abgelehnt: ')+(j.name||name); }
+      try{ const v=await (await fetch(JOHN_API+'/api/vaikuntha?fresh=1',{cache:'no-store'})).json();
+           if(v&&v.ok){ VEREIN.data=v; rhythmMalen(); } }catch(e){}
+    } else {
+      knoepfe.forEach(b=>b.disabled=false); btn.textContent='Nochmal versuchen';
+      if(out){ out.classList.add('err'); out.textContent=(j&&(j.hint||j.text||j.error))||'Keine Antwort vom Server.'; }
+    }
+  }catch(e){
+    knoepfe.forEach(b=>b.disabled=false); btn.textContent='Nochmal versuchen';
+    if(out){ out.classList.add('err'); out.textContent='John-Server nicht erreichbar.'; }
+  }
+}
 async function gitFreigeben(repo,paket,btn){
   const key=repo+'/'+paket;
   const box=btn.closest('.qa')||document;
@@ -4773,6 +4829,7 @@ async function lotusLaden(){
   ROUT.data=(rout&&rout.ok)?rout:null; ROUT.fehler=(rout&&rout.ok===false)?rout:null; ROUT.geladen=true;
   VEREIN.data=(verein&&verein.ok)?verein:null; VEREIN.fehler=(verein&&verein.ok===false)?verein:null; VEREIN.geladen=true;
   vereinUebernehmen();                      /* Live-Zahlen über den Snapshot legen, BEVOR gerendert wird */
+  rhythmMalen();                            /* Website-Zugänge: die Zeile „🔐“ hängt am Vereins-Stand (03.09.) */
   FIN.data=(finanz&&finanz.ok)?finanz:null; FIN.fehler=(finanz&&finanz.ok===false)?finanz:null; FIN.geladen=true;
   finUebernehmen();
   NUTZ.data=(nutzer&&nutzer.ok)?nutzer:null; NUTZ.fehler=(nutzer&&nutzer.ok===false)?nutzer:null; NUTZ.geladen=true;
