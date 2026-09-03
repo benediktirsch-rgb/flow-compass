@@ -3423,6 +3423,82 @@ function wachtRefresh(){
   const s=new Date(w.stand||Date.now());
   stand.textContent = `${z.alsGut?'alles grün':(z.stoerungen?z.stoerungen+' Störung'+(z.stoerungen===1?'':'en'):'Hinweis')} · LIVE ${s.toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'})}`;
 }
+/* ---------- Deploy-Wächter (03.09., Rückfrage `deploy-waechter`) ----------------------
+   Der Seiten-Wächter beantwortet „antwortet die Seite?“. Diese Karte beantwortet die
+   andere Hälfte: „steht dort auch das, was du freigegeben hast?“. Anlass war der 03.09.:
+   die Verkaufsdemo lieferte den Stand von vor der Repo-Trennung aus, der Seiten-Wächter
+   stand dabei auf grün, und publish-compass.log meldete alle 30 Minuten „unverändert“.
+   Verglichen wird gegen HEAD, nicht gegen die Arbeitsdatei — sonst schlüge die Karte
+   jedes Mal Alarm, wenn die 30-Minuten-Aufgabe gerade neu gebaut, aber noch nichts
+   freigegeben hat. Was der Server dazu liefert, steht bei $DeployPaare im john-server.  */
+function depZahl(n){ return n==null?'–':Number(n).toLocaleString(LOC()); }
+function depIcon(p){ return p.zustand==='gleich'?'✅':(p.zustand==='alt'?'🕓':'❔'); }
+function depSatz(p){
+  if(p.zustand==='alt'){
+    const d=p.unterschiedBytes;
+    return `live ${depZahl(p.liveBytes)} B gegen ${depZahl(p.sollBytes)} B freigegeben`
+      + (d!=null?` (${d>0?'+':'−'}${depZahl(Math.abs(d))} B)`:'');
+  }
+  if(p.zustand==='unpruefbar') return p.grund||'nicht prüfbar';
+  return `${depZahl(p.liveBytes)} B — ausgeliefert wie freigegeben`;
+}
+/* Nur „alt“ rechtfertigt den Banner. „unprüfbar“ ist ausdrücklich KEIN Befund dieser Karte:
+   für Erreichbarkeit ist der Seiten-Wächter zuständig, und dieselbe Störung zweimal in Rot
+   ist nach drei Tagen Tapete. Genau daran ist die 2500-ms-Schwelle am 23.08. gescheitert.  */
+function depSorgen(){
+  const d=DEP.data; if(!d) return [];
+  return (d.paare||[]).filter(p=>p.zustand==='alt');
+}
+function depGruppe(){
+  const s=depSorgen(); if(!s.length) return '';
+  return `<div class="mgrp"><h3>🚚 ${s.length===1?'Eine Adresse liefert einen alten Stand aus':s.length+' Adressen liefern einen alten Stand aus'}
+    <span class="cnt">Stand ${esc(new Date(DEP.data.stand).toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'}))}</span></h3>
+    ${s.slice(0,4).map(p=>`<div class="item"><div class="ic">🕓</div><div class="body">
+      <div class="t">${esc(p.name)}</div>
+      <div class="m">${esc(depSatz(p))} · ${esc(p.repo)} › ${esc(p.datei)}</div></div></div>`).join('')}
+    ${s.length>4?`<div class="mini">+${s.length-4} weitere in der Karte „Live gegen freigegeben“.</div>`:''}</div>`;
+}
+function depCard(){
+  return `<div class="card s12 tone-none" id="depCard"><h3>🚚 Live gegen freigegeben <span class="cnt" id="depStand">lädt …</span></h3>
+    <div id="depBody"><div class="empty">Deploy-Wächter wird geladen …</div></div></div>`;
+}
+function depRefresh(){
+  meldeRefresh();
+  const body=document.getElementById('depBody'), stand=document.getElementById('depStand');
+  if(!body||!stand) return;
+  if(!DEP.geladen){ stand.textContent='lädt …'; return; }
+  if(!DEP.data){
+    stand.textContent = DEP.fehler?'Fehler':'offline';
+    body.innerHTML = DEP.fehler
+      ? `<div class="empty">Der Deploy-Wächter meldet: ${esc(DEP.fehler.error||'unbekannter Fehler')}</div>`
+      : `<div class="empty">Compass-Server nicht erreichbar${JOHN_API?` (${esc(JOHN_API)})`:''} — <code>deinen Compass-Server</code> starten, dann ↻ Neu laden.
+         Ohne Server vergleicht niemand live gegen freigegeben; dass hier nichts steht, heißt also nicht, dass alles ausgeliefert ist.</div>`;
+    return;
+  }
+  const d=DEP.data, z=d.zusammenfassung||{}, sch=d.schwellen||{};
+  const gruppen=[...new Set((d.paare||[]).map(p=>p.typ||'—'))];
+  const rang={alt:0,unpruefbar:1,gleich:2};      /* der Befund zuerst, das Grüne zuletzt */
+  const liste=gruppen.map(g=>`<div class="mini" style="border:0;padding:0;margin:12px 0 4px">${esc(g)}</div>`
+    + kurzListe((d.paare||[]).filter(p=>(p.typ||'—')===g).sort((a,b)=>rang[a.zustand]-rang[b.zustand])
+      .map(p=>`<div class="item"><div class="ic">${depIcon(p)}</div><div class="body">
+        <div class="t">${esc(p.name)} <span class="tag ${p.zustand==='gleich'?'grn':(p.zustand==='alt'?'red':'gry')}">${esc(p.zustand==='gleich'?'aktuell':(p.zustand==='alt'?'hinkt hinterher':'nicht prüfbar'))}</span></div>
+        <div class="m">${esc(depSatz(p))}</div>
+        ${p.lokalOffen?`<div class="m" style="color:var(--va-l)">Dazu liegt lokal Neueres, das du noch nicht freigegeben hast — das ist deine offene Arbeit, kein Deploy-Fehler.</div>`:''}
+        <div class="m"><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)} ↗</a> · <code>${esc(p.repo)} › ${esc(p.datei)}</code></div></div></div>`))).join('');
+  body.innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><div class="v">${esc(z.gleich??'–')} / ${esc(z.gesamt??'–')}</div><div class="l">ausgeliefert wie freigegeben</div></div>
+      <div class="kpi"><div class="v">${esc(z.alt??'–')}</div><div class="l">hinken hinterher</div></div>
+      <div class="kpi"><div class="v">${esc(z.unpruefbar??'–')}</div><div class="l">nicht prüfbar</div></div></div>
+    ${liste}
+    <div class="mini">Verglichen wird der Git-Blob deiner Live-Adresse gegen <b>HEAD</b> deiner Arbeitskopie — also gegen das, was du committet hast, nicht gegen die Datei auf der Platte.
+      ${z.lokalOffen?`Bei ${esc(z.lokalOffen)} ${z.lokalOffen===1?'Paar liegt':'Paaren liegt'} lokal Neueres, das noch nicht freigegeben ist; das steht getrennt an der Zeile.`:''}
+      „Nicht prüfbar“ heißt: die Adresse war nicht abrufbar oder es gibt keinen freigegebenen Stand — dafür ist der Seiten-Wächter zuständig, hier gibt es dafür kein zweites Rot.
+      Ein Abruf je Paar (Zeitlimit ${esc(sch.timeoutSec??'?')} s), alle ${Math.round((d.cacheSec||900)/60)} Minuten neu.
+      Paare ändern: <code>-DeployPaare</code> am john-server. Der Wächter sagt dir, <i>dass</i> live hinterherhinkt, nicht warum — den roten Workflow lesen kann er nicht.</div>`;
+  const s=new Date(d.stand||Date.now());
+  stand.textContent = `${z.alt?z.alt+' hinken hinterher':(z.unpruefbar?'nichts hinkt · '+z.unpruefbar+' ungeprüft':'alles ausgeliefert')} · LIVE ${s.toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'})}`;
+}
 /* Die Wertstrom-Karte des Kunden ist am 25.08.2026 raus (ihren Wunsch) — samt ihrer
    Live-Auffrischung. Die Zahlen selbst bleiben im Cockpit: lotusLaden() holt aggregated.json
    weiter, die Lotus-Kennzahlen Lead Time p50, WIP und Durchsatz stehen darauf. */
@@ -3842,6 +3918,12 @@ const KAL={ data:null, fehler:null, geladen:false };
 /* Seiten-Wächter (23.08.): GET /api/wacht — erreichbar? wie schnell? Zertifikat wie lange?
    Wie bei KAL trennt `fehler` „Server hat geantwortet, aber nein“ von „gar kein Server“. */
 const WACHT={ data:null, fehler:null, geladen:false };
+/* Deploy-Wächter (03.09., Rückfrage `deploy-waechter`): GET /api/deploy — steht live das, was du
+   freigegeben hast? Der Seiten-Wächter fragt nur nach dem Statuscode, und HTTP 200 heißt „antwortet“,
+   nicht „ist aktuell“: am 03.09. lieferte /compass-demo/ den Stand von vor der Repo-Trennung aus,
+   während alles auf grün stand. Wie bei WACHT trennt `fehler` „Server sagt nein“ von „gar kein
+   Server“ — und ohne Server heißt eine leere Karte hier nicht „alles ausgeliefert“. */
+const DEP={ data:null, fehler:null, geladen:false };
 /* Postfach-Rückstand (26.08.): GET /api/postfach — wer wartet auf eine Antwort von dir.
    Der Server liest nur postfach.json; gefüllt wird sie von der geplanten Aufgabe
    „compass-postfach“ (Claude + Gmail-Connector). Wie bei KAL und WACHT trennt `fehler`
@@ -4064,7 +4146,9 @@ function gitGruppe(){
    Wächter, Sicherungen und Freigaben standen als drei fast leere s12-Karten übereinander —
    jetzt ein Feld, die Gruppen nebeneinander (.mband). Keine Gruppe → kein Banner. */
 function meldeBanner(){
-  const g=[wachtGruppe(),routGruppe(),sichGruppe(),gitGruppe()].filter(Boolean);
+  /* Reihenfolge = Dringlichkeit: eine tote Seite schlägt eine veraltete, eine veraltete schlägt
+     eine stille Routine, und ganz hinten steht, was nur auf deine Freigabe wartet. */
+  const g=[wachtGruppe(),depGruppe(),routGruppe(),sichGruppe(),gitGruppe()].filter(Boolean);
   if(!g.length) return '';
   return `<div class="card s12 tone-bene" id="meldeBanner"><div class="mband">${g.join('')}</div></div>`;
 }
@@ -4154,6 +4238,19 @@ const LOTUS_KATALOG={
                       const k=(w.zerts||[]).filter(c=>c.ok&&c.tage!=null).sort((a,b)=>a.tage-b.tage)[0];
                       return {heute:w.zusammenfassung.zertMinTage,gestern:null,
                               sub:k?`${k.host} · bis ${wachtDatum(k.bis)}`:'knappstes von allen'}; }},
+  /* Deploy (03.09.): dieselbe Zwei-Zustands-Logik wie „Seiten mit Störung“ — entweder steht live
+     das, was du freigegeben hast, oder nicht. Ein Zielband mit Mitte gibt es hier nicht: eine
+     Demo, die den Stand von vorgestern zeigt, ist nicht „halb ausgeliefert“. Gezählt werden nur
+     vergleichbare Paare; „nicht prüfbar“ steht im Untertitel und schönt die Zahl nicht — sonst
+     bekäme man ein goldenes Blütenblatt dafür, dass niemand nachgesehen hat.                    */
+  deploy:  {icon:'🚚',label:'Adressen mit altem Stand',besser:'weniger',ziele:[0,0,0],
+            quelle:'Deploy-Wächter (live über john-server, GET /api/deploy — Live-Inhalt gegen HEAD)',
+            wert:d=>{ const z=d.dep&&d.dep.zusammenfassung; if(!z) return null;
+                      const t=[]; if(z.unpruefbar) t.push(`${z.unpruefbar} nicht prüfbar`);
+                      if(z.lokalOffen) t.push(`${z.lokalOffen} noch nicht freigegeben`);
+                      return {heute:z.alt,gestern:null,
+                              sub:z.alt?((z.altNamen||[]).slice(0,2).join(', ')+((z.altNamen||[]).length>2?' …':''))
+                                       :(t.length?t.join(' · '):`${z.gleich} von ${z.gesamt} ausgeliefert`)}; }},
   /* Sicherung (26.08.): gemessen wird die ÄLTESTE zweite Kopie, nicht die jüngste — die schwächste
      Stelle entscheidet, ob die Arbeit doppelt liegt. Grün ab „unter 24 h“ (so stand es in der
      Rückfrage), golden erst unter 6 h. Ordner ganz ohne zweite Kopie bekommen keine erfundene
@@ -4493,7 +4590,7 @@ function lotusRender(neuChips){
 }
 async function lotusLaden(){
   const jget=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); const j=await r.json(); return (j&&j.ok!==false)?j:null; }catch(e){ return null; } };
-  const [arbeit,jira,porsche,kal,git,wacht,postf,slack,sich,wetter,rout,verein,finanz]=await Promise.all([
+  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz]=await Promise.all([
     jget(JOHN_API+'/api/arbeit'),
     jget(JOHN_API+'/api/kpi/jira'),
     Promise.resolve(null), /* Kundenzahlen: im Produkt gibt es kein Kundenportal */
@@ -4503,6 +4600,9 @@ async function lotusLaden(){
     (async()=>{ try{ const r=await fetch(JOHN_API+'/api/git',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
     /* Wächter: derselbe Weg — der Grund gehört in die Karte, nicht in den Papierkorb. */
     (async()=>{ try{ const r=await fetch(JOHN_API+'/api/wacht',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
+    /* Deploy-Wächter (03.09.): derselbe Weg. Ohne Server darf die Karte nicht so aussehen, als sei
+       alles ausgeliefert — „ungeprüft“ und „aktuell“ müssen unterscheidbar bleiben. */
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/deploy',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
     /* Postfach: ebenso — „noch nie gemessen“ (NO_DATA) muss die Karte sagen können. */
     (async()=>{ try{ const r=await fetch(JOHN_API+'/api/postfach',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
     /* Slack (31.08.): derselbe Weg — „noch nie gemessen“ und „kein Kanal hat etwas“ müssen
@@ -4525,6 +4625,7 @@ async function lotusLaden(){
   KAL.data=(kal&&kal.ok)?kal:null; KAL.fehler=(kal&&kal.ok===false)?kal:null; KAL.geladen=true;
   GIT.data=(git&&git.ok)?git:null; GIT.fehler=(git&&git.ok===false)?git:null; GIT.geladen=true; gitRefresh();
   WACHT.data=(wacht&&wacht.ok)?wacht:null; WACHT.fehler=(wacht&&wacht.ok===false)?wacht:null; WACHT.geladen=true;
+  DEP.data=(dep&&dep.ok)?dep:null; DEP.fehler=(dep&&dep.ok===false)?dep:null; DEP.geladen=true;
   POSTF.data=(postf&&postf.ok)?postf:null; POSTF.fehler=(postf&&postf.ok===false)?postf:null; POSTF.geladen=true;
   SLACK.data=(slack&&slack.ok)?slack:null; SLACK.fehler=(slack&&slack.ok===false)?slack:null; SLACK.geladen=true;
   SICH.data=(sich&&sich.ok)?sich:null; SICH.fehler=(sich&&sich.ok===false)?sich:null; SICH.geladen=true;
@@ -4534,9 +4635,9 @@ async function lotusLaden(){
   vereinUebernehmen();                      /* Live-Zahlen über den Snapshot legen, BEVOR gerendert wird */
   FIN.data=(finanz&&finanz.ok)?finanz:null; FIN.fehler=(finanz&&finanz.ok===false)?finanz:null; FIN.geladen=true;
   finUebernehmen();
-  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data}; LOT.geladen=true;
+  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data}; LOT.geladen=true;
   if(arbeit) arbeitXpVerbuchen(arbeit);
-  kalenderRefresh(); wachtRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh();
+  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh();
   lotusRender(false);
   fortschrittRefresh();
   if(SUMMARY_NEU||!(S.summary&&S.summary.datum===heute())){ const f=SUMMARY_NEU; SUMMARY_NEU=false; summaryHolen(f); }
@@ -4584,6 +4685,11 @@ function summaryDaten(){
     seiten:WACHT.data?{erreichbar:`${WACHT.data.zusammenfassung.online} von ${WACHT.data.zusammenfassung.gesamt}`,
                    stoerungen:(WACHT.data.seiten||[]).filter(s=>!s.ok).map(s=>`${s.name}: ${wachtGrund(s)}`),
                    zertifikatKnappstTage:WACHT.data.zusammenfassung.zertMinTage}:'nicht angebunden',
+    /* Genauso wichtig für Coach wie die Erreichbarkeit: eine Demo, die den Stand von vorgestern
+       zeigt, ist ein Verkaufsproblem — und sie sieht von außen völlig gesund aus. */
+    ausgeliefert:DEP.data?{aktuell:`${DEP.data.zusammenfassung.gleich} von ${DEP.data.zusammenfassung.gesamt}`,
+                   hinkenHinterher:DEP.data.zusammenfassung.altNamen||[],
+                   nichtPruefbar:DEP.data.zusammenfassung.unpruefbar}:'nicht angebunden',
     /* Wer auf eine Antwort wartet, gehört genauso in Coach-Kontext wie der Kalender: eine
        Unterhaltung, die seit Wochen liegt, verschiebt die Prioritäten des Tages. Nur Namen
        und Betreff, kein Mailtext — der wird auch lokal nicht gespeichert. */
