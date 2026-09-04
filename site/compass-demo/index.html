@@ -40,7 +40,7 @@
    ========================================================================== */
 :root{
   --bg:#0b0f14; --bg2:#0f141b; --panel:#131a23; --panel2:#1a222d; --line:#243040; --line2:#2f3d4f;
-  --ink:#eef3f7; --sub:#9fb0bf; --dim:#6b7a88;
+  --ink:#eef3f7; --sub:#9fb0bf; --dim:#8494a3;   /* 04.09.2026: #6b7a88 lag auf --panel2 bei 3,6:1 — zu wenig fuer 11-px-Text (WCAG AA will 4,5:1) */
   --va:#1a44ea; --va-l:#7d97ff; --va-soft:#16214a;
   --vk:#89c527; --vk-d:#a4dd45; --vk-soft:#1d2a12;
   --bene:#f0b429; --bene-soft:#33280f;
@@ -53,7 +53,9 @@
 }
 [data-theme="light"]{
   --bg:#f6f4ee; --bg2:#efece3; --panel:#ffffff; --panel2:#f3f1ea; --line:#e3ded0; --line2:#cfc8b6;
-  --ink:#1b2230; --sub:#5f6b78; --dim:#8a95a1;
+  --ink:#1b2230; --sub:#5f6b78; --dim:#6e7781;   /* 04.09.2026: #8a95a1 war 3,05:1 auf Weiss und trug 135 Textstellen
+                                                    (Zielzeilen der Blueten, Kartenfuesse, Quellenangaben) — alle unter
+                                                    WCAG AA. #6e7781 sind 4,55:1 und bleibt deutlich unter --sub. */
   --va-l:#1a44ea; --va-soft:#e8edff; --vk-d:#567d1a; --vk-soft:#eef4de; --bene-soft:#fbf0d2;
   --shadow:0 8px 26px rgba(30,40,60,.10);
   --g1:rgba(26,68,234,.14); --g2:rgba(137,197,39,.22);
