@@ -19,6 +19,9 @@
         verbraucht (90 Sekunden gültig, genau ein Einlösen).
      3. Wer darf, bekommt ein eigenes, kurzes Cookie (vf_gate, HMAC-signiert, 4 Stunden)
         — danach läuft jeder Aufruf ohne Netzverkehr durch.
+     4. ?wer=1 sagt der Seite hinter der Tür, wer da ist (JSON: person, name, mail) — das
+        Cookie ist httponly, der Compass könnte es sonst nicht lesen und würde ein zweites
+        Mal nach Name und Passwort fragen. ?raus=1 löscht das Cookie und meldet das Konto ab.
 
    WER DARF, steht in gate-config.php neben dieser Datei:
        $GATE_MAIL   = 'jan@vishnuartists.com';         // die Person, der diese Instanz gehört
@@ -69,9 +72,9 @@ function g_seite( $code, $titel, $text, $knopf = '' ) {
 }
 
 /* ————— Cookie: signiert, kurz, ohne Serverspeicher ————— */
-function g_cookie_bauen( $person, $mail ) {
+function g_cookie_bauen( $person, $mail, $name = '' ) {
 	global $GEHEIM, $STUNDEN;
-	$d = g_b64( json_encode( array( 'p' => (int) $person, 'm' => (string) $mail, 'exp' => time() + $STUNDEN * 3600 ) ) );
+	$d = g_b64( json_encode( array( 'p' => (int) $person, 'm' => (string) $mail, 'n' => (string) $name, 'exp' => time() + $STUNDEN * 3600 ) ) );
 	return $d . '.' . hash_hmac( 'sha256', $d, $GEHEIM );
 }
 function g_cookie_lesen() {
@@ -129,11 +132,32 @@ if ( isset( $_GET['vf_t'] ) ) {
 			. 'Persönliche Instanzen öffnen nur die Person selbst und die Geschäftsführung. Wenn das ein Irrtum ist: kurz melden, wir tragen es ein.',
 			'<a class="b" href="https://vishnuartists.com/mein-vishnu.html">Zu Mein Vishnu</a>' );
 	}
-	$wert = g_cookie_bauen( (int) $d['person'], (string) $d['mail'] );
+	$wert = g_cookie_bauen( (int) $d['person'], (string) $d['mail'], (string) ( $d['name'] ?? '' ) );
 	setcookie( 'vf_gate', $wert, array( 'expires' => time() + $STUNDEN * 3600, 'path' => '/',
 		'secure' => true, 'httponly' => true, 'samesite' => 'Lax' ) );
 	header( 'Cache-Control: no-store' );
 	header( 'Location: ' . g_meine_url() );
+	exit;
+}
+
+/* ————— 1b. Wer ist da? — für die Seite hinter der Tür —————
+   Das Türcookie ist httponly, der Compass im Browser kann es nicht lesen. Er fragt hier nach und
+   bekommt Person, Vorname und Mailadresse, wenn jemand angemeldet ist — sonst ok:false. Damit
+   entfällt sein eigener Anmeldedialog (Name + Team-Passwort), sobald die Tür offen ist. */
+if ( isset( $_GET['wer'] ) ) {
+	header( 'Content-Type: application/json; charset=utf-8' );
+	header( 'Cache-Control: no-store' );
+	$ich = g_cookie_lesen();
+	if ( ! $ich || ! file_exists( $KONFIG ) ) { echo json_encode( array( 'ok' => false ) ); exit; }
+	echo json_encode( array( 'ok' => true, 'person' => (int) $ich['p'], 'mail' => (string) $ich['m'], 'name' => (string) ( $ich['n'] ?? '' ) ), JSON_UNESCAPED_UNICODE );
+	exit;
+}
+
+/* ————— 1c. Abmelden: Türcookie weg, dann das Konto selbst abmelden ————— */
+if ( isset( $_GET['raus'] ) ) {
+	setcookie( 'vf_gate', '', array( 'expires' => time() - 3600, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax' ) );
+	header( 'Cache-Control: no-store' );
+	header( 'Location: https://vishnuartists.com/anmelden.php?aus=1' );
 	exit;
 }
 
