@@ -35,12 +35,22 @@ window.PORTAL = {
     vaikuntha: false          /* Vereinsmenschen: 'https://vaikuntha.eu/' */
   },
 
-  /* Die kleinen Verweise unter den Kacheln. Gleiche Regel: false = weg,
-     Text = eigene Adresse. Wer seinen Eintrag lieber im CRM pflegt, trägt hier die
-     eigene Personenseite ein (die Nummer steht in der Adresse, wenn man sie im CRM
-     öffnet): 'https://vishnuartists.com/crm.php?v=person&id=<nr>'. */
-  neben: {
-    /* profil: 'https://vishnuartists.com/profil.php', */
-    /* kennzahlen: false */
-  }
+  /* Die zweite Ebene unter den Kacheln: kleine Zeilen in vier Spalten.
+     Standardmäßig sichtbar (für alle):
+       ich       profil · kennzahlen · freelancerportal
+       menschen  team
+       lernen    academy · buchung · jira
+     Standardmäßig AUS — nur wer sie braucht, schaltet sie hier an:
+       firma     finanzen · strategie · abos
+       menschen  bewerbungen (FAP & JAP) · crm · portalpflege
+     true = Standardadresse, false = ausblenden, 'https://…' = eigene Adresse.
+     Wer sein Profil lieber im CRM pflegt, trägt die eigene Personenseite ein
+     (die Nummer steht in der Adresse, wenn man sie im CRM öffnet):
+       profil: 'https://vishnuartists.com/crm.php?v=person&id=<nr>' */
+  mehr: {
+    /* finanzen: true, strategie: true, bewerbungen: true, crm: true */
+  },
+
+  /* Alter Name derselben Sache (bis 04.09.2026). Was hier steht, wirkt weiter. */
+  neben: {}
 };

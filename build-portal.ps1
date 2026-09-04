@@ -73,7 +73,16 @@ Migriere $Ziel | Out-Null
 if ($NurMigrieren) { return }
 
 # ── 2. Portalseite, Service Worker, Manifest ─────────────────────────────────
-Write-Lf (Join-Path $Ziel 'index.html')           (Read-Utf8 (Join-Path $prod 'portal.html'))
+# Die Seite holt Anrede und Mailadresse aus compass\instanz.js. Die gibt es nur bei
+# Instanzen aus dem Produkt-Build — Benes eigener Compass hat keine, und ein Verweis
+# auf eine Datei, die es nicht gibt, ist ein 404 in der Konsole jeder Person, die das
+# Portal oeffnet. Fehlt sie, faellt die Zeile raus (portal.js traegt dann alles).
+$seite = Read-Utf8 (Join-Path $prod 'portal.html')
+if (-not (Test-Path (Join-Path $Ziel 'compass\instanz.js'))) {
+  $seite = [Text.RegularExpressions.Regex]::Replace($seite, '(?m)^<script src="compass/instanz\.js".*\r?\n', '')
+  Write-Host 'compass\instanz.js fehlt — Verweis aus der Portalseite entfernt (Anrede kommt aus portal.js).'
+}
+Write-Lf (Join-Path $Ziel 'index.html')           $seite
 Write-Lf (Join-Path $Ziel 'sw.js')                (Read-Utf8 (Join-Path $prod 'portal-sw.js'))
 Write-Lf (Join-Path $Ziel 'manifest.webmanifest') (Read-Utf8 (Join-Path $prod 'portal.webmanifest'))
 

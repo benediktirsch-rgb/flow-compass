@@ -57,7 +57,9 @@ html[data-theme="dark"] .brand .v{background:var(--green);color:#11150d}
 h1{font-size:clamp(26px,4.4vw,38px);line-height:1.2;margin:18px 0 4px;font-weight:800;letter-spacing:-.5px}
 h1 em{font-style:normal;color:var(--green-d)}
 .lead{color:var(--sub);margin:0 0 26px;max-width:60ch}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:16px}
+/* 215px, damit vier Kacheln auf einem normalen Bildschirm in eine Reihe passen —
+   bei 258px rutschte die vierte (Vaikuntha) allein in die zweite Zeile. */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px}
 .tile{position:relative;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);
   padding:20px 20px 18px;display:flex;flex-direction:column;gap:7px;text-decoration:none;
   box-shadow:var(--shadow);transition:border-color .15s,transform .15s}
@@ -71,10 +73,17 @@ h1 em{font-style:normal;color:var(--green-d)}
 .tile .host{color:var(--sub);font-weight:600;letter-spacing:0}
 .tile.haupt{background:linear-gradient(155deg,var(--green-soft),var(--card) 62%);border-color:var(--green)}
 .tile .kbd{position:absolute;top:12px;right:14px;font-size:11px;color:var(--sub);font-weight:700}
-.nb{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
-.nb a{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 12px;
-  font-size:12.5px;font-weight:700;color:var(--sub);text-decoration:none}
-.nb a:hover{color:var(--ink);border-color:var(--line-strong)}
+/* Zweite Ebene: alles, was man selten braucht und trotzdem finden muss. Bewusst
+   ohne Kachel-Optik — Textzeilen in Spalten, kleiner und ruhiger als die Kacheln. */
+.mehr{margin-top:30px;padding-top:20px;border-top:1px solid var(--line);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:18px 26px}
+.mehr h3{margin:0 0 7px;font-size:10.5px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--sub)}
+.mehr ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.mehr a{display:flex;align-items:baseline;gap:7px;text-decoration:none;color:var(--ink);
+  font-size:13.5px;padding:2px 0;border-radius:6px}
+.mehr a:hover,.mehr a:focus-visible{color:var(--green-d);outline:none}
+.mehr a:focus-visible{box-shadow:0 0 0 3px var(--green-soft)}
+.mehr a .ic2{font-size:13px;flex:none;width:17px}
 footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:12.5px}
 footer b{color:var(--ink);font-weight:700}
 @media(max-width:560px){ .wrap{padding:20px 16px 44px} .tile .kbd{display:none} }
@@ -94,7 +103,7 @@ footer b{color:var(--ink);font-weight:700}
   <p class="lead" id="lead">Deine Werkzeuge an einer Stelle. Ein Login, vier Wege.</p>
 
   <div class="grid" id="grid"></div>
-  <div class="nb" id="nb"></div>
+  <div class="mehr" id="mehr"></div>
   <footer id="fuss"></footer>
 </div>
 
@@ -141,9 +150,47 @@ var STANDARD = [
     de:['Vaikuntha','Der Verein: Termine, Camp, Mitmachen.'],
     en:['Vaikuntha','The association: dates, camp, joining in.'] }
 ];
-var NEBEN = [
-  { id:'profil', url:'https://vishnuartists.com/profil.php', de:'Mein Profil pflegen', en:'Edit my profile' },
-  { id:'kennzahlen', url:'./compass/kennzahlen.html', de:'Kennzahlen', en:'Metrics' }
+/* ---------- Zweite Ebene: selten gebraucht, trotzdem auffindbar ---------------------
+   std:false = steht nur da, wenn portal.js es einschaltet (Finanzen, Bewerbungen, CRM
+   und die Portal-Pflege gehen nicht jede Person etwas an). Wie bei den Kacheln:
+   true = Standardadresse, false = weg, Text = eigene Adresse. Aus Gründen der
+   Abwärtskompatibilität wirkt auch der alte Block `neben` weiter. */
+var MEHR = [
+  { gruppe:'ich', id:'profil', icon:'👤', std:true, url:'https://vishnuartists.com/profil.php',
+    de:'Mein Profil pflegen', en:'Edit my profile' },
+  { gruppe:'ich', id:'kennzahlen', icon:'📈', std:true, url:'./compass/kennzahlen.html',
+    de:'Meine Kennzahlen', en:'My metrics' },
+  { gruppe:'ich', id:'freelancerportal', icon:'🎒', std:true, url:'https://vishnuartists.com/portal.html',
+    de:'Mein Freelancer-Portal', en:'My freelancer portal' },
+
+  { gruppe:'firma', id:'finanzen', icon:'💶', std:false, url:'https://vishnuartists.com/finanzlauf/',
+    de:'Finanzen', en:'Finances' },
+  { gruppe:'firma', id:'strategie', icon:'🧭', std:false, url:'https://vishnuartists.com/finanzlauf/strategie.php',
+    de:'Strategie Liquidität', en:'Liquidity strategy' },
+  { gruppe:'firma', id:'abos', icon:'🧾', std:false, url:'https://vishnuartists.com/finanzlauf/abos.php',
+    de:'Abos', en:'Subscriptions' },
+
+  { gruppe:'menschen', id:'bewerbungen', icon:'📋', std:false, url:'https://vishnuartists.com/portal-admin.php?v=bewerbungen',
+    de:'Bewerbungen (FAP & JAP)', en:'Applications (FAP & JAP)' },
+  { gruppe:'menschen', id:'crm', icon:'🗂️', std:false, url:'https://vishnuartists.com/crm.php',
+    de:'CRM', en:'CRM' },
+  { gruppe:'menschen', id:'portalpflege', icon:'🛠️', std:false, url:'https://vishnuartists.com/portal-admin.php',
+    de:'Portal-Pflege', en:'Portal admin' },
+  { gruppe:'menschen', id:'team', icon:'👥', std:true, url:'https://vishnuartists.com/team.html',
+    de:'Menschen & Profile', en:'People & profiles' },
+
+  { gruppe:'lernen', id:'academy', icon:'🎓', std:true, url:'https://vishnuartists.com/academy.html',
+    de:'Academy', en:'Academy' },
+  { gruppe:'lernen', id:'buchung', icon:'📅', std:true, url:'https://vishnuartists.com/buchung.html',
+    de:'Training buchen', en:'Book a training' },
+  { gruppe:'lernen', id:'jira', icon:'🎫', std:true, url:'https://vishnuartists.atlassian.net/jira/projects',
+    de:'Jira', en:'Jira' }
+];
+var GRUPPEN = [
+  { id:'ich',      de:'Ich',      en:'Me' },
+  { id:'firma',    de:'Firma',    en:'Company' },
+  { id:'menschen', de:'Menschen', en:'People' },
+  { id:'lernen',   de:'Lernen & Termine', en:'Learning & dates' }
 ];
 
 /* Adresse einer Kachel: nichts gesagt = Standard, false = aus, Text = eigene Adresse. */
@@ -185,16 +232,25 @@ function zeichne(){
   });
   document.getElementById('grid').innerHTML = html;
 
-  var nb = '';
-  NEBEN.forEach(function(k){
-    var c = P.neben || {};
-    if (k.id in c && c[k.id] === false) return;
-    var u = (k.id in c && typeof c[k.id] === 'string') ? c[k.id] : k.url;
-    if (!u) return;
-    nb += '<a href="' + esc(u) + '"' + (u.charAt(0) !== '.' ? ' target="_blank" rel="noopener"' : '') +
-          '>' + esc(k[SPR] || k.de) + ' ↗</a>';
+  var mehr = '';
+  GRUPPEN.forEach(function(g){
+    var zeilen = '';
+    MEHR.forEach(function(k){
+      if (k.gruppe !== g.id) return;
+      var c = P.mehr || {}, alt = P.neben || {};
+      var wahl = (k.id in c) ? c[k.id] : ((k.id in alt) ? alt[k.id] : undefined);
+      var u;
+      if (wahl === undefined) { u = k.std ? k.url : ''; }
+      else if (wahl === false) { u = ''; }
+      else if (wahl === true)  { u = k.url; }
+      else { u = String(wahl || ''); }
+      if (!u) return;
+      zeilen += '<li><a href="' + esc(u) + '"' + (u.charAt(0) !== '.' ? ' target="_blank" rel="noopener"' : '') +
+                '><span class="ic2">' + k.icon + '</span>' + esc(k[SPR] || k.de) + '</a></li>';
+    });
+    if (zeilen) mehr += '<div><h3>' + esc(g[SPR] || g.de) + '</h3><ul>' + zeilen + '</ul></div>';
   });
-  document.getElementById('nb').innerHTML = nb;
+  document.getElementById('mehr').innerHTML = mehr;
 
   var mail = P.mail || I.mail || 'hallo@vishnuartists.com';
   document.getElementById('fuss').innerHTML =
