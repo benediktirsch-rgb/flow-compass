@@ -1169,7 +1169,8 @@ const KAN={
   fl: localStorage.getItem('compassVaFl')||'fl1'               /* Team-Board: fl1 Team-Board · fl2 Initiativen · fl3 Strategie */
 };
 /* Team-Board: Daten + Filter (Filter werden gemerkt, damit die Sicht nach dem Neuladen steht) */
-const VA={ data:null, tickets:[], inits:[], themen:[], risiken:[], ziele:[], spalten:[], projekte:[], stand:null, quelle:'', lauf:0, fehler:'' };
+const VA={ data:null, tickets:[], inits:[], themen:[], risiken:[], ziele:[], spalten:[], projekte:[], stand:null, quelle:'', lauf:0, fehler:'',
+  puffer:0, leerQuelle:false };   /* puffer = Zeitpunkt der gepufferten Kopie, aus der gerade gemalt wird (0 = frische Daten) */
 const VAF=Object.assign({ projekt:'', person:'', blocker:false, alter:0, typ:'', faellig:'', init:'', thema:'', q:'', doneTage:14, sort:'alter', verwaist:false, ohnePerson:false },
   (()=>{ try{ return JSON.parse(localStorage.getItem('compassVaFilter')||'{}'); }catch(e){ return {}; } })());
 /* Gebietsschema für alle toLocale*-Aufrufe — kommt aus compass-i18n.js;
@@ -2848,6 +2849,33 @@ function vaIstIch(p){
 }
 function vaFilterMerken(){ try{ localStorage.setItem('compassVaFilter',JSON.stringify(VAF)); }catch(e){} }
 
+/* ---------- Lokaler Puffer: der letzte gute Datenstand überlebt jeden Ausfall (04.09.2026) ----------
+   Zweimal stand hier ein leeres Kanban, ohne dass jemand einen Fehler sah: einmal, weil der stündliche
+   Jira-Lauf mit totem Token eine leere Board-Datei ausgeliefert hat (26.08.), einmal, weil der Browser
+   eine alte, leere Kopie aus seinem Cache weiterreichte (02.–04.09.). Ein Board, das nur so gut ist wie
+   der letzte Netzabruf, ist kein Board. Deshalb: jeder erfolgreiche Lauf mit Vorgängen legt eine Kopie
+   in den localStorage; fällt die Quelle aus oder liefert sie 0 Vorgänge, malt der Compass aus dieser
+   Kopie weiter — und schreibt darüber, von wann sie ist. Sobald die Quelle wieder liefert, gewinnt sie. */
+const VA_PUFFER='compassVaPuffer';
+function vaPufferLesen(){
+  try{ const c=JSON.parse(localStorage.getItem(VA_PUFFER)||'null');
+       return (c&&c.d&&Array.isArray(c.d.issues)&&c.d.issues.length)?c:null; }catch(e){ return null; }
+}
+function vaPufferSchreiben(d,quelle,zeit){
+  /* Voller Speicher darf die Ansicht nicht kippen: dann eben ohne Puffer weiter. */
+  try{ localStorage.setItem(VA_PUFFER,JSON.stringify({t:zeit||Date.now(),q:quelle||'',d})); }catch(e){}
+}
+function vaPufferHinweis(){
+  const d=new Date(VA.puffer);
+  const grund = VA.leerQuelle
+    ? 'Die Quelle antwortet gerade ohne einen einzigen Vorgang — sehr wahrscheinlich läuft der stündliche Jira-Lauf ins Leere (Token oder Berechtigung).'
+    : `Die Quelle ist gerade nicht erreichbar (${esc(VA.fehler||'—')}).`;
+  return `<div class="valade" style="margin:0 0 10px">📦 <b>Aus dem lokalen Puffer</b> — geholt ${d.toLocaleString(LOC(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}. ${grund}
+    Die Karten unten sind echt, aber möglicherweise nicht von heute. Beim nächsten gelungenen Abruf ersetzt der Compass sie von selbst.
+    <button class="btn" onclick="vaLaden(true)">↻ Jetzt erneut versuchen</button>
+    <a class="btn" href="${COMPASS.cockpit.url}" target="_blank" rel="noopener">Cockpit öffnen ↗</a></div>`;
+}
+
 /* ---------- Laden (live: gleiche Domain → direkt; lokal: über den Compass-Server, KAS sendet kein CORS) ---------- */
 async function vaLaden(fresh){
   const lauf=++VA.lauf, st=document.getElementById('vaStand');
@@ -2860,27 +2888,49 @@ async function vaLaden(fresh){
     if(bx) bx.innerHTML=`<div class="valade">Hier steht das Board deines Teams, sobald dein Team-Cockpit angebunden ist — dieselben Karten, nach Flight Levels sortiert, mit Blockern und Alter.${COMPASS.cockpit.url?` <a href="${COMPASS.cockpit.url}" target="_blank" rel="noopener">Cockpit ansehen ↗</a>`:''}</div>`;
     return;
   }
-  if(st) st.textContent = fresh?'lade neu …':'lädt …';
+  /* Erst malen, dann holen: liegt ein Puffer vor, steht das Board schon im ersten Frame —
+     auch offline, auch wenn die Quelle nachher gar nicht antwortet. */
+  const puffer=vaPufferLesen();
+  if(puffer && !VA.tickets.length){ vaNorm(puffer.d); VA.quelle='lokaler Puffer'; VA.puffer=puffer.t; VA.leerQuelle=false; vaPaint(); }
+  if(st) st.textContent = fresh?'lade neu …':(VA.puffer?'aktualisiere …':'lädt …');
   const direkt = new URL(COMPASS.cockpit.daten, COMPASS.cockpit.url).toString();
   const sameOrigin = (()=>{ try{ return new URL(COMPASS.cockpit.url).origin===location.origin; }catch(e){ return false; } })();
   const wege = sameOrigin ? [[direkt,'Cockpit-Daten']] : [[JOHN_API+'/api/va'+(fresh?'?fresh=1':''),'Compass-Server'],[direkt,'Cockpit-Daten']];
-  VA.fehler='';
+  VA.fehler=''; let leer=false;
   for(const [url,quelle] of wege){
     try{
+      /* Cache-Bruch (04.09.2026): ohne Parameter reichte der Browser seine alte Kopie der Board-Datei
+         weiter — am 04.09. eine leere vom 02.09., obwohl die Quelle längst wieder 658 Vorgänge lieferte.
+         Zehn-Minuten-Fenster: frisch genug, ohne jede Anfrage neu zu übertragen. */
+      const stempel = fresh?Date.now():Math.floor(Date.now()/6e5);
+      const abruf = url===direkt ? url+(url.includes('?')?'&':'?')+'t='+stempel : url;
       /* Direktabruf vom Cockpit (anderer Ursprung seit 03.09.): Zugangsdaten mitschicken, sonst antwortet
          der Zugangsschutz mit 401. Gleicher Ursprung oder Compass-Server: wie gehabt. */
-      const r=await fetch(url+(sameOrigin&&fresh?('?t='+Date.now()):''),{cache:fresh?'no-store':'default',credentials:(!sameOrigin&&url===direkt)?'include':'same-origin'});
+      const r=await fetch(abruf,{cache:fresh?'no-store':'no-cache',credentials:(!sameOrigin&&url===direkt)?'include':'same-origin'});
       if(!r.ok) throw new Error('HTTP '+r.status);
       const d=await r.json();
       if(lauf!==VA.lauf) return;
       if(!d||!d.issues) throw new Error('unerwartetes Format');
-      vaNorm(d); VA.quelle=quelle; vaPaint(); return;
+      /* Eine leere Datei ist kein gültiger Datenstand, sondern ein stiller Ausfall: nächsten Weg
+         probieren, sonst unten aus dem Puffer malen. Nie einen guten Stand damit überschreiben. */
+      if(!d.issues.length){ leer=true; VA.fehler='Datenstand ohne Vorgänge'; continue; }
+      /* Der Compass-Server hält seinerseits einen Puffer auf Platte und sagt per Header, ob er daraus
+         geantwortet hat. Dann sind die Karten echt, aber nicht von jetzt — das gehört in die Karte. */
+      const ausPuffer = r.headers.get('X-VA-Puffer')==='1' ? (Date.parse(r.headers.get('X-VA-Puffer-Zeit')||'')||Date.now()) : 0;
+      vaNorm(d); VA.quelle = ausPuffer ? quelle+' · Puffer' : quelle; VA.puffer=ausPuffer;
+      VA.leerQuelle = ausPuffer ? /Vorgaenge|Vorgänge/i.test(r.headers.get('X-VA-Puffer-Grund')||'') : false;
+      if(ausPuffer) VA.fehler = r.headers.get('X-VA-Puffer-Grund')||VA.fehler;
+      vaPufferSchreiben(d,quelle,ausPuffer||Date.now()); vaPaint(); return;
     }catch(e){ VA.fehler=e.message||String(e); }
   }
   if(lauf!==VA.lauf) return;
-  if(st) st.textContent='offline';
+  /* Nichts Brauchbares geholt. Der Puffer schlägt jede leere Anzeige — mit ehrlichem Stand darüber. */
+  if(puffer){ vaNorm(puffer.d); VA.quelle='lokaler Puffer'; VA.puffer=puffer.t; VA.leerQuelle=leer; vaPaint(); return; }
+  if(st) st.textContent = leer?'Quelle leer':'offline';
   const b=document.getElementById('vaBody');
-  if(b) b.innerHTML=`<div class="valade">Die Board-Daten sind gerade nicht erreichbar (${esc(VA.fehler)}).
+  if(b) b.innerHTML=`<div class="valade">${leer
+    ? 'Die Board-Datei ist da, sie enthält keinen einzigen Vorgang — der stündliche Jira-Lauf liefert gerade nichts. Ein Puffer liegt hier noch nicht: sobald einmal ein voller Stand geladen war, malt der Compass ihn bei solchen Ausfällen weiter.'
+    : `Die Board-Daten sind gerade nicht erreichbar (${esc(VA.fehler)}).`}
     ${LOKAL?'Der Compass-Server reicht sie durch — läuft er? Starte ihn, dann ↻ Neu laden.':'Beim nächsten Laden versucht es der Compass erneut.'}
     Solange: <a href="${COMPASS.cockpit.url}" target="_blank" rel="noopener">Cockpit öffnen ↗</a></div>`;
 }
@@ -3158,9 +3208,9 @@ function vaPaintBody(){
       <a href="${COMPASS.cockpit.url}" target="_blank" rel="noopener">Cockpit öffnen ↗</a></div>`;
     return;
   }
-  e.innerHTML = KAN.fl==='fl2'?vaFl2Html() : KAN.fl==='fl3'?vaFl3Html() : vaBoardHtml();
+  e.innerHTML = (VA.puffer?vaPufferHinweis():'') + (KAN.fl==='fl2'?vaFl2Html() : KAN.fl==='fl3'?vaFl3Html() : vaBoardHtml());
   if(st&&VA.stand){ const d=new Date(VA.stand);
-    st.textContent = `Stand ${d.toLocaleString(LOC(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${VA.tickets.length} Tickets`; }
+    st.textContent = `Stand ${d.toLocaleString(LOC(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${VA.tickets.length} Tickets${VA.puffer?' · aus dem Puffer':''}`; }
 }
 function vaPaint(){ vaPaintKpi(); vaPaintFil(); vaPaintBody(); }
 
