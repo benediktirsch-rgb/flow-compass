@@ -771,6 +771,10 @@ em.acc{font-style:italic;color:var(--vk-d)}
 #gate input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:12px 14px;font-family:inherit;font-size:15px;text-align:center}
 #gate .gerr{color:var(--bad);font-size:12px;min-height:16px;margin-top:6px}
 #gate .btn.a{margin-top:10px;width:100%;padding:11px}
+/* Solange die Tür (gate.php) gefragt wird, bleibt das Formular verborgen — kein Flackern für Leute, die schon drin sind */
+#gate.pruefe .gbox p,#gate.pruefe input,#gate.pruefe .btn,#gate.pruefe #gateAlt,#gate.pruefe #bioGo{display:none}
+#gate #gateWarte{display:none;color:var(--sub);font-size:13px;padding:8px 0 4px}
+#gate.pruefe #gateWarte{display:block}
 
 /* ==========================================================================
    Kompass-Modul (21.08.2026) — der Compass als Symbol: Orientierung, Ordnung, Takt.
@@ -945,6 +949,7 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
   <input id="gateName" type="text" autocomplete="username" placeholder="Dein Name — Vorname reicht" aria-label="Name">
   <input id="gatePw" type="password" autocomplete="current-password" placeholder="Zugangswort" aria-label="Zugangswort">
   <div class="gerr" id="gateErr"></div>
+  <div id="gateWarte">Einen Moment — wir fragen die Tür, wer du bist …</div>
   <button class="btn a" id="gateGo">Anmelden →</button>
   <!-- Anmelde-Link + Passwort vergessen: füllt das Skript unten, nur wenn ein Team-Login
        samt Endpunkt konfiguriert ist (TEAM_LOGIN.api) — sonst bleibt der Block leer. -->
@@ -5901,7 +5906,11 @@ function vaAnmelden(name){
   }catch(e){}
 }
 function compassAbmelden(){
+  /* Kam die Person durch die Tür (gate.php), heißt Abmelden: Türcookie weg und das Konto der
+     Website abmelden — sonst stünde sie nach dem Neuladen in derselben Sekunde wieder drin. */
+  let tuer=false; try{ const g=JSON.parse(localStorage.getItem('compassGate')||'null'); tuer=!!(g&&g.tuer); }catch(e){}
   ['compassGate','compassUser',TEAM_LOGIN.key,'vaUser_va'].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  if(tuer&&LIVE){ location.href=new URL('/gate.php?raus=1',location.href).href; return; }
   location.reload();
 }
 (function(){
@@ -5912,6 +5921,24 @@ function compassAbmelden(){
   const gate=document.getElementById('gate'); gate.classList.add('on');
   const inp=document.getElementById('gatePw'), nam=document.getElementById('gateName'), err=document.getElementById('gateErr');
   try{ const u=JSON.parse(localStorage.getItem('compassUser')||'null'); if(u&&u.name) nam.value=u.name; }catch(e){}
+  /* Die Tür zuerst (04.09.): liegt der Compass hinter gate.php (ein Konto für alle Produkt-Subdomains),
+     hat die Person die Anmeldung schon hinter sich — wir fragen die Tür, wer da ist, und lassen sie ohne
+     zweites Passwort herein. Solange die Antwort aussteht, bleibt das Formular verborgen; antwortet die
+     Tür nicht oder mit „nein“ (Demo ohne Tür, Netz weg), erscheint das Formular wie bisher. */
+  let formDa=false;
+  const formZeigen=()=>{ if(formDa) return; formDa=true; gate.classList.remove('pruefe'); setTimeout(()=>(nam.value?inp:nam).focus(),50); };
+  gate.classList.add('pruefe');
+  const warte=setTimeout(formZeigen,4000);
+  fetch(new URL('/gate.php?wer=1',location.href).href,{credentials:'same-origin',cache:'no-store'})
+    .then(r=>r.ok?r.json():null)
+    .then(j=>{
+      clearTimeout(warte);
+      if(!(j&&j.ok)){ formZeigen(); return; }
+      const name=String(j.name||'').trim()||(nam.value||'').trim()||COMPASS.name||'';
+      localStorage.setItem('compassGate',JSON.stringify({h:(TEAM_LOGIN.hash||COMPASS.gate.hash),bis:Date.now()+(COMPASS.gate.tage||30)*864e5,tuer:1}));
+      vaAnmelden(name); gate.classList.remove('on','pruefe');
+    })
+    .catch(()=>{ clearTimeout(warte); formZeigen(); });
   const go=async()=>{
     const pw=inp.value, name=(nam.value||'').trim();
     const hVa=await gateHash(pw,TEAM_LOGIN.salt);
@@ -5986,6 +6013,7 @@ function compassAbmelden(){
     if(gateOffen()) return;
     let g=null; try{ g=JSON.parse(localStorage.getItem('compassGate')||'null'); }catch(e){}
     if(!g||!(g.bis>Date.now())) return;
+    if(g.tuer) return; /* durch die Tür angemeldet: Passkeys gehören dann zum Konto, nicht zu diesem Gerät */
     const e=eintrag(); if(e&&e.h===g.h) return;
     if(localStorage.getItem(NIE)) return;
     if(sessionStorage.getItem('bioGefragt')) return; sessionStorage.setItem('bioGefragt','1');
