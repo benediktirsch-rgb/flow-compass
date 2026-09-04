@@ -57,7 +57,17 @@ if ($html -notmatch "gate:\{ salt:'[^']+', hash:'[0-9a-f]{64}'") { Write-Warning
 #     während live noch alles offen war. Committet heißt: der Schutz geht mit demselben
 #     Deploy hoch (oder liegt längst oben) — die Daten gehen nie vorweg.
 $htaccess = Join-Path $Wurzel '.htaccess'
-$imBaum   = (Test-Path $htaccess) -and ((Read-Utf8 $htaccess) -match '(?m)^\s*Require\s+valid-user')
+# Zwei Bauarten von Schutz zaehlen (04.09.2026): das alte Basic-Auth mit Team-Passwort
+# und die neue Tuer (gate.php + gate-config.php, .htaccess leitet alles dorthin). Beim
+# Gate reicht die .htaccess allein NICHT — ohne die beiden Dateien leitet sie ins Leere.
+function Geschuetzt([string]$text) {
+  if ($text -match '(?m)^\s*Require\s+valid-user') { return $true }
+  if ($text -match 'gate-fassung:\s*\d') {
+    return (Test-Path (Join-Path $Wurzel 'gate.php')) -and (Test-Path (Join-Path $Wurzel 'gate-config.php'))
+  }
+  return $false
+}
+$imBaum   = (Test-Path $htaccess) -and (Geschuetzt (Read-Utf8 $htaccess))
 $imHead   = $false
 try {
   # Die Zugangsdatei liegt an der Wurzel der Subdomain, auch wenn hier nach
@@ -68,7 +78,7 @@ try {
     $rel = $Wurzel.Substring($repoWurzel.Length).Trim('\').Replace('\', '/') + '/.htaccess'
   }
   $alt = & git.exe -C (Split-Path -Parent $MyInvocation.MyCommand.Path) show "HEAD:$rel" 2>$null
-  if ($LASTEXITCODE -eq 0) { $imHead = (($alt -join "`n") -match '(?m)^\s*Require\s+valid-user') }
+  if ($LASTEXITCODE -eq 0) { $imHead = Geschuetzt (($alt -join "`n")) }
 } catch { }
 # git setzt $LASTEXITCODE (128, wenn der Pfad in HEAD fehlt). Der wäre sonst der
 # Rückgabewert des ganzen Skripts — publish-compass.ps1 und die geplante Aufgabe

@@ -145,7 +145,12 @@ function Lade-Ordner($zugang, [string]$lokal, [string]$sub, [string]$was) {
   $stateDatei = Join-Path $stateDir "$sub.json"
   $state = @{}
   if (Test-Path $stateDatei) { try { $j = (Get-Content -LiteralPath $stateDatei -Raw -Encoding UTF8) | ConvertFrom-Json; foreach ($p in $j.PSObject.Properties) { $state[$p.Name] = [string]$p.Value } } catch { $state = @{} } }
-  $dateien = @(Get-ChildItem -LiteralPath $lokal -Recurse -File -Force | Where-Object { $_.Name -notlike '.publish-state*' })
+  # .htaccess GANZ ZULETZT (04.09.2026): sie leitet seit der Umstellung auf das Konto-Gate
+  # jede Anfrage auf gate.php um. Ginge sie vor gate.php hoch, waere die Subdomain in der
+  # Zwischenzeit tot (alles 404). Zuletzt hochgeladen heisst: die Tuer steht, bevor der
+  # Wegweiser auf sie zeigt.
+  $dateien = @(Get-ChildItem -LiteralPath $lokal -Recurse -File -Force | Where-Object { $_.Name -notlike '.publish-state*' } |
+    Sort-Object @{ Expression = { if ($_.Name -eq '.htaccess') { 1 } else { 0 } } }, FullName)
   $hoch = 0; $fehler = 0; $ordnerDa = @{}
   foreach ($f in $dateien) {
     $rel = $f.FullName.Substring($lokal.Length).TrimStart('\').Replace('\', '/')
@@ -215,6 +220,9 @@ if (-not $zugang) {
       # Vaikuntha und dem Compass daneben. portal.js bleibt dabei unangetastet.
       $pp = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-portal.ps1') -Ziel $ordner 2>&1
       if ($LASTEXITCODE -ne 0) { throw (($pp | Select-Object -Last 4) -join ' / ') }
+      # Die .htaccess kommt seit dem 04.09.2026 von build-portal.ps1 (Konto-Gate statt
+      # Basic-Auth) — Sichere-Htaccess bleibt nur als Rueckfallebene stehen und greift
+      # nur, wenn gar keine Datei da ist.
       Sichere-Htaccess $ordner
       Lade-Ordner $zugang $ordner $inst.sub ('Instanz ' + $inst.name)
     } catch { Log ("WARNUNG: Instanz {0} nicht ausgerollt: {1}" -f $inst.name, $_.Exception.Message) }

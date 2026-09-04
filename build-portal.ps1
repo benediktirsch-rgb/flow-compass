@@ -22,7 +22,10 @@
 param(
   [Parameter(Mandatory = $true)][string]$Ziel,
   [string]$Quelle = '',
-  [switch]$NurMigrieren
+  [switch]$NurMigrieren,
+  # Ersetzt auch eine von Hand gepflegte .htaccess durch die Tuer-Fassung. Ohne den
+  # Schalter bleibt sie stehen — und die Tuer greift dort nicht.
+  [switch]$Tuer
 )
 $ErrorActionPreference = 'Stop'
 $base  = $PSScriptRoot
@@ -108,7 +111,66 @@ if (Test-Path $aq) {
   Get-ChildItem $aq -File -Filter *.png | ForEach-Object { Copy-Item $_.FullName (Join-Path $az $_.Name) -Force }
 } else { Write-Warning "App-Symbole fehlen: $aq" }
 
-# ── 4. Bericht ───────────────────────────────────────────────────────────────
+# ── 4. Die Tuer: ein Konto statt Team-Passwort (04.09.2026) ──────────────────
+# Bis heute fragte Apache per Basic-Auth nach einem gemeinsamen Passwort. Jetzt liegt
+# gate.php vor allem, was diese Subdomain ausliefert: es erkennt die Person an ihrer
+# Anmeldung auf vishnuartists.com (weiter.php) und laesst nur herein, wer hier herein
+# darf. Wer schon angemeldet ist, merkt davon nichts ausser einer kurzen Weiterleitung.
+$prodG = Join-Path $base 'produkt\gate'
+if (Test-Path (Join-Path $prodG 'gate.php')) {
+  Write-Lf (Join-Path $Ziel 'gate.php') (Read-Utf8 (Join-Path $prodG 'gate.php'))
+
+  # gate-config.php: nur anlegen, nie ueberschreiben (wie instanz.js und portal.js).
+  # Die Mailadresse holen wir aus der Instanz — so oeffnet jede Person ihre eigene Tuer,
+  # ohne dass jemand sie ein zweites Mal eintraegt.
+  $gc = Join-Path $Ziel 'gate-config.php'
+  if (Test-Path $gc) { Write-Host 'gate-config.php besteht bereits — bleibt unveraendert.' }
+  else {
+    $mail = ''; $titel = 'Vishnu Artists'
+    $ij = Join-Path $Ziel 'compass\instanz.js'
+    if (Test-Path $ij) {
+      $txt = Read-Utf8 $ij
+      if ($txt -match "(?m)^\s*mail:\s*'([^']+)'")  { $mail  = $Matches[1] }
+      if ($txt -match "(?m)^\s*kunde:\s*'([^']+)'") { $titel = $Matches[1] }
+    }
+    $vorlage = Read-Utf8 (Join-Path $prodG 'gate-config.example.php')
+    $vorlage = $vorlage.Replace("`$GATE_MAIL   = '';", "`$GATE_MAIL   = '$mail';")
+    $vorlage = $vorlage.Replace("`$GATE_TITEL  = 'Vishnu Artists';", "`$GATE_TITEL  = '" + ($titel -replace "'", "") + "';")
+    Write-Lf $gc $vorlage
+    Write-Host ("gate-config.php angelegt" + $(if ($mail) { " (oeffnet sich fuer $mail und die Gruendung)" } else { ' (nur ueber Rollen — keine Mailadresse in der Instanz gefunden)' }))
+  }
+
+  # gate-secret.php: der Schluessel, mit dem die Tuer ihr eigenes Cookie signiert. Einmal
+  # erzeugt und nie wieder angefasst — ein neuer Schluessel wirft jede offene Sitzung raus.
+  $gs = Join-Path $Ziel 'gate-secret.php'
+  if (-not (Test-Path $gs)) {
+    $b = New-Object byte[] 32
+    ([Security.Cryptography.RandomNumberGenerator]::Create()).GetBytes($b)
+    $hex = -join ($b | ForEach-Object { $_.ToString('x2') })
+    Write-Lf $gs ("<?php`n/* Tuergeheimnis dieser Subdomain — erzeugt von build-portal.ps1, nie im Repo,`n" +
+      "   nie in zwei Instanzen dasselbe. Aendern wirft alle offenen Sitzungen raus. */`n" +
+      "`$GEHEIM = '$hex';`n")
+    Write-Host 'gate-secret.php angelegt (32 Byte Zufall).'
+  }
+
+  # .htaccess: unsere eigene Basic-Auth-Fassung wird ersetzt, eine von Hand gepflegte
+  # bleibt stehen (dann sagt der Lauf, dass die Tuer noch nicht greift).
+  $ha = Join-Path $Ziel '.htaccess'
+  $neu = Read-Utf8 (Join-Path $prodG 'htaccess-gate.txt')
+  if (-not (Test-Path $ha)) { Write-Lf $ha $neu; Write-Host '.htaccess angelegt (Tuer aktiv).' }
+  else {
+    $alt = Read-Utf8 $ha
+    if ($alt -match 'gate-fassung:\s*1') { Write-Lf $ha $neu }   # unsere Fassung: aktuell halten
+    elseif ($alt -match 'erzeugt von publish-compass\.ps1' -or $Tuer) {
+      Write-Lf $ha $neu
+      Write-Host '.htaccess auf die Tuer umgestellt (Basic-Auth entfaellt).'
+    } else {
+      Write-Warning 'ACHTUNG: .htaccess wurde von Hand gepflegt und bleibt stehen — die Tuer greift hier NICHT. Mit -Tuer erzwingen.'
+    }
+  }
+}
+
+# ── 5. Bericht ───────────────────────────────────────────────────────────────
 Get-ChildItem $Ziel -File | Sort-Object Name | ForEach-Object {
   $b = [IO.File]::ReadAllBytes($_.FullName)
   $bom = ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB)

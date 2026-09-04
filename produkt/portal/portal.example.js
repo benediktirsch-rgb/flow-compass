@@ -32,7 +32,10 @@ window.PORTAL = {
        vaikuntha  aus — nur für Menschen im Verein (dann die Adresse eintragen)
      false = Kachel ausblenden · true = Standardadresse · 'https://…' = eigene Adresse. */
   kacheln: {
-    vaikuntha: false          /* Vereinsmenschen: 'https://vaikuntha.eu/' */
+    /* Vereinsmenschen: 'https://vaikuntha.eu/' — oder, damit die Anmeldung mitkommt,
+       der Umweg über das Sprungbrett (SSO, 04.09.2026):
+       'https://vishnuartists.com/weiter.php?zu=https%3A%2F%2Fvaikuntha.eu%2Fwp-json%2Fvishnu%2Fv1%2Fanmelden%3Fzu%3D%2Fmein-bereich%2F' */
+    vaikuntha: false
   },
 
   /* Die zweite Ebene unter den Kacheln: kleine Zeilen in vier Spalten.

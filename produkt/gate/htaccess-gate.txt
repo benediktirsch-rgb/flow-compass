@@ -1,0 +1,28 @@
+# Vishnu-Produkt-Subdomain — jede Anfrage geht durch gate.php (erzeugt von build-portal.ps1,
+# 04.09.2026). Von Hand geändert? Dann bleibt diese Datei beim nächsten Lauf stehen —
+# der Generator erkennt seine eigene Fassung an der Zeile darunter.
+# gate-fassung: 1
+<IfModule mod_rewrite.c>
+RewriteEngine On
+# https erzwingen: das Ticket und das Türcookie gehören nie über eine offene Leitung.
+RewriteCond %{HTTPS} !=on
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+# Alles andere beantwortet die Tür. Sie liefert die Datei selbst aus, wenn jemand
+# angemeldet ist, und schickt sonst zu vishnuartists.com/weiter.php.
+RewriteCond %{REQUEST_URI} !^/gate\.php$
+RewriteRule ^(.*)$ /gate.php [QSA,L]
+</IfModule>
+# Ohne mod_rewrite gäbe es keine Tür — dann lieber gar nichts ausliefern als alles.
+<IfModule !mod_rewrite.c>
+Require all denied
+</IfModule>
+# Die Türdateien sind auch dann tabu, wenn jemand sie direkt anspricht.
+<FilesMatch "^(gate-config|gate-secret)\.php$">
+  Require all denied
+</FilesMatch>
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
+</IfModule>
