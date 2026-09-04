@@ -90,6 +90,16 @@ Rep '<link rel="stylesheet" href="fonts.css"><!-- selbst gehostet (VA-13512): ke
 <link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="compass-produkt.css">
 <meta name="description" content="Flow Compass — dein persoenliches Kanban-Cockpit: eine Frage jeden Morgen, alle Quellen an einem Ort, WIP-Limit inklusive.">
+<!-- Als App installierbar (04.09.2026). Installiert wird immer vom eigenen Ursprung aus:
+     die Verkaufsseite kann nur hierher verlinken (?install=1), nicht selbst installieren. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1c2314">
+<link rel="icon" type="image/png" sizes="192x192" href="app-icons/icon-192.png">
+<link rel="apple-touch-icon" href="app-icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Compass">
 '@ 'Kopf-Stylesheet'
 
 Rep @'
@@ -104,6 +114,7 @@ Rep @'
 <script src="rhythmus-data.js"></script>
 <script src="kennzahlen-data.js"></script>
 <script src="compass-produkt.js"></script>
+<script src="compass-app.js" defer></script>
 '@ 'Datenschicht'
 
 # ── 2. Zugangsschutz-Dialog neutral ──────────────────────────────────────────
@@ -687,9 +698,25 @@ Write-Lf (Join-Path $Ziel 'index.html') $script:s
 Write-Lf (Join-Path $Ziel 'kennzahlen.html') (Read-Utf8 (Join-Path $prod 'kennzahlen.html'))
 
 # Produktschicht
-foreach ($f in 'compass-produkt.js','compass-produkt.css') {
+foreach ($f in 'compass-produkt.js','compass-produkt.css','compass-app.js') {
   Write-Lf (Join-Path $Ziel $f) (Read-Utf8 (Join-Path $prod $f))
 }
+
+# Als App installierbar (04.09.2026): Manifest, Service Worker und Symbole.
+# sw.js MUSS im Wurzelverzeichnis der Instanz liegen — ein Service Worker darf nur den
+# Ordner bedienen, in dem er selbst liegt (Scope). Ein Unterordner waere still wirkungslos.
+foreach ($f in 'manifest.webmanifest','sw.js') {
+  Write-Lf (Join-Path $Ziel $f) (Read-Utf8 (Join-Path $prod $f))
+}
+# Der Ordner heisst app-icons und NICHT icons: /icons/ ist in der Standard-Apache-
+# Konfiguration ein Alias auf die Server-eigenen Verzeichnis-Symbole. Am 04.09.2026 lagen
+# die Dateien nachweislich per FTP auf dem Server und lieferten trotzdem 404 — Apache
+# schaute gar nicht erst im Dokumentenverzeichnis nach.
+$iq = Join-Path $prod 'app-icons'; $iz = Join-Path $Ziel 'app-icons'
+if (Test-Path $iq) {
+  if (-not (Test-Path $iz)) { New-Item -ItemType Directory -Force $iz | Out-Null }
+  Get-ChildItem $iq -File -Filter *.png | ForEach-Object { Copy-Item $_.FullName (Join-Path $iz $_.Name) -Force }
+} else { throw "App-Symbole fehlen: $iq" }
 
 # Selbst gehostete Schriften (VA-13512, 24.08.2026): fonts.css + die woff2-Dateien aus der Quelle.
 # Ohne sie faellt die Seite auf Systemschriften zurueck — nie wieder auf fonts.googleapis.com.
@@ -801,5 +828,5 @@ if ($Instanz) {
 } else {
   Write-Host "Demo gebaut -> $Ziel"
   Write-Host 'Weiter: git status --short -> git add site/compass-demo -> git commit -> git push origin main'
-  Write-Host 'Live danach: https://vishnu-artists.de/compass-demo/'
+  Write-Host 'Live danach: https://demo.vishnuartists.com/'
 }

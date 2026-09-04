@@ -117,6 +117,46 @@ $fq = Join-Path $Quelle 'fonts'; $fz = Join-Path $Ziel 'fonts'
 if (-not (Test-Path $fz)) { New-Item -ItemType Directory -Force $fz | Out-Null }
 Get-ChildItem $fq -File -Filter *.woff2 | ForEach-Object { Copy-Item $_.FullName (Join-Path $fz $_.Name) -Force }
 
+# 3c) Als App installierbar (04.09.2026) — dieselben Dateien wie im Produkt-Build.
+#     Warum hier unten und nicht oben im $html: die Begleitdatei-Ableitung (3) sucht
+#     Verweise nur in der QUELLE, und diese vier Dateien liegen in produkt\compass.
+#     Stuenden die Kopfzeilen vor 3b, wuerde die Vollstaendigkeitspruefung sie als
+#     404 melden, obwohl gleich danach alles da ist.
+#     Der Symbolordner heisst app-icons und NICHT icons: /icons/ ist in der
+#     Standard-Apache-Konfiguration ein Alias auf die Server-eigenen Symbole — am
+#     04.09.2026 lagen die Dateien per FTP auf dem Server und lieferten trotzdem 404.
+$prodC = Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'produkt\compass'
+if (Test-Path (Join-Path $prodC 'manifest.webmanifest')) {
+  foreach ($f in 'manifest.webmanifest', 'sw.js', 'compass-app.js') {
+    Write-Lf (Join-Path $Ziel $f) (Read-Utf8 (Join-Path $prodC $f))
+  }
+  $aq = Join-Path $prodC 'app-icons'; $az = Join-Path $Ziel 'app-icons'
+  if (-not (Test-Path $az)) { New-Item -ItemType Directory -Force $az | Out-Null }
+  Get-ChildItem $aq -File -Filter *.png | ForEach-Object { Copy-Item $_.FullName (Join-Path $az $_.Name) -Force }
+
+  $ip = Join-Path $Ziel 'index.html'
+  $it = Read-Utf8 $ip
+  $ankerKopf = '<link rel="stylesheet" href="fonts.css">'
+  if (-not $it.Contains($ankerKopf)) { throw 'App-Kopfzeilen: Anker <link rel="stylesheet" href="fonts.css"> fehlt in index.html' }
+  $kopf = @'
+<link rel="stylesheet" href="fonts.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1c2314">
+<link rel="icon" type="image/png" sizes="192x192" href="app-icons/icon-192.png">
+<link rel="apple-touch-icon" href="app-icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Compass">
+<script src="compass-app.js" defer></script>
+'@
+  $rx = New-Object System.Text.RegularExpressions.Regex ([regex]::Escape($ankerKopf))
+  $it = $rx.Replace($it, ($kopf -replace "`r", ''), 1)
+  Write-Lf $ip $it
+} else {
+  Write-Warning 'produkt\compass\manifest.webmanifest fehlt — die eigene Instanz ist nicht als App installierbar.'
+}
+
 # 4) Bericht
 Get-ChildItem $Ziel -File | Sort-Object Name | ForEach-Object {
   $b = [IO.File]::ReadAllBytes($_.FullName)

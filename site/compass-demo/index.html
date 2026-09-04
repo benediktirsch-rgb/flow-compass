@@ -7,6 +7,16 @@
 <link rel="stylesheet" href="fonts.css">
 <link rel="stylesheet" href="compass-produkt.css">
 <meta name="description" content="Flow Compass — dein persoenliches Kanban-Cockpit: eine Frage jeden Morgen, alle Quellen an einem Ort, WIP-Limit inklusive.">
+<!-- Als App installierbar (04.09.2026). Installiert wird immer vom eigenen Ursprung aus:
+     die Verkaufsseite kann nur hierher verlinken (?install=1), nicht selbst installieren. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1c2314">
+<link rel="icon" type="image/png" sizes="192x192" href="app-icons/icon-192.png">
+<link rel="apple-touch-icon" href="app-icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Compass">
 <!-- Deutsch · English · العربية (28.08.2026). Muss vor dem <body> laufen: setzt lang/dir,
      damit Arabisch nicht erst nach dem ersten Bild von links nach rechts umklappt. -->
 <script src="compass-i18n.js"></script>
@@ -1080,6 +1090,7 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
 <script src="rhythmus-data.js"></script>
 <script src="kennzahlen-data.js"></script>
 <script src="compass-produkt.js"></script>
+<script src="compass-app.js" defer></script>
 <script>
 /* ==========================================================================
    Datenquellen: window.DASH (Tages-Update) · window.RHYTHM (Rituale/Fragen)

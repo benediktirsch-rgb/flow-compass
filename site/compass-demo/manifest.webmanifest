@@ -1,0 +1,29 @@
+{
+  "name": "Flow Compass",
+  "short_name": "Compass",
+  "description": "Dein persönliches Kanban-Cockpit: eine Frage jeden Morgen, alle Quellen an einem Ort, WIP-Limit inklusive.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "./?app=1",
+  "scope": "./",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "orientation": "any",
+  "background_color": "#1c2314",
+  "theme_color": "#1c2314",
+  "categories": ["productivity", "business"],
+  "icons": [
+    { "src": "app-icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "app-icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "app-icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Morgencheck starten", "short_name": "Morgencheck", "url": "./?app=1&go=morgen",
+      "icons": [{ "src": "app-icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mein Board", "short_name": "Board", "url": "./?app=1&go=board",
+      "icons": [{ "src": "app-icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Kennzahlen", "short_name": "Kennzahlen", "url": "./kennzahlen.html?app=1",
+      "icons": [{ "src": "app-icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
