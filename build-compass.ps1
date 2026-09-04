@@ -19,9 +19,17 @@
 # Aufruf:  powershell -ExecutionPolicy Bypass -File build-compass.ps1 [-Quelle <Ordner>] [-Ziel <Ordner>]
 param(
   [string]$Quelle = (Split-Path -Parent $MyInvocation.MyCommand.Path),   # seit 02.09.2026: Quelle und Build liegen im selben Repo (flow-compass)
-  [string]$Ziel   = (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'site\compass')
+  [string]$Ziel   = (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) 'site\compass'),
+  # Wurzel der Subdomain. Seit 04.09.2026 liegt dort das persoenliche Portal und der
+  # Compass darunter in compass\; die .htaccess mit dem Zugangsschutz bleibt aber an der
+  # Wurzel und gilt von dort fuer alles. Leer = Ziel ist selbst die Wurzel (alter Stand).
+  [string]$Wurzel = ''
 )
 $ErrorActionPreference = 'Stop'
+$repoWurzel = Split-Path -Parent $MyInvocation.MyCommand.Path
+if (-not [IO.Path]::IsPathRooted($Ziel))   { $Ziel   = Join-Path $repoWurzel $Ziel }
+if (-not $Wurzel) { $Wurzel = $Ziel }
+if (-not [IO.Path]::IsPathRooted($Wurzel)) { $Wurzel = Join-Path $repoWurzel $Wurzel }
 $enc = New-Object Text.UTF8Encoding($false)
 if (-not (Test-Path (Join-Path $Quelle 'dashboard.html'))) { throw "Quelle fehlt: $Quelle\dashboard.html" }
 if (-not (Test-Path $Ziel)) { New-Item -ItemType Directory -Force $Ziel | Out-Null }
@@ -48,11 +56,17 @@ if ($html -notmatch "gate:\{ salt:'[^']+', hash:'[0-9a-f]{64}'") { Write-Warning
 #     daneben, der Build hielt den Ordner für geschützt und legte die Kundenlage bereit,
 #     während live noch alles offen war. Committet heißt: der Schutz geht mit demselben
 #     Deploy hoch (oder liegt längst oben) — die Daten gehen nie vorweg.
-$htaccess = Join-Path $Ziel '.htaccess'
+$htaccess = Join-Path $Wurzel '.htaccess'
 $imBaum   = (Test-Path $htaccess) -and ((Read-Utf8 $htaccess) -match '(?m)^\s*Require\s+valid-user')
 $imHead   = $false
 try {
+  # Die Zugangsdatei liegt an der Wurzel der Subdomain, auch wenn hier nach
+  # <wurzel>\compass gebaut wird. Liegt die Wurzel ausserhalb des Repos, bleibt es beim
+  # bisherigen Pfad — in HEAD steht dann ohnehin nichts anderes.
   $rel = 'site/compass/.htaccess'
+  if ($Wurzel.StartsWith($repoWurzel, [StringComparison]::OrdinalIgnoreCase)) {
+    $rel = $Wurzel.Substring($repoWurzel.Length).Trim('\').Replace('\', '/') + '/.htaccess'
+  }
   $alt = & git.exe -C (Split-Path -Parent $MyInvocation.MyCommand.Path) show "HEAD:$rel" 2>$null
   if ($LASTEXITCODE -eq 0) { $imHead = (($alt -join "`n") -match '(?m)^\s*Require\s+valid-user') }
 } catch { }

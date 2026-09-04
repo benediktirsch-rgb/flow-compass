@@ -1,0 +1,251 @@
+<!doctype html>
+<!-- vishnu-portal v1 — an dieser Zeile erkennt build-portal.ps1, dass die Wurzel dieser
+     Subdomain bereits das Portal ist und nicht mehr der Compass (dann laeuft keine Migration). -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Mein Portal · Vishnu Artists</title>
+<link rel="stylesheet" href="fonts.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#faf8f2">
+<link rel="icon" type="image/png" sizes="192x192" href="app-icons/icon-192.png">
+<link rel="apple-touch-icon" href="app-icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Portal">
+<style>
+/* ==========================================================================
+   Mein Portal — die Startseite einer persönlichen Subdomain (04.09.2026).
+   <vorname>.vishnuartists.com führt an einer Stelle zusammen, was vorher auf
+   vier Adressen mit vier Logins lag: Backstage/Profil, Team-Cockpit, Vaikuntha
+   und der Flow Compass (der liegt hier daneben in /compass/).
+
+   Farben sind die Tokens der Website (f/vf.css), damit das Portal zum Auftritt
+   des Kollektivs gehört und nicht wie ein zweites Produkt aussieht. Der
+   Dunkelmodus teilt sich den Schlüssel 'beneTheme' mit dem Compass — gleicher
+   Ursprung, eine Entscheidung, beide Seiten folgen ihr.
+   ========================================================================== */
+:root{
+  --paper:#faf8f2; --surface:#f3f0e6; --card:#ffffff;
+  --ink:#1c2314; --sub:#686f5d; --line:#e6e2d4; --line-strong:#d5d0bd;
+  --green:#89c527; --green-d:#4f7418; --green-soft:#eef4de;
+  --radius:18px; --shadow:0 2px 12px rgba(40,46,28,.07);
+}
+html[data-theme="dark"]{
+  --paper:#11150d; --surface:#171c11; --card:#1b2114;
+  --ink:#eef2e4; --sub:#a4ac95; --line:#2b3421; --line-strong:#3b482c;
+  --green:#a3dc45; --green-d:#c7ec8a; --green-soft:#25311a;
+  --shadow:0 2px 14px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+.wrap{max-width:1000px;margin:0 auto;padding:28px 20px 60px}
+header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.2px}
+.brand .v{width:34px;height:34px;border-radius:10px;background:var(--ink);color:var(--paper);
+  display:inline-flex;align-items:center;justify-content:center;font-size:17px;flex:none}
+html[data-theme="dark"] .brand .v{background:var(--green);color:#11150d}
+.top .sp{flex:1}
+.kn{background:var(--card);border:1.5px solid var(--line);color:var(--sub);border-radius:999px;
+  padding:6px 13px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.kn:hover{border-color:var(--line-strong);color:var(--ink)}
+h1{font-size:clamp(26px,4.4vw,38px);line-height:1.2;margin:18px 0 4px;font-weight:800;letter-spacing:-.5px}
+h1 em{font-style:normal;color:var(--green-d)}
+.lead{color:var(--sub);margin:0 0 26px;max-width:60ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:16px}
+.tile{position:relative;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);
+  padding:20px 20px 18px;display:flex;flex-direction:column;gap:7px;text-decoration:none;
+  box-shadow:var(--shadow);transition:border-color .15s,transform .15s}
+.tile:hover,.tile:focus-visible{border-color:var(--green);transform:translateY(-2px);outline:none}
+.tile:focus-visible{box-shadow:0 0 0 3px var(--green-soft)}
+.tile .ic{font-size:27px;line-height:1}
+.tile h2{margin:2px 0 0;font-size:19px;font-weight:800;letter-spacing:-.2px}
+.tile p{margin:0;color:var(--sub);font-size:13.5px}
+.tile .go{margin-top:auto;padding-top:12px;display:flex;align-items:center;gap:8px;
+  font-size:12px;font-weight:700;color:var(--green-d);letter-spacing:.3px}
+.tile .host{color:var(--sub);font-weight:600;letter-spacing:0}
+.tile.haupt{background:linear-gradient(155deg,var(--green-soft),var(--card) 62%);border-color:var(--green)}
+.tile .kbd{position:absolute;top:12px;right:14px;font-size:11px;color:var(--sub);font-weight:700}
+.nb{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap}
+.nb a{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 12px;
+  font-size:12.5px;font-weight:700;color:var(--sub);text-decoration:none}
+.nb a:hover{color:var(--ink);border-color:var(--line-strong)}
+footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:12.5px}
+footer b{color:var(--ink);font-weight:700}
+@media(max-width:560px){ .wrap{padding:20px 16px 44px} .tile .kbd{display:none} }
+@media(prefers-reduced-motion:reduce){ .tile{transition:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <span class="brand"><span class="v">V</span> Vishnu Artists</span>
+    <span class="sp"></span>
+    <button class="kn" id="knSprache" type="button">EN</button>
+    <button class="kn" id="knTheme" type="button">🌗</button>
+  </header>
+
+  <h1 id="gruss">Willkommen</h1>
+  <p class="lead" id="lead">Deine Werkzeuge an einer Stelle. Ein Login, vier Wege.</p>
+
+  <div class="grid" id="grid"></div>
+  <div class="nb" id="nb"></div>
+  <footer id="fuss"></footer>
+</div>
+
+<!-- Die Instanz des Compass liefert Name und Mailadresse (eine Pflegestelle, nicht zwei).
+     Fehlt sie, läuft das Portal trotzdem — dann zählt allein portal.js. -->
+<script src="compass/instanz.js" onerror="void 0"></script>
+<script src="portal.js"></script>
+<script>
+/* ---------- Konfiguration zusammenlegen: portal.js gewinnt, instanz.js füllt auf ----- */
+var P = window.PORTAL || {};
+var I = window.COMPASS_INSTANZ || {};
+var NAME = P.name || I.name || '';
+var INSTANZ = P.person || I.kunde || '';
+
+/* ---------- Sprache: Deutsch und Englisch (VA-13529: Marwan liest Englisch) ---------- */
+var TEXTE = {
+  de: { gruss:['Guten Morgen','Guten Tag','Guten Abend'],
+        lead:'Deine Werkzeuge an einer Stelle. Ein Login, vier Wege.',
+        oeffnen:'Öffnen', hier:'hier auf dieser Seite',
+        fuss:'Persönliches Portal · geschützt wie das Team-Cockpit · Fragen an ', sprache:'EN' },
+  en: { gruss:['Good morning','Hello','Good evening'],
+        lead:'Your tools in one place. One login, four ways.',
+        oeffnen:'Open', hier:'here on this site',
+        fuss:'Personal portal · protected like the team cockpit · questions to ', sprache:'DE' }
+};
+var SPR = (function(){
+  try { var g = localStorage.getItem('portalSprache'); if (g) return g; } catch(e){}
+  if (P.sprache) return P.sprache;
+  return (navigator.language || 'de').slice(0,2) === 'en' ? 'en' : 'de';
+})();
+
+/* ---------- Kacheln: Standard ist das, was jede Person im Kollektiv hat -------------- */
+var STANDARD = [
+  { id:'compass', icon:'🧭', url:'./compass/', haupt:true,
+    de:['Flow Compass','Dein Morgencheck, dein Board, deine Kennzahlen — was als Nächstes zählt.'],
+    en:['Flow Compass','Your morning check, your board, your numbers — what matters next.'] },
+  { id:'cockpit', icon:'📊', url:'https://va.vishnuartists.com/',
+    de:['Team-Cockpit','Flight Levels, Aging, Analysen — woran das Team gerade arbeitet.'],
+    en:['Team cockpit','Flight levels, aging, analytics — what the team is working on.'] },
+  { id:'backstage', icon:'🎭', url:'https://vishnuartists.com/backstage.php',
+    de:['Backstage','Dein Rollenbild, Unterlagen, Trainings und die Meldungen des Alltags.'],
+    en:['Backstage','Your role, documents, trainings and the everyday notices.'] },
+  { id:'vaikuntha', icon:'🌿', url:'',
+    de:['Vaikuntha','Der Verein: Termine, Camp, Mitmachen.'],
+    en:['Vaikuntha','The association: dates, camp, joining in.'] }
+];
+var NEBEN = [
+  { id:'profil', url:'https://vishnuartists.com/profil.php', de:'Mein Profil pflegen', en:'Edit my profile' },
+  { id:'kennzahlen', url:'./compass/kennzahlen.html', de:'Kennzahlen', en:'Metrics' }
+];
+
+/* Adresse einer Kachel: nichts gesagt = Standard, false = aus, Text = eigene Adresse. */
+function ziel(k){
+  var c = P.kacheln || {};
+  if (!(k.id in c)) return k.url;
+  var v = c[k.id];
+  if (v === false) return '';
+  if (v === true) return k.url;
+  return String(v || '');
+}
+function host(u){
+  if (u.charAt(0) === '.') return TEXTE[SPR].hier;
+  try { return new URL(u, location.href).host; } catch(e) { return u; }
+}
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+  return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+
+function zeichne(){
+  var T = TEXTE[SPR];
+  document.documentElement.lang = SPR;
+  var h = new Date().getHours();
+  var g = h < 11 ? T.gruss[0] : (h < 17 ? T.gruss[1] : T.gruss[2]);
+  document.getElementById('gruss').innerHTML = esc(g) + (NAME ? ', <em>' + esc(NAME) + '</em>' : '');
+  document.getElementById('lead').textContent = P.lead || T.lead;
+  document.getElementById('knSprache').textContent = T.sprache;
+
+  var n = 0, html = '';
+  STANDARD.forEach(function(k){
+    var u = ziel(k); if (!u) return;
+    n++;
+    var t = k[SPR] || k.de;
+    var extern = u.charAt(0) !== '.';
+    html += '<a class="tile' + (k.haupt ? ' haupt' : '') + '" href="' + esc(u) + '"' +
+            (extern ? ' target="_blank" rel="noopener"' : '') + ' data-nr="' + n + '">' +
+            '<span class="kbd">' + n + '</span><span class="ic">' + k.icon + '</span>' +
+            '<h2>' + esc(t[0]) + '</h2><p>' + esc(t[1]) + '</p>' +
+            '<span class="go">' + esc(T.oeffnen) + ' →<span class="host">' + esc(host(u)) + '</span></span></a>';
+  });
+  document.getElementById('grid').innerHTML = html;
+
+  var nb = '';
+  NEBEN.forEach(function(k){
+    var c = P.neben || {};
+    if (k.id in c && c[k.id] === false) return;
+    var u = (k.id in c && typeof c[k.id] === 'string') ? c[k.id] : k.url;
+    if (!u) return;
+    nb += '<a href="' + esc(u) + '"' + (u.charAt(0) !== '.' ? ' target="_blank" rel="noopener"' : '') +
+          '>' + esc(k[SPR] || k.de) + ' ↗</a>';
+  });
+  document.getElementById('nb').innerHTML = nb;
+
+  var mail = P.mail || I.mail || 'hallo@vishnuartists.com';
+  document.getElementById('fuss').innerHTML =
+    (INSTANZ ? '<b>' + esc(INSTANZ) + '</b> · ' : '') + esc(T.fuss) +
+    '<a href="mailto:' + esc(mail) + '">' + esc(mail) + '</a>';
+}
+
+/* ---------- Hell/Dunkel: derselbe Schlüssel wie im Compass --------------------------- */
+function themeAn(){
+  var t = null;
+  try { t = localStorage.getItem('beneTheme'); } catch(e){}
+  if (t !== 'light' && t !== 'dark') {
+    var h = new Date().getHours();
+    t = (h >= 6 && h < 18) ? 'light' : 'dark';
+  }
+  document.documentElement.dataset.theme = t;
+  var m = document.querySelector('meta[name=theme-color]');
+  if (m) m.setAttribute('content', t === 'dark' ? '#11150d' : '#faf8f2');
+}
+document.getElementById('knTheme').addEventListener('click', function(){
+  var neu = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('beneTheme', neu); } catch(e){}
+  themeAn();
+});
+document.getElementById('knSprache').addEventListener('click', function(){
+  SPR = SPR === 'de' ? 'en' : 'de';
+  try { localStorage.setItem('portalSprache', SPR); } catch(e){}
+  zeichne();
+});
+/* Tasten 1..4 öffnen die Kacheln — wie die Kontextwechsel im Compass. */
+document.addEventListener('keydown', function(e){
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[1-9]$/.test(e.key)) {
+    var a = document.querySelector('.tile[data-nr="' + e.key + '"]');
+    if (a) a.click();
+  }
+});
+
+themeAn();
+zeichne();
+
+/* ---------- Als App installierbar ---------------------------------------------------- */
+if ('serviceWorker' in navigator) {
+  addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+}
+/* Wer aus der früher installierten Compass-App kommt (Verknüpfung mit ?go=…), landet dort,
+   wo er hinwollte — der Compass liegt seit dem 04.09.2026 in /compass/. */
+(function(){
+  var q = new URLSearchParams(location.search);
+  if (q.get('go')) location.replace('./compass/' + location.search + location.hash);
+})();
+</script>
+</body>
+</html>

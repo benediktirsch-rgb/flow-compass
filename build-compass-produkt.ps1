@@ -33,8 +33,21 @@ if (-not (Test-Path (Join-Path $Quelle 'dashboard.html'))) { throw "Quelle fehlt
 if (-not (Test-Path (Join-Path $prod 'compass-produkt.js'))) { throw "Produktschicht fehlt: $prod\compass-produkt.js" }
 
 $slug = if ($Instanz) { ($Instanz.ToLower() -replace '[^a-z0-9]+','-').Trim('-') } else { '' }
+# Seit 04.09.2026 ist die Wurzel einer Instanz-Subdomain das persoenliche Portal
+# (build-portal.ps1); der Compass liegt darunter in compass\. Die Demo bleibt an ihrer
+# Wurzel — demo.vishnuartists.com zeigt das Produkt, kein Portal.
+$instanzWurzel = ''
 if (-not $Ziel) {
-  $Ziel = if ($Instanz) { Join-Path $base "instanzen\$slug" } else { Join-Path $base 'site\compass-demo' }
+  if ($Instanz) { $instanzWurzel = Join-Path $base "instanzen\$slug"; $Ziel = Join-Path $instanzWurzel 'compass' }
+  else          { $Ziel = Join-Path $base 'site\compass-demo' }
+}
+# Lag der Compass bisher flach an der Wurzel, muss er dort WEG, bevor hier gebaut wird:
+# sonst legt der Build unten eine frische instanz.js in compass\ an, waehrend die
+# ausgefuellte an der Wurzel liegen bleibt — die Instanz haette ueber Nacht wieder die
+# Werte der Vorlage. Migriert wird deshalb zuerst, und nur einmal (danach erkennt
+# build-portal.ps1 den Portal-Marker und laesst die Wurzel in Ruhe).
+if ($instanzWurzel -and (Test-Path (Join-Path $instanzWurzel 'index.html'))) {
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $base 'build-portal.ps1') -Ziel $instanzWurzel -NurMigrieren | ForEach-Object { Write-Host $_ }
 }
 if (-not (Test-Path $Ziel)) { New-Item -ItemType Directory -Force $Ziel | Out-Null }
 
@@ -703,10 +716,18 @@ foreach ($f in 'compass-produkt.js','compass-produkt.css','compass-app.js') {
 }
 
 # Als App installierbar (04.09.2026): Manifest, Service Worker und Symbole.
-# sw.js MUSS im Wurzelverzeichnis der Instanz liegen — ein Service Worker darf nur den
-# Ordner bedienen, in dem er selbst liegt (Scope). Ein Unterordner waere still wirkungslos.
+# sw.js MUSS im Wurzelverzeichnis DIESES Builds liegen — ein Service Worker darf nur den
+# Ordner bedienen, in dem er selbst liegt (Scope). Bei einer Instanz ist das seit dem
+# 04.09.2026 nicht mehr die Subdomain, sondern compass\: der Compass bedient /compass/,
+# das Portal an der Wurzel hat einen eigenen (produkt\portal\portal-sw.js).
 foreach ($f in 'manifest.webmanifest','sw.js') {
-  Write-Lf (Join-Path $Ziel $f) (Read-Utf8 (Join-Path $prod $f))
+  $t = Read-Utf8 (Join-Path $prod $f)
+  # Die App-Kennung ist der Schluessel, unter dem ein Geraet eine installierte App
+  # wiedererkennt. Sie muss zum Ort passen: an der Wurzel "/" (Demo), im Unterordner
+  # "/compass/" — sonst haetten Portal und Compass dieselbe Kennung und das Geraet
+  # hielte beide fuer dieselbe App.
+  if ($instanzWurzel -and $f -eq 'manifest.webmanifest') { $t = $t.Replace('"id": "/"', '"id": "/compass/"') }
+  Write-Lf (Join-Path $Ziel $f) $t
 }
 # Der Ordner heisst app-icons und NICHT icons: /icons/ ist in der Standard-Apache-
 # Konfiguration ein Alias auf die Server-eigenen Verzeichnis-Symbole. Am 04.09.2026 lagen

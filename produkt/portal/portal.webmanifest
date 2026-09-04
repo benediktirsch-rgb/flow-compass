@@ -1,0 +1,29 @@
+{
+  "name": "Mein Portal · Vishnu Artists",
+  "short_name": "Portal",
+  "description": "Deine Werkzeuge an einer Stelle: Flow Compass, Team-Cockpit, Backstage und Vaikuntha.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "./?app=1",
+  "scope": "./",
+  "id": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "browser"],
+  "orientation": "any",
+  "background_color": "#faf8f2",
+  "theme_color": "#faf8f2",
+  "categories": ["productivity", "business"],
+  "icons": [
+    { "src": "app-icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "app-icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "app-icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Flow Compass", "short_name": "Compass", "url": "./compass/?app=1",
+      "icons": [{ "src": "app-icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Morgencheck starten", "short_name": "Morgencheck", "url": "./compass/?app=1&go=morgen",
+      "icons": [{ "src": "app-icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Mein Board", "short_name": "Board", "url": "./compass/?app=1&go=board",
+      "icons": [{ "src": "app-icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

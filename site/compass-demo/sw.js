@@ -12,7 +12,13 @@
  * Nicht angefasst wird alles, was nicht zu diesem Ursprung gehoert: der john-server auf
  * localhost:8787 liefert die Live-Quellen und darf nie aus einem Cache beantwortet werden.
  */
-const CACHE = 'compass-v1';
+/* Der Name traegt einen Namensraum: Caches gelten pro Ursprung, nicht pro Scope.
+   Seit dem 04.09.2026 liegt auf einer persoenlichen Subdomain das Portal an der Wurzel
+   (eigener Service Worker, Cache 'portal-…') und der Compass in /compass/. Wer hier
+   pauschal jeden fremden Cache loescht, loescht dem Nachbarn seinen — und der loescht
+   zurueck. 'compass-v1' war der Stand, als der Compass noch an der Wurzel lag; der
+   Portal-Worker raeumt ihn dort einmalig weg. */
+const CACHE = 'compass-v2';
 
 /* Nur das Geruest. Die Datenschicht (*-data.js) kommt ueber die normale Abholung mit
    in den Cache — sie hier zu nennen wuerde die Installation an ihr scheitern lassen,
@@ -43,7 +49,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
     const namen = await caches.keys();
-    await Promise.all(namen.filter(n => n !== CACHE).map(n => caches.delete(n)));
+    await Promise.all(namen.filter(n => n.startsWith('compass-') && n !== CACHE).map(n => caches.delete(n)));
     await self.clients.claim();
   })());
 });

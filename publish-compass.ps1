@@ -100,8 +100,16 @@ if ($hatRemote) {
   if ($gitExit -ne 0) { Log "ABBRUCH: pull --ff-only fehlgeschlagen: $o"; return }
 } else { Log 'Hinweis: kein Remote origin — pull/push entfallen, gebaut und hochgeladen wird trotzdem.' }
 
-# 2) eigene Instanz bauen
-try { & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass.ps1') | Out-Null }
+# 2) eigene Instanz bauen — seit 04.09.2026 dreigeteilt wie jede persoenliche Subdomain:
+#    erst das alte flache Layout nach compass\ holen (einmalig), dann den Compass dorthin
+#    bauen, dann das Portal an die Wurzel. Die .htaccess bleibt an der Wurzel und schuetzt
+#    beides; build-compass.ps1 prueft sie ueber -Wurzel weiterhin an der richtigen Stelle.
+$beneWurzel = Join-Path $repo 'site\compass'
+try {
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-portal.ps1') -Ziel $beneWurzel -NurMigrieren | Out-Null
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass.ps1') -Ziel (Join-Path $beneWurzel 'compass') -Wurzel $beneWurzel | Out-Null
+  & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-portal.ps1') -Ziel $beneWurzel | Out-Null
+}
 catch { Log "ABBRUCH: Build fehlgeschlagen: $($_.Exception.Message)"; return }
 
 # 2b) Demo mitbauen — Fehler nur loggen
@@ -199,8 +207,14 @@ if (-not $zugang) {
     $slug = ($inst.name.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
     $ordner = Join-Path $repo "instanzen\$slug"
     try {
+      # Compass zuerst: der Build holt in der ersten Runde das alte flache Layout nach
+      # compass\ (build-portal.ps1 -NurMigrieren) und baut dann dorthin.
       $pi = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass-produkt.ps1') -Instanz $inst.name 2>&1
       if ($LASTEXITCODE -ne 0) { throw (($pi | Select-Object -Last 4) -join ' / ') }
+      # Portal an die Wurzel der Subdomain (04.09.2026): Kacheln zu Backstage, Team-Cockpit,
+      # Vaikuntha und dem Compass daneben. portal.js bleibt dabei unangetastet.
+      $pp = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-portal.ps1') -Ziel $ordner 2>&1
+      if ($LASTEXITCODE -ne 0) { throw (($pp | Select-Object -Last 4) -join ' / ') }
       Sichere-Htaccess $ordner
       Lade-Ordner $zugang $ordner $inst.sub ('Instanz ' + $inst.name)
     } catch { Log ("WARNUNG: Instanz {0} nicht ausgerollt: {1}" -f $inst.name, $_.Exception.Message) }
