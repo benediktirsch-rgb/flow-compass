@@ -536,6 +536,17 @@ function John-Chat($messages, $context) {
 # `VA_BASIC` = "va:<passwort>" (oder `VA_USER` + `VA_PASSWORT`), nie in einer Datei neben dem Skript und
 # nie in einer `*-data.js`. Gelesen wird bei jedem Abruf frisch aus dem User-Scope, damit eine neu
 # gesetzte Variable ohne Serverneustart wirkt (dasselbe Muster wie bei Trello).
+# Seit dem 04.09.2026 abends liegt va. hinter der Tuer (gate.php, Konto von vishnuartists.com) statt hinter
+# Basic-Auth. Leser ohne Konto schicken den Maschinenschluessel aus gate-config.php im Kopf X-Vf-Key:
+# User-Umgebungsvariable VA_GATE_KEY (setzt publish-cockpit.ps1 beim Anlegen der Tuer). VA_BASIC bleibt
+# als Rueckfallebene fuer eine Instanz, die noch Basic-Auth faehrt.
+function Get-VaSchluessel {
+  foreach ($scope in @('User','Process')) {
+    $k = [Environment]::GetEnvironmentVariable('VA_GATE_KEY', $scope)
+    if ($k -and $k.Trim().Length -ge 16) { return $k.Trim() }
+  }
+  return $null
+}
 function Get-VaAuth {
   foreach ($scope in @('User','Process')) {
     $b = [Environment]::GetEnvironmentVariable('VA_BASIC', $scope)
@@ -596,7 +607,16 @@ function Get-VaData([bool]$fresh) {
       $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($auth))
       $req.Headers.TryAddWithoutValidation('Authorization', "Basic $b64") | Out-Null
     }
+    $key = Get-VaSchluessel
+    if ($key) { $req.Headers.TryAddWithoutValidation('X-Vf-Key', $key) | Out-Null }
     $res = $HttpKurz.SendAsync($req).GetAwaiter().GetResult()
+    # Die Tuer leitet ohne Schluessel zur Anmeldung um (302 → weiter.php → anmelden.php, am Ende HTTP 200 mit
+    # HTML). Das darf nie als "Quelle antwortet" durchgehen — am Ziel der Umleitung erkennt man es.
+    try { $endUri = [string]$res.RequestMessage.RequestUri } catch { $endUri = $VaDataUrl }
+    if ($endUri -and $endUri -ne $VaDataUrl) {
+      if ($key) { throw "VA: die Tuer von va. leitet zur Anmeldung um — VA_GATE_KEY passt nicht zu gate-config.php auf dem Server." }
+      throw "VA: die Tuer von va. leitet zur Anmeldung um — VA_GATE_KEY fehlt. Setzen: [Environment]::SetEnvironmentVariable('VA_GATE_KEY','<Schluessel aus site/va/gate-config.php>','User')"
+    }
     $bytes = $res.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
     $txt = [Text.Encoding]::UTF8.GetString($bytes)
     if (-not $res.IsSuccessStatusCode) {
@@ -604,8 +624,8 @@ function Get-VaData([bool]$fresh) {
       # sonst steht in der Karte nur "VA 401" und das liest sich wie ein kaputtes Cockpit.
       $code = [int]$res.StatusCode
       if ($code -eq 401 -or $code -eq 403) {
-        if ($auth) { throw "VA $code — Zugangsdaten abgelehnt. Passwort in VA_BASIC pruefen (Rotation: Repo-Secret VA_HTPASSWD + Deploy)." }
-        throw "VA $code — /va/ ist seit dem 25.08. passwortgeschuetzt, der Server hat keine Zugangsdaten. Setzen: [Environment]::SetEnvironmentVariable('VA_BASIC','va:<passwort>','User')"
+        if ($key -or $auth) { throw "VA $code — Zugang abgelehnt. VA_GATE_KEY gegen site/va/gate-config.php pruefen (Basic-Auth-Instanzen: VA_BASIC)." }
+        throw "VA $code — va. ist geschuetzt, der Server hat keinen Schluessel. Setzen: [Environment]::SetEnvironmentVariable('VA_GATE_KEY','<Schluessel aus site/va/gate-config.php>','User')"
       }
       if ($code -eq 500 -and $auth) { throw "VA 500 — Apache findet die .htpasswd-va nicht (Deploy mit Secret VA_HTPASSWD laufen lassen)." }
       throw "VA $code"

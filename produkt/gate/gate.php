@@ -22,6 +22,10 @@
      4. ?wer=1 sagt der Seite hinter der Tür, wer da ist (JSON: person, name, mail) — das
         Cookie ist httponly, der Compass könnte es sonst nicht lesen und würde ein zweites
         Mal nach Name und Passwort fragen. ?raus=1 löscht das Cookie und meldet das Konto ab.
+     5. Maschinenschlüssel: Leser ohne Konto (john-server, Datenlauf) schicken den Kopf
+        X-Vf-Key mit dem Wert aus $GATE_KEY (gate-config.php) und bekommen die Datei ohne
+        Cookie. Leer = aus. Schwester-Subdomains (*.vishnuartists.com) dürfen per CORS mit
+        Cookie lesen — so holt der persönliche Compass va-data.json vom Team-Cockpit.
 
    WER DARF, steht in gate-config.php neben dieser Datei:
        $GATE_MAIL   = 'jan@vishnuartists.com';         // die Person, der diese Instanz gehört
@@ -45,7 +49,7 @@ $SECRET = $WURZEL . '/gate-secret.php';
 $PRUEFE = 'https://vishnuartists.com/weiter.php';
 $STUNDEN = 4;
 
-$GATE_MAIL = ''; $GATE_ROLLEN = array( 'gruender' ); $GATE_TITEL = 'Vishnu Artists';
+$GATE_MAIL = ''; $GATE_ROLLEN = array( 'gruender' ); $GATE_TITEL = 'Vishnu Artists'; $GATE_KEY = '';
 if ( file_exists( $KONFIG ) ) { include $KONFIG; }
 if ( file_exists( $SECRET ) ) { include $SECRET; }   /* setzt $GEHEIM */
 
@@ -86,6 +90,24 @@ function g_cookie_lesen() {
 	$j = json_decode( g_b64d( $d ), true );
 	if ( ! is_array( $j ) || empty( $j['exp'] ) || $j['exp'] < time() ) { return null; }
 	return $j;
+}
+
+/* ————— Schwester-Subdomains dürfen mit Cookie lesen (persönlicher Compass ↔ Team-Cockpit) ————— */
+function g_cors() {
+	$o = isset( $_SERVER['HTTP_ORIGIN'] ) ? (string) $_SERVER['HTTP_ORIGIN'] : '';
+	if ( $o !== '' && preg_match( '/^https:\/\/[a-z0-9-]+\.vishnuartists\.com$/i', $o ) ) {
+		header( 'Access-Control-Allow-Origin: ' . $o );
+		header( 'Access-Control-Allow-Credentials: true' );
+		header( 'Vary: Origin' );
+	}
+}
+
+/* ————— Maschinenschlüssel: Server-zu-Server-Leser ohne Konto ————— */
+function g_schluessel_ok() {
+	global $GATE_KEY;
+	if ( ! is_string( $GATE_KEY ) || strlen( $GATE_KEY ) < 16 ) { return false; }
+	$k = isset( $_SERVER['HTTP_X_VF_KEY'] ) ? (string) $_SERVER['HTTP_X_VF_KEY'] : '';
+	return $k !== '' && hash_equals( $GATE_KEY, $k );
 }
 
 /* ————— Darf die Person hier herein? ————— */
@@ -145,6 +167,7 @@ if ( isset( $_GET['vf_t'] ) ) {
    bekommt Person, Vorname und Mailadresse, wenn jemand angemeldet ist — sonst ok:false. Damit
    entfällt sein eigener Anmeldedialog (Name + Team-Passwort), sobald die Tür offen ist. */
 if ( isset( $_GET['wer'] ) ) {
+	g_cors();
 	header( 'Content-Type: application/json; charset=utf-8' );
 	header( 'Cache-Control: no-store' );
 	$ich = g_cookie_lesen();
@@ -163,7 +186,7 @@ if ( isset( $_GET['raus'] ) ) {
 
 /* ————— 2. Cookie prüfen, sonst weiterreichen ————— */
 $ich = g_cookie_lesen();
-if ( ! $ich ) {
+if ( ! $ich && ! g_schluessel_ok() ) {
 	header( 'Cache-Control: no-store' );
 	header( 'Location: ' . $PRUEFE . '?zu=' . rawurlencode( g_meine_url() ) );
 	exit;
@@ -208,6 +231,7 @@ if ( ! isset( $typen[ $endung ] ) ) { g_seite( 403, 'Nicht abrufbar', 'Diesen Da
 
 $zeit = filemtime( $echt );
 $etag = '"' . dechex( $zeit ) . '-' . dechex( filesize( $echt ) ) . '"';
+g_cors();
 header( 'Content-Type: ' . $typen[ $endung ] );
 header( 'X-Content-Type-Options: nosniff' );
 header( 'X-Frame-Options: SAMEORIGIN' );

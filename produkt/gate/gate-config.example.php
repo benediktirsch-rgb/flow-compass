@@ -10,8 +10,13 @@
                  partner, finanzen. Persönliche Instanzen: nur 'gruender'
                  (Entscheidung Bene 04.09.2026 — persönliche Boards, Checkins und
                  Kennzahlen gehen nicht das ganze Kollektiv an).
-   $GATE_TITEL   Was auf der Seite steht, wenn jemand vor der falschen Tür steht. */
+   $GATE_TITEL   Was auf der Seite steht, wenn jemand vor der falschen Tür steht.
+   $GATE_KEY     Maschinenschlüssel (mind. 16 Zeichen) für Leser ohne Konto: john-server
+                 und Datenlauf schicken ihn im Kopf X-Vf-Key (User-Umgebungsvariable
+                 VA_GATE_KEY). Leer = kein Maschinenzugang. Nie ins Repo — diese Datei
+                 ist gitignored. */
 
 $GATE_MAIL   = '';
 $GATE_ROLLEN = array( 'gruender' );
 $GATE_TITEL  = 'Vishnu Artists';
+$GATE_KEY    = '';
