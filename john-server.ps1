@@ -546,30 +546,87 @@ function Get-VaAuth {
   }
   return $null
 }
+# ---------- VA-Board: Puffer auf Platte (04.09.2026) ----------------------------------------
+# Das Kanban im Compass ist zweimal ausgefallen, ohne dass irgendwo etwas rot wurde: am 26.08. hat der
+# stuendliche Jira-Lauf mit totem Token eine LEERE Board-Datei ausgeliefert, Anfang September reichte
+# der Browser eine alte, leere Kopie weiter. Beide Male antwortete die Quelle mit HTTP 200 - ein Ausfall,
+# den niemand als Ausfall sieht. Der Server haelt deshalb den letzten Stand MIT Vorgaengen auf Platte und
+# reicht ihn durch, wenn die Quelle nichts Brauchbares liefert. Der Compass erfaehrt das ueber die
+# X-VA-Puffer-Header und schreibt es in die Karte - lieber ein ehrlich datiertes Board als ein leeres.
 $script:VaCache = $null
+$script:VaPufferInfo = $null            # $null = frisch geholt; sonst @{ zeit = <Stand der Puffer-Datei>; grund = '<warum>' }
+$script:VaPufferSig = ''                # Laenge des zuletzt geschriebenen Standes - spart das Neuschreiben unveraenderter Daten
+$script:VaPufferDatei = Join-Path $PSScriptRoot '_puffer\va-data.json'
+
+function Test-VaInhalt([string]$txt) {
+  # Struktur-Test statt ConvertFrom-Json: 658 Vorgaenge zu parsen kostet in PS 5.1 spuerbar Zeit, und
+  # gefragt ist nur eines - steht in "issues" mindestens ein Vorgang? Leere Datei = kein gueltiger Stand.
+  if (-not $txt -or $txt.Length -lt 200) { return $false }
+  return ($txt -match '"issues"\s*:\s*\[\s*\[')
+}
+function Set-VaPuffer([string]$txt) {
+  try {
+    if ($script:VaPufferSig -eq [string]$txt.Length) { return }
+    $dir = Split-Path $script:VaPufferDatei -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    # Erst daneben schreiben, dann drueberkopieren: ein abgebrochener Schreibvorgang darf den letzten
+    # guten Stand nicht zerstoeren (genau so faellt eine Datei sonst auf 0 Byte).
+    $tmp = "$($script:VaPufferDatei).neu"
+    [IO.File]::WriteAllText($tmp, $txt, (New-Object Text.UTF8Encoding($false)))
+    [IO.File]::Copy($tmp, $script:VaPufferDatei, $true)
+    Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+    $script:VaPufferSig = [string]$txt.Length
+  } catch { Write-Host "  VA-Puffer nicht schreibbar: $($_.Exception.Message)" -ForegroundColor DarkYellow }
+}
+function Get-VaPuffer {
+  if (-not (Test-Path $script:VaPufferDatei)) { return $null }
+  try {
+    $t = [IO.File]::ReadAllText($script:VaPufferDatei, [Text.Encoding]::UTF8)
+    if (Test-VaInhalt $t) { return @{ text = $t; zeit = (Get-Item $script:VaPufferDatei).LastWriteTime } }
+  } catch { }
+  return $null
+}
 function Get-VaData([bool]$fresh) {
   if ($script:VaCache -and -not $fresh -and ((Get-Date) - $script:VaCache.zeit).TotalSeconds -lt $VaCacheSec) { return $script:VaCache.text }
-  $req = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::Get, $VaDataUrl)
-  $auth = Get-VaAuth
-  if ($auth) {
-    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($auth))
-    $req.Headers.TryAddWithoutValidation('Authorization', "Basic $b64") | Out-Null
-  }
-  $res = $HttpKurz.SendAsync($req).GetAwaiter().GetResult()
-  $bytes = $res.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
-  $txt = [Text.Encoding]::UTF8.GetString($bytes)
-  if (-not $res.IsSuccessStatusCode) {
-    # 401/403/500 sind hier keine Störung der Quelle, sondern die Anmeldung — im Klartext sagen, was fehlt,
-    # sonst steht in der Karte nur "VA 401" und das liest sich wie ein kaputtes Cockpit.
-    $code = [int]$res.StatusCode
-    if ($code -eq 401 -or $code -eq 403) {
-      if ($auth) { throw "VA $code — Zugangsdaten abgelehnt. Passwort in VA_BASIC pruefen (Rotation: Repo-Secret VA_HTPASSWD + Deploy)." }
-      throw "VA $code — /va/ ist seit dem 25.08. passwortgeschuetzt, der Server hat keine Zugangsdaten. Setzen: [Environment]::SetEnvironmentVariable('VA_BASIC','va:<passwort>','User')"
+  $fehler = $null; $txt = $null
+  try {
+    $req = New-Object System.Net.Http.HttpRequestMessage ([System.Net.Http.HttpMethod]::Get, $VaDataUrl)
+    $auth = Get-VaAuth
+    if ($auth) {
+      $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($auth))
+      $req.Headers.TryAddWithoutValidation('Authorization', "Basic $b64") | Out-Null
     }
-    if ($code -eq 500 -and $auth) { throw "VA 500 — Apache findet die .htpasswd-va nicht (Deploy mit Secret VA_HTPASSWD laufen lassen)." }
-    throw "VA $code"
+    $res = $HttpKurz.SendAsync($req).GetAwaiter().GetResult()
+    $bytes = $res.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
+    $txt = [Text.Encoding]::UTF8.GetString($bytes)
+    if (-not $res.IsSuccessStatusCode) {
+      # 401/403/500 sind hier keine Störung der Quelle, sondern die Anmeldung — im Klartext sagen, was fehlt,
+      # sonst steht in der Karte nur "VA 401" und das liest sich wie ein kaputtes Cockpit.
+      $code = [int]$res.StatusCode
+      if ($code -eq 401 -or $code -eq 403) {
+        if ($auth) { throw "VA $code — Zugangsdaten abgelehnt. Passwort in VA_BASIC pruefen (Rotation: Repo-Secret VA_HTPASSWD + Deploy)." }
+        throw "VA $code — /va/ ist seit dem 25.08. passwortgeschuetzt, der Server hat keine Zugangsdaten. Setzen: [Environment]::SetEnvironmentVariable('VA_BASIC','va:<passwort>','User')"
+      }
+      if ($code -eq 500 -and $auth) { throw "VA 500 — Apache findet die .htpasswd-va nicht (Deploy mit Secret VA_HTPASSWD laufen lassen)." }
+      throw "VA $code"
+    }
+  } catch { $fehler = $_.Exception.Message }
+  if (-not $fehler -and -not (Test-VaInhalt $txt)) {
+    $fehler = 'Die Quelle antwortet mit einem Datenstand ohne Vorgaenge - der stuendliche Jira-Lauf laeuft ins Leere (Token oder Berechtigung pruefen).'
   }
+  if ($fehler) {
+    # Puffer schlaegt Fehlermeldung: das Board steht weiter, nur eben mit dem Stand von vorhin.
+    $puffer = Get-VaPuffer
+    if ($puffer) {
+      $script:VaPufferInfo = @{ zeit = $puffer.zeit; grund = $fehler }
+      Write-Host "  VA-Daten aus dem Puffer vom $($puffer.zeit.ToString('dd.MM. HH:mm')) - $fehler" -ForegroundColor DarkYellow
+      return $puffer.text
+    }
+    throw $fehler
+  }
+  $script:VaPufferInfo = $null
   $script:VaCache = @{ zeit = Get-Date; text = $txt }
+  Set-VaPuffer $txt
   return $txt
 }
 
@@ -2684,6 +2741,14 @@ try {
         try {
           $txt = Get-VaData ($req.QueryString['fresh'] -eq '1')
           $b = [Text.Encoding]::UTF8.GetBytes($txt)
+          # Frisch oder aus dem Puffer? Der Compass schreibt es in die Karte, statt einen alten Stand
+          # als aktuellen auszugeben. Header-Werte bleiben ASCII - Umlaute zerlegen den Listener.
+          $res.Headers['Access-Control-Expose-Headers'] = 'X-VA-Puffer, X-VA-Puffer-Zeit, X-VA-Puffer-Grund'
+          if ($script:VaPufferInfo) {
+            $res.Headers['X-VA-Puffer'] = '1'
+            $res.Headers['X-VA-Puffer-Zeit'] = $script:VaPufferInfo.zeit.ToString('o')
+            $res.Headers['X-VA-Puffer-Grund'] = ([string]$script:VaPufferInfo.grund -replace '[^\x20-\x7E]', ' ')
+          } else { $res.Headers['X-VA-Puffer'] = '0' }
           $res.StatusCode = 200; $res.ContentType = 'application/json; charset=utf-8'
           $res.ContentLength64 = $b.Length; $res.OutputStream.Write($b, 0, $b.Length); $res.Close()
         } catch {

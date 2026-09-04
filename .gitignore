@@ -49,6 +49,9 @@ kalender-urls.json
 # nur die handgepflegte .htaccess (Zugangsschutz) bleibt im Repo
 site/compass/*
 !site/compass/.htaccess
+# Puffer des John-Servers: letzter guter VA-Board-Stand (Laufzeitdatei, nie committen)
+_puffer/
+
 # Hash-Stand der FTPS-Uploads je Subdomain (publish-compass.ps1)
 site/.publish-state/
 
