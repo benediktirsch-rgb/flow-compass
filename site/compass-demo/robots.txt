@@ -1,0 +1,30 @@
+# demo.vishnuartists.com — Stand 04.09.2026
+#
+# Diese Subdomain hatte bis heute gar keine robots.txt: sie antwortete mit 404.
+# Das ist kein Beinbruch (ohne Datei crawlt Google alles), aber es hiess auch,
+# dass hier niemand steuern konnte — und auf dieser Subdomain liegen zwei
+# verschiedene Anwendungen aus zwei verschiedenen Repos:
+#
+#   /          Flow-Compass-Demo      (flow-compass, site/compass-demo → hier)
+#   /cockpit/  Flow-Cockpit-Starter   (flow-cockpit, site/ → publish-cockpit.ps1)
+#
+# Bewusst NICHT gesperrt. Die Demo ist das Schaufenster und darf gefunden werden;
+# ein Disallow wuerde ausserdem verhindern, dass Google die Meta-Angaben in den
+# Seiten ueberhaupt liest — wer eine Seite aus dem Index halten will, sperrt sie
+# nicht aus, sondern laesst sie crawlen und setzt noindex. Sonst bleibt eine
+# einmal indexierte Adresse ohne Beschreibung stehen.
+#
+# Was verkauft wird, steht woanders und soll dort ranken:
+#   Compass  https://vishnuartists.com/flow-compass.html
+#   Cockpit  https://vishnuartists.com/flow-cockpit.html
+# Keine Sitemap-Zeile hier: eine Sitemap gehoert auf den Ursprung, dessen
+# Adressen sie anmeldet, und die zwei Produktseiten stehen in der Sitemap von
+# vishnuartists.com.
+
+User-agent: *
+Allow: /
+
+# Der Dienstarbeiter und das App-Manifest gehoeren nicht in ein Suchergebnis —
+# sie sind Technik der installierbaren Web-App, kein Inhalt.
+Disallow: /sw.js
+Disallow: /manifest.webmanifest
