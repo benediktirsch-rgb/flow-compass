@@ -1,79 +1,28 @@
-# Flow Compass (produktive Instanz) — Zugangsschutz + Haertungs-Header
-# Gilt nur fuer diesen Ordner. Eine site/.htaccess darf es nicht geben (siehe
-# .github/workflows/deploy.yml) — die im Domain-Root pflegt Bene im KAS.
-
-# ---------------------------------------------------------------------------
-# Zugangsschutz /compass/ — HTTP-Basic-Auth fuer den GESAMTEN Ordner (VA-13560,
-# 31.08.2026). Grund: index.html, dashboard-data.js, rhythmus-data.js und
-# kennzahlen-data.js lieferten HTTP 200 ohne Anmeldung und enthalten echte
-# personenbezogene Inhalte (u. a. E-Mail-Adressen). Der COMPASS.gate-Check in
-# index.html laeuft nur im Browser und schuetzt die Datendateien daneben nicht —
-# wer die URL kennt, braucht die Oberflaeche nicht. Diese Schicht liegt davor,
-# der Client-Gate bleibt unveraendert bestehen. Sobald der Ordner serverseitig
-# geschuetzt ist, ist auch der in index.html mitgelieferte Salt/Hash der
-# Passphrase kein Angriffspunkt mehr.
-#
-# Bewusst DIESELBE Zugangsdatei und DERSELBE Realm wie /va/ (site/va/.htaccess):
-# gleicher Origin + gleicher Realm heisst, der Browser schickt die einmal
-# eingegebenen Zugangsdaten von selbst weiter. Damit gilt "ein Login, alle Wege"
-# auch serverseitig, und der Compass laeuft weiter als iframe im Cockpit
-# (vaApp.compass.oeffnen), ohne ein zweites Mal nachzufragen.
-#
-# Das Passwort liegt NICHT im Repo. deploy.yml laedt die Datei aus dem
-# Repo-Secret VA_HTPASSWD in den Domain-Ordner (Anleitung: docs/va-zugangsschutz.md).
-# Nie eine .htpasswd nach site/compass/ legen — der Ordner geht komplett live.
-# Zugangsschutz nur unter https, ueber http nur die Weiterleitung (03.09.2026): Apache prueft die
-# Anmeldung VOR jeder Weiterleitung aus .htaccess (mod_rewrite und mod_alias laufen erst im Fixup) —
-# ohne diese Trennung fragte der Browser ueber http nach dem Passwort und leitete DANN um. Ueber http
-# wird nie Inhalt geliefert: der Redirect greift vor dem Handler.
-<If "%{HTTPS} != 'on'">
-  Redirect 301 / https://bene.vishnuartists.com/
-</If>
-<Else>
-  AuthType Basic
-  AuthName "Vishnu Flow Cockpit"
-  AuthUserFile /www/htdocs/w01e7219/vishnu-artists.com/.htpasswd-va
-  Require valid-user
-</Else>
-# ---------------------------------------------------------------------------
-# Seit 03.09.2026 liegt diese Instanz auf bene.vishnuartists.com (eigenes Dokumenten-
-# verzeichnis, eigener Ursprung). Die Zugangsdatei bleibt die im Ordner von
-# vishnu-artists.de — AuthUserFile ist absolut und gilt von ueberall. Ein anderer
-# Ursprung heisst aber: der Browser schickt die Zugangsdaten des Cockpits (va.) nicht
-# von selbst mit, jede Instanz meldet sich einmal selbst an. Dazu https-Zwang:
-# Basic-Auth ueber http hiesse Passwort im Klartext.
-
+# Vishnu-Produkt-Subdomain — jede Anfrage geht durch gate.php (erzeugt von build-portal.ps1,
+# 04.09.2026). Von Hand geändert? Dann bleibt diese Datei beim nächsten Lauf stehen —
+# der Generator erkennt seine eigene Fassung an der Zeile darunter.
+# gate-fassung: 1
+<IfModule mod_rewrite.c>
+RewriteEngine On
+# https erzwingen: das Ticket und das Türcookie gehören nie über eine offene Leitung.
+RewriteCond %{HTTPS} !=on
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+# Alles andere beantwortet die Tür. Sie liefert die Datei selbst aus, wenn jemand
+# angemeldet ist, und schickt sonst zu vishnuartists.com/weiter.php.
+RewriteCond %{REQUEST_URI} !^/gate\.php$
+RewriteRule ^(.*)$ /gate.php [QSA,L]
+</IfModule>
+# Ohne mod_rewrite gäbe es keine Tür — dann lieber gar nichts ausliefern als alles.
+<IfModule !mod_rewrite.c>
+Require all denied
+</IfModule>
+# Die Türdateien sind auch dann tabu, wenn jemand sie direkt anspricht.
+<FilesMatch "^(gate-config|gate-secret)\.php$">
+  Require all denied
+</FilesMatch>
 <IfModule mod_headers.c>
-  # Kein Einbetten in fremde Seiten (Clickjacking) — CSP frame-ancestors ist die
-  # moderne Form, X-Frame-Options der Rueckfall fuer aeltere Browser.
-  Header always set X-Frame-Options "SAMEORIGIN"
-  Header always set Content-Security-Policy "frame-ancestors 'self'"
-
-  # Kein Raten des Inhaltstyps.
   Header always set X-Content-Type-Options "nosniff"
-
-  # Nur https, ein Jahr. Bewusst OHNE preload und OHNE includeSubDomains:
-  # unter dieser Domain haengen weitere Hosts, die Bene nicht alle kontrolliert.
   Header always set Strict-Transport-Security "max-age=31536000"
-
-  # Keine Adresse dieser Seite an fremde Ziele weiterreichen.
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-
-  # Die Demo braucht weder Kamera noch Mikrofon noch Standort.
   Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
 </IfModule>
-
-# Konfiguration und Datenschicht nie aus dem Cache verwenden, ohne zu fragen.
-# Grund (24.08.2026): die Demo zog ueber instanz.js echte Team-Daten. Der Server
-# lieferte die korrigierte Datei binnen Minuten - Browser mit der alten Fassung im
-# Cache holten die Daten aber weiter. Ohne Cache-Control raet Apache die Frische.
-# 'no-cache' heisst nicht 'nicht speichern', sondern 'vor Gebrauch rueckfragen'.
-<FilesMatch ".(js|html)$">
-  <IfModule mod_headers.c>
-    Header always set Cache-Control "no-cache"
-  </IfModule>
-</FilesMatch>
-
-# Eine volle Content-Security-Policy (script-src usw.) fehlt bewusst: die Seite
-# lebt von Inline-Skript und Inline-Style. Sie kaeme nur mit Hashes oder Nonces
-# und gehoert deshalb in ein eigenes Ticket — erst Report-Only messen, dann scharf.
