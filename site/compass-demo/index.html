@@ -2870,7 +2870,10 @@ function vaPufferHinweis(){
   const grund = VA.leerQuelle
     ? 'Die Quelle antwortet gerade ohne einen einzigen Vorgang — sehr wahrscheinlich läuft der stündliche Jira-Lauf ins Leere (Token oder Berechtigung).'
     : `Die Quelle ist gerade nicht erreichbar (${esc(VA.fehler||'—')}).`;
-  return `<div class="valade" style="margin:0 0 10px">📦 <b>Aus dem lokalen Puffer</b> — geholt ${d.toLocaleString(LOC(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}. ${grund}
+  /* Zwei Puffer, beide echt: der des Compass-Servers (Datei auf der Platte) und der im Browser
+     (localStorage). Welcher gerade traegt, gehoert dazu — sonst sucht man am falschen Ende. */
+  const woher = /Compass-Server/.test(VA.quelle||'') ? 'Aus dem Puffer des Compass-Servers' : 'Aus dem Puffer in diesem Browser';
+  return `<div class="valade" style="margin:0 0 10px">📦 <b>${woher}</b> — geholt ${d.toLocaleString(LOC(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}. ${grund}
     Die Karten unten sind echt, aber möglicherweise nicht von heute. Beim nächsten gelungenen Abruf ersetzt der Compass sie von selbst.
     <button class="btn" onclick="vaLaden(true)">↻ Jetzt erneut versuchen</button>
     <a class="btn" href="${COMPASS.cockpit.url}" target="_blank" rel="noopener">Cockpit öffnen ↗</a></div>`;
