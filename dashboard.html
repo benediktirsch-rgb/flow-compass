@@ -634,7 +634,7 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .pk .kc .kact button.pull{border-color:rgba(240,180,41,.6);color:var(--bene)}
 .pk .kc .kact button.fin{border-color:rgba(62,207,142,.6);color:var(--ok)}
 .pk .kc.eine{border-color:var(--bene);background:linear-gradient(135deg,var(--bene-soft),var(--panel) 65%)}
-.pk .kc.frisch{border-color:var(--ok);box-shadow:0 0 0 2px rgba(62,207,142,.35);animation:frischPuls 1.4s ease-out 2}
+.pk .kc.frisch,.card.frisch{border-color:var(--ok);box-shadow:0 0 0 2px rgba(62,207,142,.35);animation:frischPuls 1.4s ease-out 2}
 @keyframes frischPuls{0%{box-shadow:0 0 0 2px rgba(62,207,142,.5)}60%{box-shadow:0 0 0 7px rgba(62,207,142,0)}100%{box-shadow:0 0 0 2px rgba(62,207,142,.25)}}
 .pk .kc.over{border-color:rgba(255,120,120,.6)} .pk .kc.over .due{color:#ff8a8a;font-weight:700}
 .pk .kc.today .due{color:var(--bene);font-weight:700}
@@ -1272,12 +1272,15 @@ const LEER={xp:0,streak:0,lastMorgen:null,lastAbend:null,lastWochenstart:null,la
   arbeit:{},arbeitTage:[],hist:{},kpiHist:{},manuell:{},lotusFokus:null,lotusTag:null,lotusWechsel:true,summary:{},
   /* 19.08. Personal Kanban (Mein Board): Compass-lokale Spaltenzuordnung je Karten-ID (Quellen bleiben unverändert).
      doing/wait: {id:{seit,name,url,src}} · done: {id:{am,name,src}} · eigene: {id:{name,seit,col}} · wip: eigenes WIP-Limit (null = COMPASS.board.wip) */
-  kan:{doing:{},wait:{},done:{},eigene:{},wip:null}};
+  kan:{doing:{},wait:{},done:{},eigene:{},wip:null},
+  /* 05.09.: Meldungen aus dem Banner, die Bene zur Rückfrage gemacht (meldeFragen) oder eingeplant hat (meldePlan) */
+  meldeFragen:{},meldePlan:{}};
 let S=(()=>{ try{ return Object.assign({},LEER,JSON.parse(localStorage.getItem('beneRhythm')||'{}')); }
              catch(e){ return Object.assign({},LEER); } })();
 S.z=Object.assign({},LEER.z,S.z||{});
 ['arbeit','hist','kpiHist','manuell','summary'].forEach(k=>{ if(!S[k]||typeof S[k]!=='object') S[k]={}; });
 if(!Array.isArray(S.arbeitTage)) S.arbeitTage=[];
+['meldeFragen','meldePlan'].forEach(k=>{ if(!S[k]||typeof S[k]!=='object') S[k]={}; });
 if(!S.kan||typeof S.kan!=='object') S.kan={}; ['doing','wait','done','eigene','spalte'].forEach(k=>{ if(!S.kan[k]||typeof S.kan[k]!=='object') S.kan[k]={}; }); if(!('wip' in S.kan)) S.kan.wip=null;
 const speichern=()=>localStorage.setItem('beneRhythm',JSON.stringify(S));
 
@@ -1349,7 +1352,7 @@ const frageSchluessel=t=>String(t||'').toLowerCase().replace(/[^0-9a-zäöüß]+
 function beantwortet(q){ return !!S.antworten[q.id] || (q.frage && ANTW_TEXT.has(frageSchluessel(q.frage))); }
 /* Dazu die offenen Entscheidungen der Finanzverwaltung (finFragen, 02.09.) — sie leben auf dem
    Server, nicht in S.antworten: beantwortet ist, was dort eine Stimme hat. */
-function offeneFragen(){ return (R.rueckfragen||[]).filter(q=>!beantwortet(q)).concat(typeof finFragen==='function'?finFragen():[]); }
+function offeneFragen(){ return (R.rueckfragen||[]).filter(q=>!beantwortet(q)).concat(typeof finFragen==='function'?finFragen():[]).concat(typeof meldeFragen==='function'?meldeFragen():[]); }
 /* Das Eine von heute: zuerst aus diesem Browser (localStorage), sonst aus dem
    Morgencheck-Protokoll in rhythmus-data.js. Sonst stünde auf dem Handy „noch
    nicht gesetzt“, obwohl der Checkin längst gemacht ist. */
@@ -1848,7 +1851,7 @@ function boardCta(){
    hin und übernimmt, was er noch nicht kennt. Ist der Server aus, bleibt alles
    beim Alten — der lokale Stand gilt weiter, und der nächste Ladeversuch holt es nach.
    ========================================================================== */
-function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null); return q?q.frage:''; }
+function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null)||(S.meldeFragen||{})[id]; return q?q.frage:''; }
 function antwortMerken(frage){ const k=frageSchluessel(frage); if(k) ANTW_TEXT.add(k); }
 /* Eine frisch gegebene Antwort sofort hinschicken. Fehlschlag ist unkritisch:
    sie steht im localStorage, geht mit dem Checkin mit und wird beim nächsten
@@ -2306,15 +2309,15 @@ function qmark(titel,text,herkunft,opt){
   const quellen=erk.links.slice(), hints=erk.hints.slice();
   if(q&&q.url&&!quellen.some(x=>x.url===q.url)) quellen.unshift({url:q.url,label:q.label||q.url.replace(/^https?:\/\//,''),typ:/^file:/.test(q.url)?'file':'explizit'});
   if(q&&q.quelle) hints.unshift(q.quelle);
-  const id=QREG.push({titel:String(titel||''),text:String(text||''),quellen,hints,herkunft:herkunft||'',fn:opt.fn||null})-1;
-  const direkt = quellen.length===1 && quellen[0].typ!=='file' && !opt.fn;
-  const tip = direkt ? 'Öffnen ↗ '+quellen[0].label : (opt.fn ? (opt.tip||'Öffnen') : (quellen.length?quellen.length+' Quellen — Details anzeigen':'Details & Herkunft anzeigen'));
+  const id=QREG.push({titel:String(titel||''),text:String(text||''),quellen,hints,herkunft:herkunft||'',fn:opt.fn||null,akt:opt.akt||null,stand:opt.stand||''})-1;
+  const direkt = quellen.length===1 && quellen[0].typ!=='file' && !opt.fn && !opt.akt;
+  const tip = direkt ? 'Öffnen ↗ '+quellen[0].label : (opt.fn ? (opt.tip||'Öffnen') : opt.akt ? (opt.tip||'Entscheiden · Einplanen · John fragen') : (quellen.length?quellen.length+' Quellen — Details anzeigen':'Details & Herkunft anzeigen'));
   return {c:'link'+(direkt?'':' multi'), a:` data-q="${id}" tabindex="0" role="${direkt?'link':'button'}" title="${escA(tip)}"`};
 }
 function quelleOeffnen(i){
   const q=QREG[i]; if(!q) return;
   if(q.fn){ q.fn(); return; }
-  if(q.quellen.length===1 && q.quellen[0].typ!=='file'){ window.open(q.quellen[0].url,'_blank','noopener'); return; }
+  if(q.quellen.length===1 && q.quellen[0].typ!=='file' && !q.akt){ window.open(q.quellen[0].url,'_blank','noopener'); return; }
   quelleOverlay(q);
 }
 const qov=document.getElementById('qov');
@@ -2327,7 +2330,11 @@ function quelleOverlay(q){
     : `<a href="${escA(l.url)}" target="_blank" rel="noopener"><span>${ic[l.typ]||'🔗'}</span><span class="ql">${esc(l.label)}</span><small>${esc(l.typ==='explizit'?'Link':l.typ)} ↗</small></a>`).join('');
   document.getElementById('qovBody').innerHTML=`${q.text?`<div class="txt">${esc(q.text)}</div>`:''}
     ${rows?`<div class="qlinks">${rows}</div>`:'<div class="hint" style="margin-top:12px;color:var(--dim);font-size:12px">Keine Verlinkung erkannt — ein Jira-Key, eine URL oder ein wp-admin-Pfad im Text macht die Zeile direkt anklickbar; alternativ {url:…} als letztes Element der Datenzeile.</div>'}
-    ${q.hints.length?`<div class="mini">Erwähnt: ${q.hints.map(esc).join(' · ')}</div>`:''}`;
+    ${q.hints.length?`<div class="mini">Erwähnt: ${q.hints.map(esc).join(' · ')}</div>`:''}
+    ${q.stand?`<div class="mini">${esc(q.stand)}</div>`:''}
+    ${q.akt?`<div class="chipbar">${q.akt.map((a,i)=>`<button type="button" class="btn ${a.cls||''}" data-akt="${i}" title="${escA(a.tip||'')}">${esc(a.label)}</button>`).join('')}</div>`:''}`;
+  /* Aktionen (05.09.): Overlay zu, dann handeln — das Ziel (Ritual, Karten-Dialog, John) öffnet sein eigenes Fenster. */
+  document.querySelectorAll('#qovBody [data-akt]').forEach(b=>b.addEventListener('click',()=>{ quelleSchliessen(); const a=q.akt[Number(b.dataset.akt)]; if(a&&a.fn) a.fn(); }));
   document.querySelectorAll('#qovBody [data-copy]').forEach(b=>b.addEventListener('click',()=>{
     const p=b.dataset.copy.replace(/^file:\/\/\//,'').replace(/\//g,'\\'); let s; try{ s=decodeURIComponent(p); }catch(e){ s=p; }
     (navigator.clipboard?navigator.clipboard.writeText(s):Promise.reject()).then(()=>{ b.textContent='✓ kopiert'; }).catch(()=>prompt('Pfad kopieren:',s));
@@ -2795,9 +2802,10 @@ function pkAct(id,fn){
 }
 /* ---- Neue Karte: Dialog mit Ziel (Compass | Trello privat/Arbeit + Liste | Jira) ---- */
 const nov=document.getElementById('nov'); let NOV={col:'bereit',ziel:'compass'};
-function pkNeu(col){
-  NOV={col:col||'bereit',ziel:NOV.ziel||'compass'};
-  document.getElementById('novName').value=''; document.getElementById('novDesc').value=''; document.getElementById('novCol').value=NOV.col; document.getElementById('novHint').textContent='';
+function pkNeu(col,v){
+  v=v||{};
+  NOV={col:col||'bereit',ziel:NOV.ziel||'compass',nach:v.nach||null};
+  document.getElementById('novName').value=v.name||''; document.getElementById('novDesc').value=v.desc||''; document.getElementById('novCol').value=NOV.col; document.getElementById('novHint').textContent='';
   novZiele(); nov.classList.add('on'); setTimeout(()=>document.getElementById('novName').focus(),60);
 }
 function novZiele(){
@@ -2839,6 +2847,7 @@ document.getElementById('novGo').addEventListener('click',async()=>{
       const id='jira:'+r.key; PK.neu=id; if(col==='doing') S.kan.doing[id]={seit:heute(),name:r.key+' · '+name,url:r.url,src:'jira'}; if(col==='wartet') S.kan.wait[id]={seit:heute(),name:r.key+' · '+name,url:r.url,src:'jira'};
       speichern(); toast('⇄ Jira angelegt: '+esc(r.key),'ok'); await pkLaden(true); pkZeigen(id);
     }
+    if(NOV.nach){ try{ NOV.nach(); }catch(x){} NOV.nach=null; }
     nov.classList.remove('on');
   }catch(e){ const code=e.code||''; document.getElementById('novHint').textContent = code==='NO_WRITE'?'Trello-Token darf nur lesen — neues Token mit scope=read,write (Anleitung: Kopf von john-server.ps1).' : code==='NO_KEY'?(e.hint||'Schlüssel fehlt.') : 'Fehler: '+(e.hint||e.message); }
   go.disabled=false; go.textContent='Anlegen';
@@ -3535,13 +3544,19 @@ function wachtSorgen(){
   const out=[];
   (w.seiten||[]).filter(s=>!s.ok).forEach(s=>out.push(s.schutzOffen
     /* Der Schutz ist weg — das ist keine Erreichbarkeitsstörung, sondern ein offenes Cockpit. */
-    ? {ic:'🔓',t:`${s.name} steht ohne Zugangsdaten offen`,m:`Der Login greift nicht mehr (HTTP ${s.status}) · ${s.url}`}
-    : {ic:'🔴',t:`${s.name} antwortet nicht sauber`,m:`${wachtGrund(s)} · ${s.url}`}));
+    ? {ic:'🔓',t:`${s.name} steht ohne Zugangsdaten offen`,m:`Der Login greift nicht mehr (HTTP ${s.status}) · ${s.url}`,key:'schutz:'+s.name,url:s.url,
+       optionen:['Schutz sofort wiederherstellen','Bewusst offen lassen','Erst nachsehen, dann entscheiden'],
+       warum:'Erwartet wird 401 (Basic Auth) oder eine Weiterleitung zum Login. 200 ohne Anmeldung heißt: die Tür steht offen — oder der Wächter folgt der Weiterleitung von gate.php bis anmelden.php (seit 04.09. Tür statt Basic Auth). Im Zweifel die Adresse im privaten Fenster öffnen.'}
+    : {ic:'🔴',t:`${s.name} antwortet nicht sauber`,m:`${wachtGrund(s)} · ${s.url}`,key:'stoerung:'+s.name,url:s.url,
+       optionen:['Jetzt nachsehen','Abwarten, ob es sich fängt','Hoster anschreiben'],
+       warum:'Der Wächter ruft nur die Startseite ab — er sagt, dass etwas klemmt, nicht warum. Am 23.08. war vaikuntha.eu nach Stunden von selbst wieder da.'}));
   (w.zerts||[]).forEach(z=>{
-    if(!z.ok) out.push({ic:'🔒',t:`Zertifikat von ${z.host} nicht lesbar`,m:z.fehler||'unbekannter Grund'});
-    else if(z.kette) out.push({ic:'🔒',t:`Zertifikat von ${z.host} beanstandet`,m:`${z.kette} — Browser zeigen hier eine Warnung`});
+    const zo={key:'zert:'+z.host,url:'https://'+z.host+'/',optionen:['Zertifikat erneuern lassen','Abwarten — erneuert sich meist selbst','Hoster fragen'],
+      warum:'Let\'s-Encrypt-Zertifikate erneuert der KAS von selbst; bleibt es aus, hilft nur der Hoster.'};
+    if(!z.ok) out.push(Object.assign({ic:'🔒',t:`Zertifikat von ${z.host} nicht lesbar`,m:z.fehler||'unbekannter Grund'},zo));
+    else if(z.kette) out.push(Object.assign({ic:'🔒',t:`Zertifikat von ${z.host} beanstandet`,m:`${z.kette} — Browser zeigen hier eine Warnung`},zo));
     else if(z.tage!=null&&z.tage<=((w.schwellen||{}).zertWarnTage??21))
-      out.push({ic:'⏳',t:`Zertifikat von ${z.host} läuft in ${z.tage} Tagen ab`,m:`gültig bis ${wachtDatum(z.bis)} · ${z.aussteller||'?'} — normalerweise erneuert sich das von selbst`});
+      out.push(Object.assign({ic:'⏳',t:`Zertifikat von ${z.host} läuft in ${z.tage} Tagen ab`,m:`gültig bis ${wachtDatum(z.bis)} · ${z.aussteller||'?'} — normalerweise erneuert sich das von selbst`},zo));
   });
   return out;
 }
@@ -3551,8 +3566,7 @@ function wachtGruppe(){
   const s=wachtSorgen(); if(!s.length) return '';        /* alles grün → keine Gruppe, kein Lärm */
   return `<div class="mgrp"><h3>🛡️ ${s.length===1?'Eine Adresse braucht dich':s.length+' Adressen brauchen dich'}
     <span class="cnt">Stand ${esc(new Date(WACHT.data.stand).toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'}))}</span></h3>
-    ${s.slice(0,4).map(x=>`<div class="item"><div class="ic">${x.ic}</div><div class="body">
-      <div class="t">${esc(x.t)}</div><div class="m">${esc(x.m)}</div></div></div>`).join('')}
+    ${s.slice(0,4).map(x=>meldeZeile('wacht',x,{karte:'wachtCard',herkunft:'john-server.ps1 › -WachtSeiten'})).join('')}
     ${s.length>4?`<div class="mini">+${s.length-4} weitere in der Karte „Deine Seiten“.</div>`:''}</div>`;
 }
 function wachtCard(){
@@ -3632,9 +3646,11 @@ function depGruppe(){
   const s=depSorgen(); if(!s.length) return '';
   return `<div class="mgrp"><h3>🚚 ${s.length===1?'Eine Adresse liefert einen alten Stand aus':s.length+' Adressen liefern einen alten Stand aus'}
     <span class="cnt">Stand ${esc(new Date(DEP.data.stand).toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'}))}</span></h3>
-    ${s.slice(0,4).map(p=>`<div class="item"><div class="ic">🕓</div><div class="body">
-      <div class="t">${esc(p.name)}</div>
-      <div class="m">${esc(depSatz(p))} · ${esc(p.repo)} › ${esc(p.datei)}</div></div></div>`).join('')}
+    ${s.slice(0,4).map(p=>meldeZeile('dep',{ic:'🕓',t:p.name,m:`${depSatz(p)} · ${p.repo} › ${p.datei}`,key:p.repo+'/'+p.datei,url:p.url,
+        optionen:['Jetzt hochladen','Bewusst so lassen','Erst den Unterschied prüfen'],
+        warum:`Live steht nicht, was in HEAD von ${p.repo} freigegeben ist. Hochladen: publish-${/cockpit/.test(p.repo)?'cockpit':'compass'}.ps1 (FTPS) oder der GitHub-Workflow.`
+          +(p.lokalOffen?' Dazu liegt lokal Neueres, das noch nicht freigegeben ist.':'')},
+      {karte:'depCard',herkunft:'john-server.ps1 › -DeployPaare'})).join('')}
     ${s.length>4?`<div class="mini">+${s.length-4} weitere in der Karte „Live gegen freigegeben“.</div>`:''}</div>`;
 }
 function depCard(){
@@ -3893,11 +3909,13 @@ function sichSorgen(){
   const d=SICH.data; if(!d) return [];
   const z=d.zusammenfassung||{}, w=(d.schwellen||{}).warnStunden??24, out=[];
   (d.spiegel||[]).forEach(p=>{
-    if(!p.spiegelVorhanden) out.push({ic:'🗄️',t:`${p.name} hat keine zweite Kopie`,m:`kein Spiegel eingerichtet — ${p.quelle}`});
-    else if(p.spiegelAlterStd==null) out.push({ic:'🗄️',t:`Spiegel von ${p.name} ist leer`,m:`${p.spiegel} — dort liegt keine einzige Datei`});
+    const so={key:p.name,optionen:['Spiegel jetzt anstoßen','So lassen','Spiegel neu einrichten'],
+      warum:'Gespiegelt wird beim Start und beim Stoppen des john-servers (Robocopy nach H:). Ein Neustart holt den Rückstand nach.'};
+    if(!p.spiegelVorhanden) out.push(Object.assign({ic:'🗄️',t:`${p.name} hat keine zweite Kopie`,m:`kein Spiegel eingerichtet — ${p.quelle}`},so));
+    else if(p.spiegelAlterStd==null) out.push(Object.assign({ic:'🗄️',t:`Spiegel von ${p.name} ist leer`,m:`${p.spiegel} — dort liegt keine einzige Datei`},so));
     else if(p.rueckstandStd!=null&&p.rueckstandStd>=w)
-      out.push({ic:'⏳',t:`${p.name}: Spiegel hängt ${sichAlter(p.rueckstandStd)} hinterher`,
-                m:`gespiegelt wird nur beim Start und beim Stoppen des john-servers — läuft er durch, kommt auf H: nichts an`});
+      out.push(Object.assign({ic:'⏳',t:`${p.name}: Spiegel hängt ${sichAlter(p.rueckstandStd)} hinterher`,
+                m:`gespiegelt wird nur beim Start und beim Stoppen des john-servers — läuft er durch, kommt auf H: nichts an`},so));
   });
   return out;
 }
@@ -3905,8 +3923,7 @@ function sichGruppe(){
   const s=sichSorgen(); if(!s.length) return '';
   return `<div class="mgrp"><h3>🗄️ ${s.length===1?'Eine Sicherung hängt':s.length+' Sicherungen hängen'}
     <span class="cnt">Stand ${esc(new Date(SICH.data.stand).toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'}))}</span></h3>
-    ${s.slice(0,3).map(x=>`<div class="item"><div class="ic">${x.ic}</div><div class="body">
-      <div class="t">${esc(x.t)}</div><div class="m">${esc(x.m)}</div></div></div>`).join('')}
+    ${s.slice(0,3).map(x=>meldeZeile('sich',x,{karte:'sichCard',herkunft:'john-server.ps1 › -Spiegel'})).join('')}
     ${s.length>3?`<div class="mini">+${s.length-3} weitere in der Karte „Deine Sicherungen“.</div>`:''}</div>`;
 }
 /* ---------- Routinen-Wächter (31.08.) ----------
@@ -3928,14 +3945,17 @@ function routSorgen(){
   return (ROUT.data.routinen||[]).filter(r=>r.zustand==='spaet'||r.zustand==='nie'||r.zustand==='fehler')
     .map(r=>({ic:routZustand(r.zustand)[0],t:r.name,
       m:(r.zustand==='nie'?'noch nie gelaufen':r.zustand==='fehler'?`Ergebniscode ${r.ergebnis}`:`seit ${routAlter(r.ueberStd)} überfällig`)
-        +(r.wirkung?` — davon lebt: ${r.wirkung}`:'')}));
+        +(r.wirkung?` — davon lebt: ${r.wirkung}`:''),key:r.id||r.name,
+      optionen:['Jetzt von Hand anstoßen','Routine abschalten','Bis morgen beobachten'],
+      warum:(r.art==='windows'?'Windows-Aufgabe — in der Aufgabenplanung nachsehen, ob sie noch aktiv ist und wann sie zuletzt lief.':
+             r.art==='cloud'?'Cloud-Routine — läuft auf claude.ai, hinterlässt hier keine Spur.':'Claude-Routine — der letzte Lauf steht in den Sitzungsdateien unter ~/.claude/projects.')
+            +(r.wirkung?` Davon lebt: ${r.wirkung}.`:''),herkunft:'john-server.ps1 › -Routinen ['+(r.id||'')+']'}));
 }
 function routGruppe(){
   const s=routSorgen(); if(!s.length) return '';
   return `<div class="mgrp"><h3>⏱️ ${s.length===1?'Eine Routine ist still':s.length+' Routinen sind still'}
     <span class="cnt">Stand ${esc(new Date(ROUT.data.stand).toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'}))}</span></h3>
-    ${s.slice(0,4).map(x=>`<div class="item"><div class="ic">${x.ic}</div><div class="body">
-      <div class="t">${esc(x.t)}</div><div class="m">${esc(x.m)}</div></div></div>`).join('')}
+    ${s.slice(0,4).map(x=>meldeZeile('rout',x,{karte:'routCard',herkunft:x.herkunft})).join('')}
     ${s.length>4?`<div class="mini">+${s.length-4} weitere in der Karte „Deine Routinen“.</div>`:''}</div>`;
 }
 function routCard(){
@@ -4480,6 +4500,75 @@ function gitGruppe(){
       <div class="t">${esc(x.repo)} › ${esc(x.titel)} <span class="cnt">${esc(gitAlter(x.seitStunden))}</span></div>
       <div class="m">${esc(gitUmfang(x))} · Ziel: ${x.ziel?esc(x.ziel):'<i>keine Session hat sich gemeldet</i>'}</div></div></div>`).join('')}
     <div class="chipbar"><button class="btn a" onclick="starte('freigaben')">📦 Jetzt freigeben</button>${p.length>4?`<span class="cnt">+${p.length-4} weitere</span>`:''}</div></div>`;
+}
+/* ---------- Meldungen anfassbar (05.09.2026, Bene: „mach diese Informationen klickbar, damit
+   entschieden, informiert oder eingeplant werden kann“) ---------------------------------
+   Jede Zeile im Melde-Banner ist ein .item.link. Klick öffnet das Quellen-Overlay mit dem
+   ganzen Befund und drei Wegen:
+     ENTSCHEIDEN  legt die Meldung als Rückfrage in den Rückfragen-Ablauf (S.meldeFragen);
+                  die Antwort landet wie jede andere in S.antworten und über /api/antworten beim
+                  john-server — steht also im nächsten Checkin, ohne dass Bene etwas abtippt.
+     EINPLANEN    öffnet „Neue Karte“ vorausgefüllt — Compass, Trello oder Jira, Benes Wahl.
+     JOHN FRAGEN  gibt John den Befund und fragt, was er bedeutet (informieren).
+   Dazu die Live-Adresse und die zuständige Karte als Links. Eine getroffene Entscheidung und
+   eine angelegte Karte stehen als Tag an der Zeile — die Meldung selbst bleibt, solange der
+   Wächter sie misst; der Compass macht aus einer Entscheidung kein Grün.
+   Schlüssel: Gruppe + key (z. B. wacht/schutz:Flow Compass). Die Rückfrage bekommt zusätzlich
+   das Datum, damit dieselbe Störung Wochen später neu entschieden werden kann, ohne dass
+   antworten.json die alte Antwort wieder hereinträgt. */
+const MELDE_GRUPPE={wacht:['🛡️','Seiten-Wächter','Deine Seiten'],dep:['🚚','Deploy-Wächter','Live gegen freigegeben'],
+  rout:['⏱️','Routinen-Wächter','Deine Routinen'],sich:['🗄️','Sicherungen','Deine Sicherungen']};
+const meldeGK=(g,x)=>g+'/'+String(x.key||x.t).replace(/\s+/g,' ').trim();
+function meldeLetzteFrage(gk){
+  return Object.values(S.meldeFragen||{}).filter(q=>q.gk===gk).sort((a,b)=>(a.ts||'').localeCompare(b.ts||'')).pop()||null;
+}
+function meldeStand(gk){
+  const out=[];
+  const q=meldeLetzteFrage(gk), a=q&&S.antworten[q.id];
+  if(q&&a&&a.a) out.push({cls:a.a==='später'?'gry':'grn',t:(a.a==='später'?'💬 vertagt ':'💬 entschieden ')+datumKurz(a.ts)+(a.a==='später'?'':': '+a.a)});
+  else if(q) out.push({cls:'amb',t:'💬 wartet auf deine Antwort'});
+  const p=(S.meldePlan||{})[gk]; if(p) out.push({cls:'blu',t:'📅 eingeplant '+datumKurz(p.ts)});
+  return out;
+}
+function datumKurz(d){ return d?`${d.slice(8,10)}.${d.slice(5,7)}.`:''; }
+/* Rückfragen aus dem Banner — dieselbe Form wie rhythmus-data.js › rueckfragen (id, projekt, frage, warum, optionen) */
+function meldeFragen(){
+  return Object.values(S.meldeFragen||{}).filter(q=>!S.antworten[q.id])
+    .map(q=>({id:q.id,projekt:q.projekt,frage:q.frage,warum:q.warum,optionen:(q.optionen||[]).slice()}));
+}
+function meldeEntscheiden(g,x){
+  const gk=meldeGK(g,x), alt=meldeLetzteFrage(gk);
+  const id = (alt&&!S.antworten[alt.id]) ? alt.id : 'melde:'+gk.replace(/[^\w.:/-]+/g,'_')+':'+heute();
+  S.meldeFragen[id]={id,gk,ts:heute(),projekt:(MELDE_GRUPPE[g]||['','Compass'])[1]+' · Melde-Banner',
+    frage:x.t+' — was tun?',warum:[x.m,x.warum].filter(Boolean).join(' · '),optionen:(x.optionen||['Kümmere ich mich','Bewusst so lassen']).slice()};
+  speichern(); meldeRefresh();
+  toast('💬 Als Rückfrage aufgenommen — Antwort geht an den john-server','ok');
+  starte('fragen');
+}
+function meldeEinplanen(g,x){
+  const gk=meldeGK(g,x);
+  pkNeu('bereit',{name:x.t,desc:[x.m,x.url].filter(Boolean).join('\n'),
+    nach:()=>{ S.meldePlan[gk]={ts:heute(),name:x.t}; speichern(); meldeRefresh(); }});
+}
+function meldeJohn(g,x){
+  johnOpen(`Im Compass meldet der ${(MELDE_GRUPPE[g]||['','Wächter'])[1]}: „${x.t}“ — ${x.m}${x.warum?' ('+x.warum+')':''}. Was bedeutet das für mich, wie dringend ist es, und was wäre der nächste sinnvolle Schritt?`);
+}
+function meldeKarte(id){
+  secOpen('kanaele'); const s=document.querySelector('.sec[data-s="kanaele"]'); if(s) s.classList.remove('closed');
+  const el=document.getElementById(id); if(!el) return;
+  el.scrollIntoView({behavior:'smooth',block:'start'}); el.classList.add('frisch'); setTimeout(()=>el.classList.remove('frisch'),2600);
+}
+function meldeZeile(g,x,o){
+  o=o||{}; const gk=meldeGK(g,x), st=meldeStand(gk), kn=(MELDE_GRUPPE[g]||['','',''])[2];
+  const akt=[
+    {label:'💬 Entscheiden',cls:'a',tip:'Als Rückfrage in den Rückfragen-Ablauf — die Antwort geht an den john-server',fn:()=>meldeEntscheiden(g,x)},
+    {label:'📅 Einplanen',cls:'w',tip:'Als Karte anlegen — im Compass, in Trello oder in Jira',fn:()=>meldeEinplanen(g,x)},
+    {label:'🧠 John fragen',cls:'',tip:'John erklärt den Befund und schlägt den nächsten Schritt vor',fn:()=>meldeJohn(g,x)}];
+  if(o.karte) akt.push({label:'↓ Karte „'+kn+'“',cls:'',tip:'Zur Karte mit allen Einträgen springen',fn:()=>meldeKarte(o.karte)});
+  const m=qmark(x.t,[x.m,x.warum].filter(Boolean).join('\n'),o.herkunft||'',{q:x.url?{url:x.url,label:x.url.replace(/^https?:\/\//,'')+' ↗'}:null,akt,
+    stand:st.map(s=>s.t).join(' · ')});
+  return `<div class="item ${m.c}"${m.a}><div class="ic">${x.ic}</div><div class="body">
+    <div class="t">${esc(x.t)}${st.map(s=>` <span class="tag ${s.cls}">${esc(s.t)}</span>`).join('')}</div><div class="m">${esc(x.m)}</div></div></div>`;
 }
 /* EIN Banner für alles, was oben Aufmerksamkeit braucht (26.08., Bene: „Felder verbinden“):
    Wächter, Sicherungen und Freigaben standen als drei fast leere s12-Karten übereinander —
