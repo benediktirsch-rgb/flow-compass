@@ -1754,7 +1754,11 @@ async function checkinSenden(art,text){
   const el=document.getElementById('ovPush'); if(!el) return;
   const nutz=checkinNutzlast(art,text);
   try{
-    const r=await fetch(JOHN_API+'/api/checkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(nutz)});
+    /* Zeitlimit (05.09.): am 05.09. stand „Übergabe läuft …“ minutenlang, obwohl die Datei
+       längst in checkins\ lag — ein hängender fetch hat weder ok noch Fehler geliefert.
+       Nach UEB_LIMIT ms wird abgebrochen; der Wächter fragt dann beim Server nach, ob sie
+       nicht doch angekommen ist, statt sie blind noch einmal zu schicken. */
+    const r=await fetch(JOHN_API+'/api/checkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(nutz),signal:AbortSignal.timeout(UEB_LIMIT)});
     let d={}; try{ d=await r.json(); }catch(e){}
     if(!r.ok||d.ok===false) throw new Error(d.hint||d.error||('HTTP '+r.status));
     el.className='pushbox ok';
@@ -1767,17 +1771,20 @@ async function checkinSenden(art,text){
     /* Übergabe verloren? Nie wieder (27.08.: Morgencheck lief, Server war aus, Coach
        erzählte den halben Tag Unsinn). Die fertige Nutzlast bleibt liegen und
        uebergabeWacht() klopft weiter, bis sie angekommen ist — ohne Neuladen. */
-    S.uebergabeOffen=nutz; speichern();
+    S.uebergabeOffen=nutz; try{ speichern(); }catch(e2){}
     /* „Failed to fetch“ ist die Browsermeldung und sagt die Nutzerin nichts — und weil sie
        englisch ist, bliebe die ganze Zeile unübersetzt (jeder Teil muss auflösbar
        sein). Netzfehler bekommen deshalb den deutschen Klartext, alles andere
        (HTTP 500, Hinweis vom Server) bleibt wörtlich stehen. */
-    const grund=/Failed to fetch|NetworkError|Load failed/i.test(e.message||'')?'Server nicht erreichbar':(e.message||'Server nicht erreichbar');
+    const grund=(e&&(e.name==='TimeoutError'||e.name==='AbortError'))?'Server antwortet nicht'
+      :/Failed to fetch|NetworkError|Load failed/i.test(e.message||'')?'Server nicht erreichbar':(e.message||'Server nicht erreichbar');
     el.className='pushbox warn';
     el.innerHTML='⚠ Noch nicht übergeben: '+esc(grund)
       +' — ich versuche es weiter und melde mich hier, sobald sie angekommen ist. Du musst nichts tun und nichts neu laden.';
     abschlussKnoepfe(false,art,text);
-    uebergabeWacht();
+    /* Sofort nachsehen, nicht erst in 30 s: liegt sie schon beim Server, wird die
+       Zeile gleich grün — sonst übernimmt der Wächter. */
+    uebergabeNachholen().then(f=>{ if(!f) uebergabeWacht(); });
   }
 }
 
@@ -2004,6 +2011,7 @@ document.addEventListener('compass-sprache',e=>einstMerken('lang',((e||{}).detai
    noch einmal versuchen. Danach richtet sich uebergabeWacht(). */
 let UEB_LAEUFT=false, UEB_TIMER=0;
 const UEB_TAKT=30000;                                  /* alle 30 s klopfen — der Server braucht beim Start ~10 s */
+const UEB_LIMIT=15000;                                 /* länger wartet keine Übergabe auf eine Antwort (05.09.) */
 async function uebergabeNachholen(){
   const u=S.uebergabeOffen; if(!u||!u.art||!u.datum) return true;
   if(UEB_LAEUFT) return false;                         /* nicht zwei Versuche gleichzeitig */
@@ -2011,10 +2019,18 @@ async function uebergabeNachholen(){
   if(!(alterTage>=0&&alterTage<=2)){ delete S.uebergabeOffen; speichern(); return true; }
   UEB_LAEUFT=true;
   try{
-    const g=await fetch(JOHN_API+'/api/checkin?limit=8'); if(!g.ok) return false;
+    const g=await fetch(JOHN_API+'/api/checkin?limit=8',{cache:'no-store',signal:AbortSignal.timeout(UEB_LIMIT)}); if(!g.ok) return false;
     const d=await g.json();
-    if(((d&&d.checkins)||[]).some(c=>c.art===u.art&&c.datum===u.datum)){ delete S.uebergabeOffen; speichern(); return true; }
-    const r=await fetch(JOHN_API+'/api/checkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(u)});
+    const da=((d&&d.checkins)||[]).find(c=>c.art===u.art&&c.datum===u.datum);
+    if(da){
+      /* Lag schon da (der POST kam an, nur seine Antwort nicht — 05.09.): genauso
+         melden wie ein frisches Angekommen, sonst bleibt die Warnzeile stehen. */
+      S.letzteUebergabe={art:u.art,datum:u.datum,titel:u.titel||u.art,datei:da.datei||('checkins/'+u.datum+'-'+u.art+'.md'),text:u.text||''};
+      delete S.uebergabeOffen; speichern();
+      uebergabeAngekommen(u,S.letzteUebergabe.datei);
+      return true;
+    }
+    const r=await fetch(JOHN_API+'/api/checkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(u),signal:AbortSignal.timeout(UEB_LIMIT)});
     let a={}; try{ a=await r.json(); }catch(e){}
     if(!r.ok||a.ok===false) return false;              /* Server wieder weg → nächster Versuch */
     S.letzteUebergabe={art:u.art,datum:u.datum,titel:u.titel||u.art,datei:a.datei||'',text:u.text||''};
