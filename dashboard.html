@@ -364,6 +364,12 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .qa .opts button:hover{border-color:var(--line2);color:var(--ink)}
 .qa .opts button.on{background:var(--bene);border-color:var(--bene);color:#1c1300}
 .qa.beantwortet{opacity:.6}
+/* Freigabe-Schritt (05.09.2026): eine beantwortete Karte klappt zu und verschwindet, das nächste Paket
+   rückt von unten nach. Die Höhe setzt gitWeg() vorher als Inline-Wert, sonst gibt es nichts zu animieren. */
+.qa.weg{opacity:0;transform:translateX(14px);height:0!important;margin-top:0!important;padding-top:0!important;padding-bottom:0!important;border-width:0;overflow:hidden;
+  transition:opacity .3s ease,transform .3s ease,height .3s ease .25s,margin-top .3s ease .25s,padding .3s ease .25s}
+.qa.neu{animation:qaRein .45s ease}
+@keyframes qaRein{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 .zeile{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
 .zeile:first-child{border-top:none}
 .zeile b{font-variant-numeric:tabular-nums}
@@ -1520,23 +1526,13 @@ function koerper(s){
         <button data-a="später">später</button></div></div>`).join('');
   }
   if(s.typ==='freigabe'){
-    const p=gitPakete();
-    if(!p.length) return `<div class="empty">Nichts liegengeblieben — alle vier Repos sind sauber. Schön.</div>`;
-    return p.slice(0,5).map(x=>{
-      const dat=(x.dateien||[]).slice(0,4).map(d=>`<div class="zeile"><span>${d.art==='neu'?'✨':d.art==='geloescht'?'🗑️':'✏️'} ${esc(d.pfad)}</span><span>${d.plus||d.minus?`+${d.plus}/−${d.minus}`:''}</span></div>`).join('');
-      const mehr=(x.dateien||[]).length>4?`<div class="hint">+ ${(x.dateien||[]).length-4} weitere Datei(en)</div>`:'';
-      return `<div class="qa" data-git="${esc(x.repo)}/${esc(x.id)}">
-        <div class="qp">${esc(x.repo)} · ${esc(gitAlter(x.seitStunden))}</div>
-        <div class="qq">${esc(x.titel)}</div>
-        <div class="qw">${esc(gitUmfang(x))}${x.sitzung?` · aus „${esc(x.sitzung)}“`:''}</div>
-        <div class="qw" style="margin-top:4px">🎯 ${x.ziel?esc(x.ziel):'<b>Kein Ziel hinterlegt</b> — hier hat sich keine Session gemeldet. Im Zweifel „später“ und nachfragen.'}</div>
-        <div class="qa" style="margin:8px 0 0;padding:0">${dat}${mehr}</div>
-        <input type="text" class="gitmsg" value="${esc(x.vorschlag||'')}" placeholder="Womit soll der Commit überschrieben werden?" style="margin-top:8px">
-        <div class="opts" style="margin-top:8px">
-          <button onclick="gitFreigeben('${esc(x.repo)}','${esc(x.id)}',this)">✓ Freigeben</button>
-          <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button></div>
-        <div class="hint gitout" style="margin-top:6px"></div></div>`;
-    }).join('');
+    /* Lebendige Liste (05.09.2026, Bene: „nach 3 Antworten ist die Liste leer und muss wieder geöffnet
+       werden — nach Beantwortung ausfaden und unten nächste Freigabe nachziehen“): höchstens fünf Karten
+       sichtbar, jede beantwortete fadet aus (gitWeg) und das nächste Paket rückt nach (gitNachziehen).
+       Vorher stand slice(0,5) fest — was dahinter lag, sah man erst nach Schließen und neu Öffnen. */
+    const p=gitOffen();
+    if(!p.length) return gitLeer();
+    return `<div id="gitListe">${p.slice(0,GIT_SICHTBAR).map(gitKarte).join('')}</div>`;
   }
   if(s.typ==='zugaenge'){
     const z=zugaengeOffen();
@@ -4358,6 +4354,52 @@ function gitPakete(){
   }));
   return out.sort((a,b)=>(b.seitStunden||0)-(a.seitStunden||0));
 }
+/* Freigabe-Schritt als lebendige Liste (05.09.2026). „Später“ gilt nur für dieses Öffnen des Rituals —
+   im Banner und beim nächsten Morgencheck steht das Paket wieder; freigegeben ist es erst mit GIT.fertig. */
+const GIT_SICHTBAR=5;
+function gitOffen(){ const sp=(FLOW&&FLOW.gitSpaeter)||{}; return gitPakete().filter(x=>!sp[x.repo+'/'+x.id]); }
+function gitLeer(){
+  const rest=gitPakete().length;
+  if(rest) return `<div class="empty">Alles durch — ${rest} ${rest===1?'Paket bleibt':'Pakete bleiben'} auf „später“ und ${rest===1?'steht':'stehen'} beim nächsten Morgencheck wieder hier.</div>`;
+  return `<div class="empty">Nichts liegengeblieben — alle vier Repos sind sauber. Schön.</div>`;
+}
+function gitKarte(x){
+  const dat=(x.dateien||[]).slice(0,4).map(d=>`<div class="zeile"><span>${d.art==='neu'?'✨':d.art==='geloescht'?'🗑️':'✏️'} ${esc(d.pfad)}</span><span>${d.plus||d.minus?`+${d.plus}/−${d.minus}`:''}</span></div>`).join('');
+  const mehr=(x.dateien||[]).length>4?`<div class="hint">+ ${(x.dateien||[]).length-4} weitere Datei(en)</div>`:'';
+  return `<div class="qa" data-git="${esc(x.repo)}/${esc(x.id)}">
+    <div class="qp">${esc(x.repo)} · ${esc(gitAlter(x.seitStunden))}</div>
+    <div class="qq">${esc(x.titel)}</div>
+    <div class="qw">${esc(gitUmfang(x))}${x.sitzung?` · aus „${esc(x.sitzung)}“`:''}</div>
+    <div class="qw" style="margin-top:4px">🎯 ${x.ziel?esc(x.ziel):'<b>Kein Ziel hinterlegt</b> — hier hat sich keine Session gemeldet. Im Zweifel „später“ und nachfragen.'}</div>
+    <div class="qa" style="margin:8px 0 0;padding:0">${dat}${mehr}</div>
+    <input type="text" class="gitmsg" value="${esc(x.vorschlag||'')}" placeholder="Womit soll der Commit überschrieben werden?" style="margin-top:8px">
+    <div class="opts" style="margin-top:8px">
+      <button onclick="gitFreigeben('${esc(x.repo)}','${esc(x.id)}',this)">✓ Freigeben</button>
+      <button onclick="gitSpaeter(this)">später</button></div>
+    <div class="hint gitout" style="margin-top:6px"></div></div>`;
+}
+function gitSpaeter(btn){
+  const box=btn.closest('.qa[data-git]'); if(!box) return;
+  if(FLOW){ FLOW.gitSpaeter=FLOW.gitSpaeter||{}; FLOW.gitSpaeter[box.dataset.git]=1; }
+  gitWeg(box);
+}
+/* Karte ausfaden und entfernen, danach nachziehen. Inline-Höhe zuerst, dann Reflow, dann die Klasse —
+   ohne den Reflow springt die Höhe ohne Übergang auf null. */
+function gitWeg(box){
+  if(!box||box.classList.contains('weg')) return;
+  box.style.height=box.offsetHeight+'px'; box.style.overflow='hidden';
+  void box.offsetHeight;
+  box.classList.add('weg');
+  setTimeout(()=>{ box.remove(); gitNachziehen(); },620);
+}
+function gitNachziehen(){
+  const liste=document.getElementById('gitListe'); if(!liste) return;
+  const da=new Set([...liste.querySelectorAll('.qa[data-git]')].map(b=>b.dataset.git));
+  const naechste=gitOffen().filter(x=>!da.has(x.repo+'/'+x.id)).slice(0,Math.max(0,GIT_SICHTBAR-da.size));
+  naechste.forEach(x=>{ const t=document.createElement('div'); t.innerHTML=gitKarte(x);
+    const k=t.firstElementChild; k.classList.add('neu'); liste.appendChild(k); });
+  if(!liste.querySelector('.qa[data-git]')) liste.innerHTML=gitLeer();
+}
 function gitAlter(h){ h=+h||0;
   if(h<1) return 'gerade eben'; if(h<24) return Math.round(h)+' h alt';
   const t=Math.round(h/24); return t===1?'seit gestern':'seit '+t+' Tagen'; }
@@ -4415,6 +4457,8 @@ async function gitFreigeben(repo,paket,btn){
       const m=box.querySelector('.gitout'); if(m){ m.classList.remove('err');
         m.textContent=/kein Remote/.test(j.push||'')?'Committet — dieses Repo hat kein Remote, der Stand bleibt lokal.':'Committet und gepusht.'; }
       gitRefresh();
+      /* Kurz lesen lassen, dann ausfaden und das nächste Paket nachziehen (05.09.2026). */
+      if(box.dataset&&box.dataset.git) setTimeout(()=>gitWeg(box),1400);
     } else {
       btn.disabled=false; btn.textContent='Nochmal versuchen';
       const m=box.querySelector('.gitout');
