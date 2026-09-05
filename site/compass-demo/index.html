@@ -4237,7 +4237,7 @@ function triRefresh(){
   if((t.fehlt||[]).indexOf('pool')>=0)   luecken.push('Das Freelancer-Portal antwortet gerade nicht'+(t.poolFehler?` (${esc(t.poolFehler.error)})`:'')+' — offene Vorgänge fehlen in dieser Liste');
   const kpi=t.kpi, pz=t.personenZahlen;
   const kopf=`<div class="kpis" style="margin-bottom:8px">
-      <div class="kpi"><div class="v">${w.length}</div><div class="l">warten auf dich</div></div>
+      <div class="kpi"><div class="v">${w.length}</div><div class="l">${w.length===1?'wartet auf dich':'warten auf dich'}</div></div>
       <div class="kpi"><div class="v">${kpi?kpi.pool:'–'}</div><div class="l">im Kollektiv</div></div>
       <div class="kpi"><div class="v">${kpi?kpi.verfuegbar:'–'}</div><div class="l">verfügbar</div></div>
       <div class="kpi"><div class="v">${kpi?kpi.im_einsatz:'–'}</div><div class="l">im Einsatz</div></div>

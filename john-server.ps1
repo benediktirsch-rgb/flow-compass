@@ -233,6 +233,14 @@ param(
   # sich in Tagen, nicht in Minuten, und der Server arbeitet seriell.
   [string]$NutzerUrl = 'https://vishnuartists.com/nutzer-kpi.php',
   [int]$NutzerCacheSec = 900,
+  # Freelancer-Pool + Trichter (05.09.2026, Rueckfrage `pool-puls`): offene Vorgaenge, Pool-Zahlen
+  # und der Abgleich mit den Vereins-Registrierungen. Derselbe Ausweis wie Finanzen/Nutzerzahlen.
+  # 5 Min Cache: ein wartender Mensch soll nach einer Entscheidung sofort aus der Liste sein,
+  # aber der Server arbeitet seriell und holt drei Abrufe je Runde.
+  [string]$PoolUrl = 'https://vishnuartists.com/pool-api.php',
+  [string]$PortalAdminUrl = 'https://vishnuartists.com/portal-admin.php?v=bewerbungen',
+  [int]$PoolCacheSec = 300,
+  [int]$PoolTimeoutSec = 10,
   [int]$RoutinenCacheSec = 600,      # Sitzungsdateien aendern sich langsam; 10 Min reichen
   [int]$RoutinenToleranzStd = 3,     # so lange darf eine Routine nach ihrem Termin ausstehen (Rechner war aus, Nachlauf)
   [int]$WachtCacheSec = 900,        # Erreichbarkeit: alle 15 Minuten neu
@@ -2369,6 +2377,308 @@ function Send-Finanzstimme($in) {
 }
 
 # ---------------------------------------------------------------------------
+# Freelancer-Pool — /api/pool (05.09.2026, Rueckfrage `pool-puls`, Bene: "bau es")
+#   Das Freelancer-Portal auf vishnuartists.com steht seit dem 02.09., die Schnittstelle fuer
+#   Automaten (pool-api.php) seit dem 03.09. — und der Compass wusste davon nichts. Am 05.09.
+#   lag dort eine Bewerbung seit einem Tag unbewegt auf der ersten Stufe, sichtbar nur, wenn
+#   jemand die Portal-Pflege im Browser oeffnet.
+#
+#   DIE FALLE, DIE DIE BAUART BESTIMMT: `kpi.offen` zaehlt in portal-lib.php ausschliesslich
+#   art='einsatz' (Kundeneinsaetze). Eine Aufnahme ins Kollektiv (art='pool') taucht dort NIE
+#   auf. Wer die Karte bequem aus der KPI-Zeile baut, zeigt "0 offene Vorgaenge", waehrend ein
+#   Mensch wartet. Gezaehlt wird deshalb aus ?was=bewerbungen&offen=1; die KPI liefert nur den
+#   Trichter dahinter.
+#
+#   Drei Abrufe, jeder einzeln abgesichert: faellt `personen` aus, stehen die daraus gerechneten
+#   Zahlen auf $null und werden benannt — eine 0 hiesse "niemand", und das ist etwas anderes als
+#   "nicht gemessen". Ausweis ist derselbe FINANZ_TOKEN wie bei Finanzen und Nutzerzahlen.
+#
+#   DATENSCHUTZ: ?was=personen sind ~21 KB mit Namen, Telefonnummern und Profil-Links. Von den
+#   Personen verlaesst NUR das diese Funktion, was der Trichter braucht (id, Anzeigename, erste
+#   Mailadresse) — keine Telefonnummern, keine Profil-Links, keine Notizen. Und nichts davon
+#   gehoert je in eine *-data.js: die wird alle 30 Minuten veroeffentlicht.
+#
+#   Die Stufen stehen als [ordered] hier, weil ihre REIHENFOLGE die Bedeutung traegt (was kommt
+#   nach was) — eine normale Hashtable wuerde sie in PS 5.1 beliebig umsortieren. Gegenstueck:
+#   $GLOBALS['VF_BEWERBUNG_STUFEN'] in f/portal-lib.php. Aendert sich dort etwas, gehoert es hier
+#   nachgezogen; unbekannte Stufen zeigt der Trichter als Rohwert an, statt sie zu verschweigen.
+# ---------------------------------------------------------------------------
+$script:PoolStufen = [ordered]@{
+  pool = [ordered]@{
+    eingereicht = 'Profil eingegangen'
+    gespraech   = 'Kennenlerngespräch'
+    geprueft    = 'Profil & Unterlagen geprüft'
+    vertrag     = 'Kooperationsvertrag'
+    aufgenommen = 'Im Kollektiv'
+    abgesagt    = 'Nicht zustande gekommen'
+  }
+  einsatz = [ordered]@{
+    vorgeschlagen = 'Angebot vorgelegt'
+    eingereicht   = 'Profil eingereicht'
+    vorgestellt   = 'Beim Kunden vorgestellt'
+    gespraech     = 'Gespräch vereinbart'
+    angebot       = 'Angebot liegt vor'
+    einsatz       = 'Im Einsatz'
+    abgeschlossen = 'Einsatz abgeschlossen'
+    abgesagt      = 'Nicht zustande gekommen'
+  }
+}
+$script:PoolCache = @{ zeit = $null; out = $null }
+function Invoke-PoolApi([string]$was, [string]$token) {
+  [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+  Invoke-RestMethod -Uri ($PoolUrl + '?was=' + $was) -Method Get -TimeoutSec $PoolTimeoutSec `
+    -Headers @{ 'X-Finanz-Token' = (Get-FinanzAusweis $token) } -UserAgent 'Vishnu-Flow-Compass-Pool/1.0'
+}
+# Welche Stufen kommen als naechstes in Frage? Reihenfolge aus $PoolStufen; die aktuelle Stufe
+# und alles davor faellt weg, 'abgesagt' bleibt immer als letzte Moeglichkeit stehen.
+function Get-PoolNaechste([string]$art, [string]$status) {
+  if (-not $script:PoolStufen.Contains($art)) { return @() }
+  $tab = $script:PoolStufen[$art]
+  $keys = @($tab.Keys)
+  $i = [Array]::IndexOf($keys, $status)
+  $raus = @()
+  for ($k = 0; $k -lt $keys.Count; $k++) {
+    if ($keys[$k] -eq 'abgesagt') { continue }
+    if ($i -ge 0 -and $k -le $i) { continue }
+    $raus += , @{ status = [string]$keys[$k]; text = [string]$tab[$keys[$k]] }
+  }
+  $raus += , @{ status = 'abgesagt'; text = [string]$tab['abgesagt'] }
+  @($raus)
+}
+function Get-Pool([bool]$fresh) {
+  $cc = $script:PoolCache
+  if (-not $fresh -and $cc.out -and $cc.zeit -and ((Get-Date) - $cc.zeit).TotalSeconds -lt $PoolCacheSec) { return $cc.out }
+  $token = Get-FinanzToken
+  if (-not $token) {
+    return @{ ok = $false; error = 'NO_KEY'
+              hint = 'FINANZ_TOKEN fehlt — denselben Token nutzen Finanzen und Nutzerzahlen. Setzen: [Environment]::SetEnvironmentVariable(''FINANZ_TOKEN'',''<token>'',''User'')' }
+  }
+  # 1) Die offenen Vorgaenge — das ist die Zahl, um die es geht. Faellt dieser Abruf aus,
+  #    faellt die ganze Antwort aus: eine Karte ohne die Wartenden waere schlimmer als keine.
+  try { $rb = Invoke-PoolApi 'bewerbungen&offen=1' $token }
+  catch {
+    $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+    $code = $null; try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+    return @{ ok = $false; error = $(if ($code -eq 401) { 'AUTH_INVALID' } elseif ($code -eq 503) { 'NO_DB' } else { 'UNREACHABLE' }); status = $code
+              hint = $(if ($code -eq 401) { 'Der Token wird abgewiesen (401) — FINANZ_TOKEN hier und in feedback-config.php sind nicht dasselbe?' }
+                       elseif ($code -eq 503) { 'Die Website erreicht ihre Datenbank nicht — nicht dieser Server.' }
+                       else { 'pool-api.php nicht erreichbar: ' + $e.Message }) }
+  }
+  # 2) Der Trichter (KPI) und 3) die Personen duerfen einzeln ausfallen.
+  $kpi = $null; $fehlt = @()
+  try { $rk = Invoke-PoolApi 'kpi' $token; if ($rk.ok) { $kpi = $rk.kpi } else { $fehlt += 'kpi' } } catch { $fehlt += 'kpi' }
+  $personen = @(); $pAgg = $null
+  try {
+    $rp = Invoke-PoolApi 'personen' $token
+    $mitSkill = 0; $mitZert = 0; $mitVerf = 0; $mitPortal = 0; $mitProfil = 0; $mitMail = 0
+    foreach ($p in @($rp.personen)) {
+      if (-not $p) { continue }
+      # NUR diese drei Felder — siehe Datenschutz-Absatz oben.
+      $personen += , @{ id = [int]$p.id; name = [string]$p.anzeigename; mail = [string]$p.mail }
+      if (@($p.skills).Count)      { $mitSkill++ }
+      if (@($p.zertifikate).Count) { $mitZert++ }
+      if ($p.verfuegbarkeit)       { $mitVerf++ }
+      if ($p.portal_am)            { $mitPortal++ }
+      if ($p.profil_am)            { $mitProfil++ }
+      if ([string]$p.mail)         { $mitMail++ }
+    }
+    $pAgg = @{ gesamt = @($rp.personen).Count; mitSkill = $mitSkill; mitZertifikat = $mitZert
+               mitVerfuegbarkeit = $mitVerf; mitPortal = $mitPortal; mitProfil = $mitProfil; mitMail = $mitMail }
+  } catch { $fehlt += 'personen' }
+
+  $offen = @()
+  foreach ($b in @($rb.bewerbungen)) {
+    if (-not $b) { continue }
+    $mail = ''
+    $tr = @($personen | Where-Object { $_.id -eq [int]$b.person_id })
+    if ($tr.Count) { $mail = [string]$tr[0].mail }
+    $offen += , @{ id = [int]$b.id; personId = [int]$b.person_id; name = [string]$b.anzeigename; mail = $mail
+                   art = [string]$b.art; status = [string]$b.status; rolle = [string]$b.rolle
+                   kunde = [string]$b.kunde; ort = [string]$b.ort; ab = [string]$b.ab
+                   erstellt = [string]$b.erstellt; geaendert = [string]$b.geaendert }
+  }
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); cacheSec = $PoolCacheSec
+            url = $PoolUrl; urlPflege = $PortalAdminUrl
+            kpi = $kpi; personen = @($personen); personenZahlen = $pAgg
+            offen = @($offen); offenN = @($offen).Count; fehlt = @($fehlt) }
+  $script:PoolCache = @{ zeit = Get-Date; out = $out }
+  $out
+}
+
+# ---------------------------------------------------------------------------
+# Ein Mensch, zwei Haeuser — die Normalisierung (05.09.2026)
+#   Gegenstueck zu f/identitaet.php auf der Website: dieselbe Adresse in anderer Schreibweise
+#   ist derselbe Mensch. Gmail ignoriert Punkte im lokalen Teil und alles hinter '+',
+#   googlemail.com und gmail.com sind dasselbe Postfach.
+#   BEWUSST NICHT nachgebaut: der Namensabgleich aus identitaet.php ("gleicher Name plus
+#   zweites Merkmal"). Der Trichter zeigt einen Hinweis, er legt nichts zusammen — und ein
+#   falscher Treffer waere hier teurer als ein fehlender: er wuerde Bene sagen, jemand sei
+#   schon bekannt, und die Person fiele aus dem Prozess.
+# ---------------------------------------------------------------------------
+function Get-MailNorm([string]$mail) {
+  $m = ([string]$mail).Trim().ToLowerInvariant()
+  if ($m -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') { return '' }
+  $teile = $m.Split('@'); $lokal = $teile[0]; $domain = $teile[1]
+  if ($domain -eq 'googlemail.com') { $domain = 'gmail.com' }
+  if ($lokal.Contains('+')) { $lokal = $lokal.Substring(0, $lokal.IndexOf('+')) }
+  if ($domain -eq 'gmail.com') { $lokal = $lokal.Replace('.', '') }
+  if (-not $lokal) { return '' }
+  $lokal + '@' + $domain
+}
+function Get-TrichterTage([string]$zeit) {
+  if (-not $zeit) { return $null }
+  $d = [datetime]::MinValue
+  if (-not [datetime]::TryParse($zeit, [ref]$d)) { return $null }
+  [int][Math]::Floor(((Get-Date) - $d).TotalDays)
+}
+
+# ---------------------------------------------------------------------------
+# Der Trichter — /api/trichter (05.09.2026, Bene: "Wir wollen skalieren. Vaikuntha Backend und
+#   Compass … ein Trichter, der verteilt. Die Endpunkte muessen miteinander sprechen")
+#
+#   Bisher hatte jedes Haus seine eigene Karte, und ein Mensch, der ankommt, tauchte in genau
+#   einer davon auf: die Vereins-Registrierung im Vereins-Puls, die Bewerbung nirgends. Wer
+#   skalieren will, braucht die Gegenrichtung — EINE Liste aller Menschen, die gerade auf eine
+#   Entscheidung warten, mit der Bahn, auf der sie stehen, und dem naechsten Schritt.
+#
+#   Drei Bahnen, weil es drei verschiedene Entscheidungen sind:
+#     ankommen  — Registrierung auf vaikuntha.eu wartet auf Freigabe  (Freigeben / Ablehnen)
+#     kollektiv — Aufnahme ins Kollektiv, art='pool'                  (naechste Stufe / Absage)
+#     einsatz   — Vermittlung an einen Kunden, art='einsatz'          (naechste Stufe / Absage)
+#
+#   HIER SPRECHEN DIE ENDPUNKTE MITEINANDER: zu jeder wartenden Person prueft der Server ueber
+#   die normalisierte Mailadresse, ob sie im jeweils anderen Haus schon bekannt ist. Das ist der
+#   eigentliche Gewinn — wer sich auf vaikuntha.eu registriert, steht vielleicht laengst im
+#   Vishnu-CRM, und dann ist die Entscheidung eine andere.
+#
+#   EHRLICHE GRENZE, die auch die Karte nennt: der Abgleich laeuft nur in EINE Richtung sicher.
+#   Der Vereins-Endpunkt liefert Adressen ausschliesslich fuer die offenen Freigaben (sonst nur
+#   Aggregate) — fuer eine Bewerbung im Pool laesst sich also nur sagen, ob dieselbe Person
+#   GERADE AUCH auf eine Vereinsfreigabe wartet, nicht ob sie Vereinsmitglied ist. Was der
+#   Server nicht wissen kann, behauptet er nicht.
+#
+#   Jede Quelle darf ausfallen: dann fehlt ihre Bahn, und `fehlt` sagt welche. Ein Trichter, der
+#   bei einer toten Quelle "niemand wartet" zeigt, waere die gefaehrlichste Karte im Cockpit.
+# ---------------------------------------------------------------------------
+function Get-Trichter([bool]$fresh) {
+  $v = Get-Verein $fresh
+  $p = Get-Pool $fresh
+  $wartende = @(); $quellen = @(); $fehlt = @()
+
+  # --- Bahn 1: Ankommen (vaikuntha.eu) ---
+  if ($v.ok) {
+    $quellen += 'verein'
+    foreach ($x in @($v.freigaben.liste)) {
+      if (-not $x) { continue }
+      $seit = [string]$x.seit; if (-not $seit) { $seit = [string]$x.registriert }
+      $wartende += , @{ schluessel = 'verein-' + [int]$x.uid; bahn = 'ankommen'; haus = 'Vaikuntha'
+                        uid = [int]$x.uid; name = [string]$x.name; mail = [string]$x.email
+                        norm = (Get-MailNorm ([string]$x.email)); seit = $seit; tage = (Get-TrichterTage $seit)
+                        was = 'Registrierung wartet auf Freigabe'; stufe = 'registriert'; naechste = @() }
+    }
+  } else { $fehlt += 'verein' }
+
+  # --- Bahn 2 und 3: Kollektiv und Einsatz (vishnuartists.com) ---
+  if ($p.ok) {
+    $quellen += 'pool'
+    foreach ($b in @($p.offen)) {
+      if (-not $b) { continue }
+      $bahn = 'kollektiv'; if ($b.art -eq 'einsatz') { $bahn = 'einsatz' }
+      $stufenText = ''
+      if ($script:PoolStufen.Contains([string]$b.art)) {
+        $tab = $script:PoolStufen[[string]$b.art]
+        if ($tab.Contains([string]$b.status)) { $stufenText = [string]$tab[[string]$b.status] }
+      }
+      if (-not $stufenText) { $stufenText = [string]$b.status }
+      $wartende += , @{ schluessel = 'pool-' + [int]$b.id; bahn = $bahn; haus = 'Vishnu Artists'
+                        id = [int]$b.id; personId = [int]$b.personId; name = [string]$b.name; mail = [string]$b.mail
+                        norm = (Get-MailNorm ([string]$b.mail)); seit = [string]$b.erstellt
+                        tage = (Get-TrichterTage ([string]$b.erstellt)); liegtTage = (Get-TrichterTage ([string]$b.geaendert))
+                        was = $stufenText; stufe = [string]$b.status; art = [string]$b.art
+                        rolle = [string]$b.rolle; kunde = [string]$b.kunde
+                        naechste = @(Get-PoolNaechste ([string]$b.art) ([string]$b.status)) }
+    }
+  } else { $fehlt += 'pool' }
+
+  # --- Der Abgleich: kennt das andere Haus diesen Menschen schon? ---
+  # Vishnu kennt alle normalisierten Adressen aus dem Pool; der Verein nur die, die gerade warten.
+  $vishnuMails = @{}
+  if ($p.ok) {
+    foreach ($x in @($p.personen)) {
+      $n = Get-MailNorm ([string]$x.mail)
+      if ($n -and -not $vishnuMails.ContainsKey($n)) { $vishnuMails[$n] = [string]$x.name }
+    }
+  }
+  $vereinWartet = @{}
+  foreach ($w in @($wartende)) { if ($w.bahn -eq 'ankommen' -and $w.norm) { $vereinWartet[$w.norm] = $w.name } }
+  $doppelt = 0
+  foreach ($w in @($wartende)) {
+    $w.auchBekannt = $null
+    if (-not $w.norm) { continue }
+    if ($w.bahn -eq 'ankommen') {
+      if ($p.ok -and $vishnuMails.ContainsKey($w.norm)) { $w.auchBekannt = 'im Vishnu-Pool bekannt'; $doppelt++ }
+    } elseif ($v.ok -and $vereinWartet.ContainsKey($w.norm)) {
+      $w.auchBekannt = 'wartet auch auf den Vereinszugang'; $doppelt++
+    }
+  }
+
+  # Aeltestes zuerst — wer am laengsten wartet, gehoert nach oben. Ohne Datum ans Ende.
+  $wartende = @($wartende | Sort-Object @{ Expression = { if ($null -eq $_.tage) { -1 } else { $_.tage } }; Descending = $true })
+
+  $nachBahn = @{ ankommen  = @($wartende | Where-Object { $_.bahn -eq 'ankommen'  }).Count
+                 kollektiv = @($wartende | Where-Object { $_.bahn -eq 'kollektiv' }).Count
+                 einsatz   = @($wartende | Where-Object { $_.bahn -eq 'einsatz'   }).Count }
+  $aeltest = $null
+  foreach ($w in @($wartende)) { if ($null -ne $w.tage -and ($null -eq $aeltest -or $w.tage -gt $aeltest)) { $aeltest = $w.tage } }
+
+  $vf = $null; if (-not $v.ok) { $vf = @{ error = [string]$v.error; hint = [string]$v.hint } }
+  $pf = $null; if (-not $p.ok) { $pf = @{ error = [string]$p.error; hint = [string]$p.hint } }
+  @{ ok = $true; stand = (Get-Date).ToString('o')
+     wartende = @($wartende); n = @($wartende).Count; nachBahn = $nachBahn; aeltesteTage = $aeltest
+     doppelt = $doppelt; quellen = @($quellen); fehlt = @($fehlt)
+     kpi = $(if ($p.ok) { $p.kpi } else { $null })
+     personenZahlen = $(if ($p.ok) { $p.personenZahlen } else { $null })
+     urlPflege = $PortalAdminUrl
+     poolFehler = $pf; vereinFehler = $vf }
+}
+
+# ---------------------------------------------------------------------------
+# Einen Vorgang weiterschieben — POST /api/pool/schritt {id, status, notiz}
+#   Der Server darf gegenueber pool-api.php GENAU EINE Aktion ausfuehren: bewerbung_weiter.
+#   Nicht anlegen, nicht Stammdaten pflegen, nichts loeschen. Der Token kann all das — deshalb
+#   steht die Grenze hier im Code und nicht im Vertrauen darauf, dass niemand mehr schickt.
+#   Der Schreiber heisst drueben 'Flow Compass', damit im Zeitstrahl steht, woher der Schritt kam.
+# ---------------------------------------------------------------------------
+function Send-PoolSchritt($in) {
+  $token = Get-FinanzToken
+  if (-not $token) { return @{ ok = $false; error = 'NO_KEY' } }
+  $id = 0; try { $id = [int]$in.id } catch { }
+  $status = [string]$in.status
+  if (-not $id) { return @{ ok = $false; error = 'BAD_ID'; hint = 'id des Vorgangs fehlt.' } }
+  $erlaubt = @()
+  foreach ($a in @($script:PoolStufen.Keys)) { $erlaubt += @($script:PoolStufen[$a].Keys) }
+  if ($erlaubt -notcontains $status) {
+    return @{ ok = $false; error = 'BAD_STATUS'; hint = ('Unbekannte Stufe: ' + $status) }
+  }
+  $body = @{ tun = 'bewerbung_weiter'; id = $id; status = $status; wer = 'Flow Compass' }
+  if ([string]$in.notiz) { $body.notiz = [string]$in.notiz }
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $r = Invoke-RestMethod -Uri $PoolUrl -Method Post -TimeoutSec $PoolTimeoutSec -ContentType 'application/json; charset=utf-8' `
+           -Headers @{ 'X-Finanz-Token' = (Get-FinanzAusweis $token) } -UserAgent 'Vishnu-Flow-Compass-Pool/1.0' `
+           -Body ([Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Compress)))
+  } catch {
+    $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+    $code = $null; try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+    return @{ ok = $false; error = $(if ($code -eq 401) { 'AUTH_INVALID' } elseif ($code -eq 400) { 'ABGELEHNT' } elseif ($code -eq 404) { 'UNBEKANNT' } else { 'UNREACHABLE' })
+              status = $code; hint = $e.Message }
+  }
+  $script:PoolCache = @{ zeit = $null; out = $null }      # naechster Abruf holt den neuen Stand
+  Write-Host ("[{0}] Pool: Vorgang {1} -> {2}" -f (Get-Date -Format 'HH:mm:ss'), $id, $status) -ForegroundColor Green
+  @{ ok = [bool]$r.ok; id = $id; status = $status }
+}
+
+# ---------------------------------------------------------------------------
 # Routinen-Waechter — /api/routinen (31.08.2026)
 #   Elf Routinen arbeiten fuer Bene, und der Compass sagte ueber keine davon ein Wort. Heikel ist
 #   das, weil das Scheitern still ist: bleibt eine Routine weg, rechnen die Karten ihre Alter
@@ -3061,6 +3371,26 @@ try {
         $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
         if (-not $in) { Send-Json $ctx @{ ok = $false; error = 'NO_BODY' } 400; continue }
         Send-Json $ctx (Send-Finanzstimme $in) 200
+        continue
+      }
+
+      if ($path -eq '/api/pool') {
+        Send-Json $ctx (Get-Pool ($req.QueryString['fresh'] -eq '1')) 200   # {ok:false} ist eine Antwort, kein HTTP-Fehler
+        continue
+      }
+      if ($path -eq '/api/trichter') {
+        Send-Json $ctx (Get-Trichter ($req.QueryString['fresh'] -eq '1')) 200
+        continue
+      }
+      if ($path -eq '/api/pool/schritt') {
+        # Einen Vorgang im Freelancer-Portal weiterschieben (05.09.2026). Erlaubt ist nur
+        # bewerbung_weiter — die Grenze steht in Send-PoolSchritt, nicht im Vertrauen.
+        if ($req.HttpMethod -ne 'POST') { Send-Json $ctx @{ ok = $false; error = 'NUR_POST' } 405; continue }
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        if (-not $in) { Send-Json $ctx @{ ok = $false; error = 'NO_BODY' } 400; continue }
+        $erg = Send-PoolSchritt $in
+        Send-Json $ctx $erg $(if ($erg.ok) { 200 } else { 200 })
         continue
       }
 

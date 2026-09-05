@@ -1383,12 +1383,12 @@ function rhythmMalen(){
   const offen = offeneFragen().length;
   const abendOk = S.lastAbend===heute();
   const abendZeit = new Date().getHours()>=17;
-  const zug=zugaengeOffen().length;   /* Website-Zugänge, die auf vaikuntha.eu warten (03.09.) */
+  const zug=triOffen().length;   /* Menschen im Trichter: Vereinszugänge + offene Vorgänge im Portal (05.09.) */
   const rits=[
     {id:'morgen', ic:'☀️', t:'Morgencheck', s:'5 Minuten, dann läuft der Tag', due:!morgenOk, done:morgenOk, badge: morgenOk?'erledigt':'5 Min'},
     {id:'wochenstart', ic:'🧭', t:'Wochenstart', s: tag===1?'Heute — Woche setzen':'montags', due: tag===1&&!wsOk, done: wsOk, badge: wsOk?'gesetzt':(tag===1?'fällig':'Mo')},
     {id:'fragen', ic:'💬', t:'Rückfragen von Claude', s: offen?`${offen} warten auf eine Entscheidung`:'alles beantwortet', due: offen>0, done: offen===0, badge: offen?`${offen} offen`:'klar'},
-    ...(zug?[{id:'zugaenge', ic:'🔐', t:'Website-Zugänge', s:`${zug} ${zug===1?'Registrierung wartet':'Registrierungen warten'} auf vaikuntha.eu auf deine Freigabe`, due:true, done:false, badge:`${zug} offen`}]:[]),
+    ...(zug?[{id:'trichter', ic:'🫂', t:'Menschen im Trichter', s:`${zug} ${zug===1?'Mensch wartet':'Menschen warten'} auf eine Entscheidung von dir`, due:true, done:false, badge:`${zug} offen`}]:[]),
     {id:'abend', ic:'🌙', t:'Abendcheck', s: abendOk?'Tag geschlossen — der Abend gehört dir':(abendZeit?'Tag schließen · Sport, Erholung, dein Projekt':'ab 17 Uhr · Sport, Erholung, dein Projekt'), due: abendZeit&&!abendOk, done: abendOk, badge: abendOk?'erledigt':(abendZeit?'4 Min':'ab 17 h')},
     {id:'wochenreview', ic:'🪞', t:'Wochen-Rückschau', s: tag===5?'Heute — Woche abschließen':'freitags', due: tag===5&&!revOk, done: revOk, badge: revOk?'erledigt':(tag===5?'fällig':'Fr')}
   ];
@@ -1420,14 +1420,18 @@ function starte(art){
   /* Website-Zugänge (03.09.2026, Bene: „bau mir die Freigabe in Morgen- und Abendcheck ein“): wartet auf
      vaikuntha.eu jemand auf die Freigabe, bekommen Morgen- UND Abendcheck einen Schritt dazu — sonst nicht.
      Die Liste kommt live vom john-server (GET /api/vaikuntha › freigaben), entschieden wird per POST. */
-  const zugangSchritt={id:'zugaenge',typ:'zugaenge',icon:'🔐',titel:'Website-Zugänge freigeben',
-    frage:'Wer hat sich auf vaikuntha.eu registriert — freigeben oder ablehnen?',
-    hint:'Freigeben schaltet den Login frei und schickt der Person den Login-Link. Ablehnen löscht das Konto. Bis dahin bleibt die Person draußen.',sek:60};
-  const zugMehr=()=>zugaengeOffen().length?[zugangSchritt]:[];
-  if(art==='morgen')            FLOW={art,titel:'Morgencheck',schritte:(R.morgen||[]).concat(gitPakete().length?[gitSchritt]:[]).concat(zugMehr()),xp:R.xp.morgencheck};
+  /* Der Trichter (05.09.) löst den reinen Zugangs-Schritt ab. Zwei Schritte, die beide „wer wartet“
+     zeigen, wären genau die Doppelung, an der am 31.08. slackCard/slrCard fast gescheitert wäre —
+     die Vereins-Freigabe ist jetzt eine der drei Bahnen, kein eigener Schritt mehr. */
+  const trichterSchritt={id:'trichter',typ:'trichter',icon:'🫂',titel:'Menschen im Trichter',
+    frage:'Wer wartet gerade auf eine Entscheidung von dir — und was ist der nächste Schritt?',
+    hint:'Drei Bahnen: Registrierung auf vaikuntha.eu freigeben · Aufnahme ins Kollektiv weiterschieben · Vorgang beim Kunden weiterschieben. Jeder Klick schreibt in die Quelle zurück; „später“ lässt die Zeile stehen.',sek:90};
+  const triMehr=()=>triOffen().length?[trichterSchritt]:[];
+  if(art==='morgen')            FLOW={art,titel:'Morgencheck',schritte:(R.morgen||[]).concat(gitPakete().length?[gitSchritt]:[]).concat(triMehr()),xp:R.xp.morgencheck};
   else if(art==='freigaben')    FLOW={art,titel:'Freigaben',schritte:[gitSchritt],xp:0};
-  else if(art==='zugaenge')     FLOW={art,titel:'Website-Zugänge',schritte:[zugangSchritt],xp:0};
-  else if(art==='abend')        FLOW={art,titel:'Abendcheck',schritte:(R.abend||[]).concat(zugMehr()),xp:R.xp.abendcheck||10};
+  /* 'zugaenge' bleibt als Kennung gültig: ältere Links und Tastenwege landen so im Trichter. */
+  else if(art==='trichter'||art==='zugaenge') FLOW={art:'trichter',titel:'Trichter',schritte:[trichterSchritt],xp:0};
+  else if(art==='abend')        FLOW={art,titel:'Abendcheck',schritte:(R.abend||[]).concat(triMehr()),xp:R.xp.abendcheck||10};
   else if(art==='wochenstart')  FLOW={art,titel:'Wochenstart',schritte:(R.wochenstart||[]).map(s=>({...s,typ:'text',titel:s.frage,sek:75})),xp:R.xp.wochenstart};
   else if(art==='wochenreview') FLOW={art,titel:'Rückschau',schritte:[
                                        /* Personal-Kanban-Retro zuerst: erst sehen (Board-Zahlen), dann bewerten */
@@ -1537,20 +1541,16 @@ function koerper(s){
     if(!p.length) return gitLeer();
     return `<div id="gitListe">${p.slice(0,GIT_SICHTBAR).map(gitKarte).join('')}</div>`;
   }
-  if(s.typ==='zugaenge'){
-    const z=zugaengeOffen();
-    if(!VEREIN.geladen) return `<div class="empty">Vereins-Stand wird geladen …</div>`;
-    if(!VEREIN.data) return `<div class="empty">John-Server oder vaikuntha.eu nicht erreichbar — ob jemand wartet, weiß ich gerade nicht.</div>`;
-    if(!z.length) return `<div class="empty">Niemand wartet — alle Registrierungen auf vaikuntha.eu sind freigegeben.</div>`;
-    return z.map(x=>`<div class="qa" data-zugang="${x.uid}">
-        <div class="qp">vaikuntha.eu · registriert ${esc(zugangSeit(x))}</div>
-        <div class="qq">${esc(x.name)}</div>
-        <div class="qw">${esc(x.email)}</div>
-        <div class="opts" style="margin-top:8px">
-          <button onclick="zugangEntscheiden(${Number(x.uid)},'ja',this)">✅ Freigeben</button>
-          <button onclick="zugangEntscheiden(${Number(x.uid)},'nein',this)">🗑️ Ablehnen</button>
-          <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button></div>
-        <div class="hint zugout" style="margin-top:6px"></div></div>`).join('');
+  if(s.typ==='trichter'){
+    /* Im Ritual stehen ALLE Wartenden (die Karte kürzt auf sechs) — hier wird abgearbeitet.
+       Eine tote Quelle wird benannt, nie verschwiegen: „niemand wartet“ und „ich konnte nicht
+       nachsehen“ dürfen sich nicht gleich lesen. */
+    if(!TRI.geladen) return `<div class="empty">Der Trichter wird geladen …</div>`;
+    if(!TRI.data) return `<div class="empty">John-Server nicht erreichbar — wer wartet, weiß ich gerade nicht.</div>`;
+    const z=triOffen(), namen=(TRI.data.fehlt||[]).map(x=>x==='verein'?'Vaikuntha':'das Freelancer-Portal');
+    const warn=namen.length?`<div class="hint" style="margin-bottom:8px">⚠️ ${namen.join(' und ')} ${namen.length>1?'antworten':'antwortet'} gerade nicht — diese Liste ist unvollständig.</div>`:'';
+    if(!z.length) return warn+(namen.length?'':`<div class="empty">Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.</div>`);
+    return warn+z.map(x=>triZeile(x,triKnoepfe)).join('');
   }
   if(s.typ==='auftrag'){
     return `<textarea id="ovIn" placeholder="z. B. Aufräum-Vorschlag umsetzen, Domain-Umzugsplan, Kennzahlen ziehen">${esc(S.auftrag||'')}</textarea>`;
@@ -4216,6 +4216,140 @@ function nutzRefresh(){
        <div class="kpi"><div class="v">${h?h.gesamt:'–'}</div><div class="l">Aktivitäten</div></div>
      </div>` + z.join('');
 }
+
+/* ---------- Der Trichter (05.09., Bene: „Wir wollen skalieren … ein Trichter, der verteilt.
+   Die Endpunkte müssen miteinander sprechen“) ------------------------------------------
+   GET /api/trichter bündelt, was bis heute in zwei getrennten Karten lag und in einem Fall
+   überhaupt nirgends: Registrierungen, die auf vaikuntha.eu auf Freigabe warten, und offene
+   Vorgänge im Freelancer-Portal auf vishnuartists.com. Drei Bahnen, weil es drei verschiedene
+   Entscheidungen sind — ankommen · kollektiv · einsatz.
+
+   Der Server gleicht beide Häuser über die normalisierte Mailadresse ab (Gegenstück zu
+   f/identitaet.php) und hängt an jede Zeile, ob die Person drüben schon bekannt ist. Er legt
+   nichts zusammen: der Hinweis ist ein Hinweis, die Entscheidung bleibt bei dir.
+
+   ⚠️ Der Blüten-Schlüssel heißt `aufnahme`, NICHT `trichter` — `trichter` ist im LOTUS_KATALOG
+   längst die CRM-Konversion von Vaikuntha. Zwei Kennzahlen mit demselben Schlüssel überschreiben
+   sich still (dieselbe Falle wie damals bei slackCard/slrCard).
+
+   Namen und Adressen bleiben in dieser Karte und im Ritual — NIE in eine *-data.js: die wird
+   alle 30 Minuten veröffentlicht. Wie Postfach, Slack und Nutzerzahlen. */
+const TRI={ data:null, fehler:null, geladen:false, laeuft:{} };
+function triOffen(){ return ((TRI.data||{}).wartende)||[]; }
+const TRI_BAHN={ ankommen:{ic:'🚪',t:'Ankommen',haus:'Vaikuntha'},
+                 kollektiv:{ic:'🤝',t:'Ins Kollektiv',haus:'Vishnu Artists'},
+                 einsatz:{ic:'🚀',t:'Zum Kunden',haus:'Vishnu Artists'} };
+function triCard(){
+  return `<div class="card s6 tone-va" id="triCard"><h3>🫂 Trichter <span class="cnt" id="triStand">lädt …</span></h3>
+    <div id="triBody"><div class="empty">Wer wartet, wird geladen …</div></div></div>`;
+}
+function triZeile(w,knoepfe){
+  const b=TRI_BAHN[w.bahn]||{ic:'•',t:w.bahn,haus:''};
+  const alt = w.tage==null ? '' : (w.tage===0?'heute':(w.tage===1?'seit gestern':'seit '+w.tage+' Tagen'));
+  const detail=[];
+  if(w.rolle) detail.push(esc(kurz(w.rolle,70)));
+  if(w.kunde) detail.push(esc(kurz(w.kunde,40)));
+  const zeit = alt?`<span class="tg">${esc(alt)}</span>`:'';
+  return `<div class="qa" data-tri="${esc(w.schluessel)}">
+      <div class="qp">${b.ic} ${esc(b.t)} · ${esc(b.haus)} ${zeit}</div>
+      <div class="qq">${esc(w.name||'ohne Namen')}</div>
+      <div class="qw">${esc(w.was||'')}${detail.length?' — '+detail.join(' · '):''}</div>
+      ${w.auchBekannt?`<div class="hint" style="margin-top:4px">🔗 Dieselbe Adresse ist ${esc(w.auchBekannt)}.</div>`:''}
+      ${knoepfe?knoepfe(w):''}
+      <div class="hint triout" style="margin-top:6px"></div></div>`;
+}
+function kurz(s,n){ s=String(s||''); return s.length>n?s.slice(0,n-1)+'…':s; }
+/* Die Knöpfe je Bahn: die Vereins-Registrierung geht über den vorhandenen Weg (03.09.), ein
+   Vorgang im Portal über POST /api/pool/schritt. Gezeigt wird nur die NÄCHSTE Stufe, nicht alle
+   sieben — wer eine überspringen will, tut das in der Portal-Pflege; sieben Knöpfe je Zeile
+   wären eine Wand statt einer Entscheidung. */
+function triKnoepfe(w){
+  if(w.bahn==='ankommen'){
+    return `<div class="opts" style="margin-top:8px">
+        <button onclick="zugangEntscheiden(${Number(w.uid)},'ja',this)">✅ Freigeben</button>
+        <button onclick="zugangEntscheiden(${Number(w.uid)},'nein',this)">🗑️ Ablehnen</button>
+        <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button></div>`;
+  }
+  const n=(w.naechste||[])[0];
+  const ab=(w.naechste||[]).find(x=>x.status==='abgesagt');
+  return `<div class="opts" style="margin-top:8px">
+      ${n?`<button onclick="poolSchritt(${Number(w.id)},'${esc(n.status)}',this)">➜ ${esc(n.text)}</button>`:''}
+      ${ab?`<button onclick="poolSchritt(${Number(w.id)},'abgesagt',this)">✖ Absage</button>`:''}
+      <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button>
+      ${TRI.data&&TRI.data.urlPflege?`<button onclick="window.open('${esc(TRI.data.urlPflege)}','_blank')">im Portal ↗</button>`:''}</div>`;
+}
+function triRefresh(){
+  const body=document.getElementById('triBody'), stand=document.getElementById('triStand');
+  if(!body||!stand) return;
+  if(!TRI.geladen){ stand.textContent='lädt …'; return; }
+  if(!TRI.data){
+    stand.textContent = TRI.fehler ? 'Fehler' : 'offline';
+    body.innerHTML = TRI.fehler
+      ? `<div class="empty">Der Trichter meldet: ${esc(TRI.fehler.error||'unbekannter Fehler')}${TRI.fehler.hint?' — '+esc(TRI.fehler.hint):''}</div>`
+      : `<div class="empty">John-Server nicht erreichbar — <code>john-server.cmd</code> starten, dann ↻ Neu laden.
+         Leer heißt hier <b>nicht</b> „niemand wartet“.</div>`;
+    return;
+  }
+  const t=TRI.data, w=triOffen();
+  const blind=(t.fehlt||[]).length;
+  stand.textContent = blind ? `${w.length} gefunden · teilweise blind`
+                            : (w.length ? `${w.length} ${w.length===1?'wartet':'warten'}` : 'niemand wartet');
+  /* Eine tote Quelle darf nie wie eine leere aussehen — das wäre die gefährlichste Karte hier. */
+  const luecken=[];
+  if((t.fehlt||[]).indexOf('verein')>=0) luecken.push('Vaikuntha antwortet gerade nicht'+(t.vereinFehler?` (${esc(t.vereinFehler.error)})`:'')+' — ob dort jemand auf Freigabe wartet, weiß ich nicht');
+  if((t.fehlt||[]).indexOf('pool')>=0)   luecken.push('Das Freelancer-Portal antwortet gerade nicht'+(t.poolFehler?` (${esc(t.poolFehler.error)})`:'')+' — offene Vorgänge fehlen in dieser Liste');
+  const kpi=t.kpi, pz=t.personenZahlen;
+  const kopf=`<div class="kpis" style="margin-bottom:8px">
+      <div class="kpi"><div class="v">${w.length}</div><div class="l">${w.length===1?'wartet auf dich':'warten auf dich'}</div></div>
+      <div class="kpi"><div class="v">${kpi?kpi.pool:'–'}</div><div class="l">im Kollektiv</div></div>
+      <div class="kpi"><div class="v">${kpi?kpi.verfuegbar:'–'}</div><div class="l">verfügbar</div></div>
+      <div class="kpi"><div class="v">${kpi?kpi.im_einsatz:'–'}</div><div class="l">im Einsatz</div></div>
+    </div>`;
+  const liste = w.length
+    ? w.slice(0,6).map(x=>triZeile(x,triKnoepfe)).join('')
+      + (w.length>6?`<div class="hint">… und ${w.length-6} weitere — im Ritual „🫂 Trichter“ kommen sie nach.</div>`:'')
+    : (luecken.length?'':`<div class="empty">✓ Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.</div>`);
+  /* Der Trichter dahinter: die Tore aus ziele.php stehen auf „Mein Vishnu“ für alle sichtbar,
+     hier standen sie bis heute nicht. Nur gemessene Zahlen, keine erfundenen. */
+  const tore = pz ? `<div class="item"><div class="ic">🎯</div><div class="body">
+      <div class="t">Tore des Kollektivs</div>
+      <div class="m">${kpi?kpi.pool:'–'}/40 im Kollektiv · ${kpi?kpi.verfuegbar:'–'}/10 Verfügbarkeiten gemeldet · ${pz.mitSkill}/20 Skill-Profile · ${kpi?kpi.platziert_90:'–'}/3 Einsätze in 90 T</div>
+      <div class="m">${pz.mitPortal} von ${pz.gesamt} waren schon im Portal · ${pz.mitMail} mit Mailadresse</div></div></div>` : '';
+  const abgleich = t.doppelt ? `<div class="item"><div class="ic">🔗</div><div class="body">
+      <div class="t">${t.doppelt} ${t.doppelt===1?'Person ist':'Personen sind'} in beiden Häusern</div>
+      <div class="m">Über die Mailadresse erkannt — der Trichter legt nichts zusammen, er sagt es dir nur.</div></div></div>` : '';
+  const warn=luecken.map(l=>`<div class="item"><div class="ic">⚠️</div><div class="body"><div class="t">Teilweise blind</div><div class="m">${l}</div></div></div>`).join('');
+  body.innerHTML = kopf + warn + liste + tore + abgleich
+    + `<div class="hint" style="margin-top:6px">Abgleich über die Mailadresse: für eine Bewerbung sieht der Trichter nur, ob dieselbe Person <b>gerade auch</b> auf den Vereinszugang wartet — ob sie Vereinsmitglied ist, gibt die Vereins-Schnittstelle nicht her.</div>`;
+}
+/* Einen Vorgang eine Stufe weiterschieben. Gleiche Bauart wie zugangEntscheiden (03.09.):
+   Knöpfe sperren, Ergebnis in die Zeile, bei Erfolg den Trichter frisch holen. Und wie dort
+   landet die Entscheidung in der Übergabe, damit der Abendcheck weiß, was du getan hast. */
+async function poolSchritt(id,status,btn){
+  const box=btn.closest('.qa')||document, out=box.querySelector('.triout');
+  const w=triOffen().find(x=>Number(x.id)===Number(id))||{};
+  if(status==='abgesagt' && !confirm('Vorgang von '+(w.name||('#'+id))+' wirklich absagen?')) return;
+  const knoepfe=[...box.querySelectorAll('button')];
+  knoepfe.forEach(b=>b.disabled=true); const alt=btn.textContent; btn.textContent='…';
+  try{
+    const r=await fetch(JOHN_API+'/api/pool/schritt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:Number(id),status:status})});
+    const j=await r.json();
+    if(j&&j.ok){
+      btn.textContent='✓ '+alt.replace(/^➜ |^✖ /,''); box.classList.add('beantwortet');
+      if(out){ out.classList.remove('err'); out.textContent='Im Portal eingetragen — die Person sieht den Schritt in ihrem Freelancer-Portal.'; }
+      if(FLOW){ FLOW.antworten=FLOW.antworten||{}; const a=FLOW.antworten['trichter']||'';
+        FLOW.antworten['trichter']=(a?a+' · ':'')+(w.name||('#'+id))+': '+status; }
+      try{ const t=await (await fetch(JOHN_API+'/api/trichter?fresh=1',{cache:'no-store'})).json();
+           if(t&&t.ok){ TRI.data=t; triRefresh(); rhythmMalen(); } }catch(e){}
+    } else {
+      knoepfe.forEach(b=>b.disabled=false); btn.textContent='Nochmal versuchen';
+      if(out){ out.classList.add('err'); out.textContent=(j&&(j.hint||j.error))||'Keine Antwort vom Server.'; }
+    }
+  }catch(e){
+    knoepfe.forEach(b=>b.disabled=false); btn.textContent='Nochmal versuchen';
+    if(out){ out.classList.add('err'); out.textContent='John-Server nicht erreichbar.'; }
+  }
+}
 /* Die Live-Zahlen über die Projektkarte legen — wie vereinUebernehmen(): eine Wahrheit, nicht zwei. */
 function finUebernehmen(){
   const f=FIN.data; if(!f||!D.projekte||!D.projekte.finance) return;
@@ -4748,6 +4882,16 @@ const LOTUS_KATALOG={
             quelle:'Analytics-Plugin auf vaikuntha.eu (live über john-server)',
             wert:d=>{ const m=d.verein&&d.verein.mitglieder; if(!m||!m.gesamt) return null;
                       return {heute:m.gesamt,gestern:histWert('mitglieder'),sub:`+${m.neu30||0} in 30 T · ${m.aktiv30||0} aktiv`}; }},
+  /* Der Trichter (05.09.). Zielband bewusst hart: 0 ist hier wirklich erreichbar und auch richtig —
+     wer sich bewirbt oder registriert, soll nicht warten. Anders als beim Postfach ist die Null
+     also kein gelogener Nordstern, sondern das Ziel. Gezählt wird über beide Häuser zusammen.
+     Schlüssel `aufnahme`, nicht `trichter` — der ist unten längst die CRM-Konversion. */
+  aufnahme:{icon:'🫂',label:'Menschen warten auf dich',besser:'weniger',ziele:[3,1,0],
+            quelle:'Trichter (live über john-server, GET /api/trichter — Vereins-Registrierungen + offene Vorgänge im Freelancer-Portal)',
+            wert:()=>{ if(!TRI.data||(TRI.data.fehlt||[]).length) return null;   /* teilweise blind = keine Zahl */
+                       const w=triOffen(), b=TRI.data.nachBahn||{};
+                       return {heute:w.length,gestern:histWert('aufnahme'),
+                               sub:`${TRI.data.aeltesteTage!=null?`ältester seit ${TRI.data.aeltesteTage} T`:'nichts offen'} · ${b.ankommen||0} ankommen · ${b.kollektiv||0} Kollektiv · ${b.einsatz||0} Einsatz`}; }},
   trichter:{icon:'🫧',label:'CRM-Konversion',einheit:'%',besser:'mehr',ziele:[35,45,60],
             quelle:'Analytics-Plugin auf vaikuntha.eu (live über john-server) — Kontakte, die Mitglied geworden sind',
             wert:d=>{ const c=d.verein&&d.verein.crm; if(!c||c.konversion==null) return null;
@@ -5029,7 +5173,7 @@ function lotusRender(neuChips){
 }
 async function lotusLaden(){
   const jget=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); const j=await r.json(); return (j&&j.ok!==false)?j:null; }catch(e){ return null; } };
-  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer]=await Promise.all([
+  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter]=await Promise.all([
     jget(JOHN_API+'/api/arbeit'),
     jget(JOHN_API+'/api/kpi/jira'),
     (async()=>{ try{ const r=await fetch(PORSCHE_STE+'data/aggregated.json?t='+Date.now()); const d=await r.json(); return d&&d.vs?d:null; }catch(e){ return null; } })(),
@@ -5063,7 +5207,12 @@ async function lotusLaden(){
     /* Nutzerzahlen (03.09.): ohne Token oder ohne Datenbank antwortet der Server mit NO_KEY bzw.
        NO_DB — das muss die Karte sagen dürfen, sonst sieht ein fehlender Schlüssel aus wie ein
        Produkt ohne Nutzer. Genau das ist hier heikel: die echte Zahl ist ohnehin klein. */
-    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/nutzer',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/nutzer',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
+    /* Trichter (05.09.): bündelt beide Häuser. Der Server antwortet auch dann mit {ok:true}, wenn
+       nur eine Quelle erreichbar war — welche fehlt, steht in `fehlt`, und Karte wie Ritual sagen
+       es. Ein Trichter, der bei toter Quelle „niemand wartet“ zeigt, wäre die gefährlichste Karte
+       in diesem Cockpit: er würde Menschen unsichtbar machen, die auf eine Antwort warten. */
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/trichter',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
   ]);
   KAL.data=(kal&&kal.ok)?kal:null; KAL.fehler=(kal&&kal.ok===false)?kal:null; KAL.geladen=true;
   GIT.data=(git&&git.ok)?git:null; GIT.fehler=(git&&git.ok===false)?git:null; GIT.geladen=true; gitRefresh();
@@ -5080,13 +5229,15 @@ async function lotusLaden(){
   FIN.data=(finanz&&finanz.ok)?finanz:null; FIN.fehler=(finanz&&finanz.ok===false)?finanz:null; FIN.geladen=true;
   finUebernehmen();
   NUTZ.data=(nutzer&&nutzer.ok)?nutzer:null; NUTZ.fehler=(nutzer&&nutzer.ok===false)?nutzer:null; NUTZ.geladen=true;
-  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data,nutzer:NUTZ.data}; LOT.geladen=true;
+  TRI.data=(trichter&&trichter.ok)?trichter:null; TRI.fehler=(trichter&&trichter.ok===false)?trichter:null; TRI.geladen=true;
+  rhythmMalen();                            /* die Zeile „🫂 Menschen im Trichter“ hängt am Trichter-Stand */
+  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data,nutzer:NUTZ.data,trichter:TRI.data}; LOT.geladen=true;
   /* Verbindungszustand für die Verbindungswacht. Unterschieden wird streng: null = der Abruf kam
      gar nicht durch (Server weg), ein Objekt = der Server hat geantwortet — auch {ok:false}, denn
      das heißt „diese eine Quelle fehlt", nicht „der Server ist tot". Nur so kann die Wacht den
      Takt richtig wählen, statt bei einer fehlenden Kalenderadresse dauernd nachzuklopfen. */
   if(typeof SRV!=='undefined'&&SRV){
-    const erreicht=[kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer].some(x=>x!==null&&x!==undefined);
+    const erreicht=[kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter].some(x=>x!==null&&x!==undefined);
     SRV.ok=erreicht;
     if(erreicht){ SRV.stand=Date.now(); SRV.fehl=0; } else { SRV.fehl++; }
     if(typeof srvStandMalen==='function') srvStandMalen();
@@ -5094,7 +5245,7 @@ async function lotusLaden(){
     if(erreicht&&typeof finStimmenNachreichen==='function'){ try{ finStimmenNachreichen(); }catch(e){} }
   }
   if(arbeit) arbeitXpVerbuchen(arbeit);
-  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh();
+  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh();
   lotusRender(false);
   fortschrittRefresh();
   if(SUMMARY_NEU||!(S.summary&&S.summary.datum===heute())){ const f=SUMMARY_NEU; SUMMARY_NEU=false; summaryHolen(f); }
@@ -5681,7 +5832,7 @@ function render(c){
      Rückfragen, die Bene deshalb nie sah („keine Fragen an mich“). Sechs Leute, die auf eine
      Antwort warten, sind ein nächster Schritt, kein Kanalzustand. */
   h+=secHtml('schritte',
-      kalenderCard() + postfCard() + slrCard() + wetterCard() + finCard() + nutzCard()
+      kalenderCard() + triCard() + postfCard() + slrCard() + wetterCard() + finCard() + nutzCard()
     + `<div class="card s6 ${tone}"><h3>⚡ Jetzt wichtig</h3>${itemsHtml(d.next,'dashboard.html › CTX.'+c+'.next',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>📅 Termine</h3>${itemsHtml(d.termine,'dashboard.html › CTX.'+c+'.termine',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>🗂️ Vorbereiten</h3>${itemsHtml(d.vorbereiten,'dashboard.html › CTX.'+c+'.vorbereiten',qo)}</div>`
@@ -5725,7 +5876,7 @@ function render(c){
   /* 31.08.: Postfach, Sicherungen, Wetter und Routinen fehlten hier. Ihre Karten rendern leer und
      werden aus dem geladenen Zustand gefüllt — nach jedem erneuten render() (Kontextwechsel!)
      standen sie darum dauerhaft auf „lädt …“, obwohl die Daten längst da waren. */
-  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh();
+  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh();
   if(KAN.mode==='personal'){ if(KAN.view==='board'){ pkDnD(); if(!PK.geladen) pkLaden(false); } else trelloLive(); }
   else { if(VA.tickets.length) vaPaint(); else vaLaden(false); }
 }
