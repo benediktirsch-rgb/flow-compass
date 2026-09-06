@@ -1355,7 +1355,7 @@ const frageSchluessel=t=>String(t||'').toLowerCase().replace(/[^0-9a-zäöüß]+
 function beantwortet(q){ return !!S.antworten[q.id] || (q.frage && ANTW_TEXT.has(frageSchluessel(q.frage))); }
 /* Dazu die offenen Entscheidungen der Finanzverwaltung (finFragen, 02.09.) — sie leben auf dem
    Server, nicht in S.antworten: beantwortet ist, was dort eine Stimme hat. */
-function offeneFragen(){ return (R.rueckfragen||[]).filter(q=>!beantwortet(q)).concat(typeof finFragen==='function'?finFragen():[]).concat(typeof meldeFragen==='function'?meldeFragen():[]); }
+function offeneFragen(){ return (R.rueckfragen||[]).filter(q=>!beantwortet(q)).concat(typeof finFragen==='function'?finFragen():[]).concat(typeof meldeFragen==='function'?meldeFragen():[]).concat(typeof chatFragen==='function'?chatFragen():[]); }
 /* Das Eine von heute: zuerst aus diesem Browser (localStorage), sonst aus dem
    Morgencheck-Protokoll in rhythmus-data.js. Sonst stünde auf dem Handy „noch
    nicht gesetzt“, obwohl der Checkin längst gemacht ist. */
@@ -1526,14 +1526,14 @@ function koerper(s){
       <input type="text" id="ovIn" placeholder="Was noch heute passieren muss …">`;
   }
   if(s.typ==='fragen'){
-    const offen=offeneFragen().slice(0,3);
-    if(!offen.length) return `<div class="empty">Alles beantwortet — danke. Neue Rückfragen lege ich hier ab, sobald welche auftauchen.</div>`;
-    return offen.map(q=>`<div class="qa" data-q="${q.id}">
-      <div class="qp">${esc(q.projekt)}</div>
-      <div class="qq">${esc(q.frage)}</div>
-      <div class="qw">${esc(q.warum)}</div>
-      <div class="opts">${q.optionen.map(o=>`<button data-a="${esc(o)}">${esc(o)}</button>`).join('')}
-        <button data-a="später">später</button></div></div>`).join('');
+    /* Lebendige Liste (06.09.2026, Bene: „zeigt nur 3 an, man kann nicht weiterblättern — die Liste soll
+       dynamisch nachziehen, wenn das oberste Item abgearbeitet ist“). Wie der Freigabe-Schritt: drei Karten
+       sichtbar, jede Antwort fadet ihre Karte aus (qaWeg) und die nächste offene Frage rückt nach
+       (fragenNachziehen). Vorher stand slice(0,3) fest — bei 17 offenen sah man 14 erst nach Schließen
+       und neu Öffnen des Rituals. */
+    const offen=offeneFragen();
+    if(!offen.length) return fragenLeer();
+    return `<div id="fragenListe">${offen.slice(0,FRAGEN_SICHTBAR).map(frageKarte).join('')}</div>${fragenRest(offen.length)}`;
   }
   if(s.typ==='freigabe'){
     /* Lebendige Liste (05.09.2026, Bene: „nach 3 Antworten ist die Liste leer und muss wieder geöffnet
@@ -1607,8 +1607,27 @@ function verdrahten(s){
     box.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     FLOW.wahl[box.dataset.w]=b.dataset.a;
   }));
-  document.querySelectorAll('#ovBody .qa[data-q] .opts button').forEach(b=>b.addEventListener('click',()=>{
-    const box=b.closest('.qa'); const id=box.dataset.q;
+  document.querySelectorAll('#ovBody .qa[data-q]').forEach(frageVerdrahten);
+}
+/* Rückfragen-Schritt als lebendige Liste (06.09.2026): Karte, Anschluss, Nachziehen. */
+const FRAGEN_SICHTBAR=3;
+function frageKarte(q){
+  return `<div class="qa" data-q="${esc(q.id)}">
+      <div class="qp">${esc(q.projekt)}</div>
+      <div class="qq">${esc(q.frage)}</div>
+      <div class="qw">${esc(q.warum)}</div>
+      <div class="opts">${(q.optionen||[]).map(o=>`<button data-a="${esc(o)}">${esc(o)}</button>`).join('')}
+        <button data-a="später">später</button></div></div>`;
+}
+function fragenLeer(){ return `<div class="empty">Alles beantwortet — danke. Neue Rückfragen lege ich hier ab, sobald welche auftauchen.</div>`; }
+function fragenRest(n){
+  const rest=Math.max(0,n-FRAGEN_SICHTBAR);
+  return `<div class="hint" id="fragenRest" style="margin-top:10px">${rest?`Noch ${rest} weitere ${rest===1?'wartet':'warten'} — ${rest===1?'sie rückt':'sie rücken'} nach, sobald du entscheidest.`:''}</div>`;
+}
+function frageVerdrahten(box){
+  const id=box.dataset.q;
+  box.querySelectorAll('.opts button').forEach(b=>b.addEventListener('click',()=>{
+    if(box.classList.contains('beantwortet')) return;   /* Doppelklick während des Ausfadens zählt nicht doppelt */
     box.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     box.classList.add('beantwortet');
     if(!S.antworten[id]){ S.z.antworten++; S.xp += (R.xp.rueckfrage||5); }
@@ -1616,7 +1635,19 @@ function verdrahten(s){
     speichern(); kopfMalen();
     antwortSenden(id,b.dataset.a);   /* damit die Frage auch in jeder anderen Fassung verschwindet (31.08.) */
     finStimmeAusRitual(id,b.dataset.a); /* Finanz-Entscheidung: als Stimme zurück auf die Website (02.09.) */
+    setTimeout(()=>qaWeg(box,fragenNachziehen),450);   /* kurz die Wahl zeigen, dann Platz machen */
   }));
+}
+function fragenNachziehen(){
+  const liste=document.getElementById('fragenListe'); if(!liste) return;
+  const da=new Set([...liste.querySelectorAll('.qa[data-q]')].map(b=>b.dataset.q));
+  const offen=offeneFragen();
+  const naechste=offen.filter(q=>!da.has(q.id)).slice(0,Math.max(0,FRAGEN_SICHTBAR-da.size));
+  naechste.forEach(q=>{ const t=document.createElement('div'); t.innerHTML=frageKarte(q);
+    const k=t.firstElementChild; k.classList.add('neu'); liste.appendChild(k); frageVerdrahten(k); });
+  const r=document.getElementById('fragenRest'); if(r) r.outerHTML=fragenRest(offen.length);
+  if(!liste.querySelector('.qa[data-q]')) liste.innerHTML=fragenLeer();
+  if(typeof kinoHoehe==='function') kinoHoehe();
 }
 
 function weiter(){
@@ -1843,7 +1874,9 @@ function boardCta(){
   else {
     const grenze=new Date(Date.now()-4*864e5).toISOString().slice(0,10);
     b=liste.filter(x=>x.datum<h&&x.datum>=grenze).sort((x,y)=>x.datum<y.datum?1:-1)[0]||null;
-    if(b) text=boardIcon(b.art)+' '+boardName(b.art)+' · '+b.datum.slice(8,10)+'.'+b.datum.slice(5,7)+'.';
+    /* 06.09.: ein Sonntag zeigte hier „Morgenboard · 04.09.“ — das las sich wie heute. Der Wochentag
+       davor macht klar, dass es ein älteres Board ist; das von heute entsteht erst mit dem Morgencheck. */
+    if(b){ const wt=['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(b.datum+'T12:00:00').getDay()]; text=boardIcon(b.art)+' '+boardName(b.art)+' · '+wt+' '+b.datum.slice(8,10)+'.'+b.datum.slice(5,7)+'. (älter)'; }
   }
   return b?{url:JOHN_API+b.url,text,title:boardName(b.art)+' vom '+b.datum+' — öffnet in einem neuen Tab'}:null;
 }
@@ -1856,7 +1889,7 @@ function boardCta(){
    hin und übernimmt, was er noch nicht kennt. Ist der Server aus, bleibt alles
    beim Alten — der lokale Stand gilt weiter, und der nächste Ladeversuch holt es nach.
    ========================================================================== */
-function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null)||(S.meldeFragen||{})[id]; return q?q.frage:''; }
+function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null)||(S.meldeFragen||{})[id]||((typeof CHATF!=='undefined'?CHATF.list:[])||[]).find(x=>x.id===id); return q?q.frage:''; }
 function antwortMerken(frage){ const k=frageSchluessel(frage); if(k) ANTW_TEXT.add(k); }
 /* Eine frisch gegebene Antwort sofort hinschicken. Fehlschlag ist unkritisch:
    sie steht im localStorage, geht mit dem Checkin mit und wird beim nächsten
@@ -1883,6 +1916,23 @@ async function antwortenSync(){
     /* Kein XP, kein Zähler: die Antwort wurde woanders gegeben, nicht hier noch einmal. */
     if(!S.antworten[id]){ S.antworten[id]={a:w.a,ts:w.ts||heute()}; neu++; } });
   if(neu||ANTW_TEXT.size){ speichern(); render(aktuell); kopfMalen(); rhythmMalen(); }
+}
+
+/* Chat-Fragen ohne Antwort (06.09.2026, Bene: „regelmäßig dahin channeln, wenn ich hier 5 Stunden
+   keine Antwort gebe“). Eine Frage, die Claude im Chat stellt, ist weg, sobald die Session zu ist.
+   Der john-server liest deshalb die Sitzungsdateien und liefert über GET /api/chatfragen jede Session,
+   deren letzte Nachricht von Claude ist, eine Frage oder Bitte an Bene enthält und seit mindestens
+   fünf Stunden unbeantwortet steht. Hier laufen sie wie jede andere Rückfrage: Banner, Ritual,
+   antwortSenden() → antworten.json → Checkin, den Claude beim nächsten Sessionstart liest.
+   Ohne Server gibt es keine Chat-Fragen — CHATF.fehler hält fest, dass nicht nachgesehen werden konnte. */
+const CHATF={ list:[], geladen:false, fehler:null, stand:null };
+function chatFragen(){ return (CHATF.list||[]).filter(q=>!beantwortet(q)).map(q=>({id:q.id,projekt:q.projekt,frage:q.frage,warum:q.warum,optionen:(q.optionen||[]).slice()})); }
+async function chatFragenLaden(){
+  let d=null;
+  try{ const r=await fetch(JOHN_API+'/api/chatfragen',{cache:'no-store'}); d=await r.json(); }
+  catch(e){ CHATF.fehler='Server nicht erreichbar'; CHATF.geladen=true; return; }
+  CHATF.list=(d&&d.ok)?(d.fragen||[]):[]; CHATF.fehler=(d&&d.ok===false)?(d.error||'Fehler'):null; CHATF.stand=(d&&d.stand)||null; CHATF.geladen=true;
+  if(chatFragen().length){ render(aktuell); kopfMalen(); rhythmMalen(); }
 }
 
 /* Gemacht ist gemacht — auch in einer anderen Fassung (31.08.2026).
@@ -2467,6 +2517,19 @@ function fragenWeiter(){
   FRAGEN_AB+=KURZ_N;                    /* Überlauf fängt fragenBanner() selbst → von vorn */
   el.outerHTML=fragenBanner();
   if(typeof kinoHoehe==='function') kinoHoehe();
+}
+/* Entschieden, aber noch nicht umgesetzt (06.09.2026). 27 Antworten aus den Morgenchecks vom 01.–06.09.
+   lagen in antworten.json, ohne dass Claude sie abgeholt hätte — für Bene sah das aus wie „alles
+   beantwortet, und nichts passiert“. Jede Zeile in rhythmus-data.js › entschieden, deren Notiz ein ⏳
+   trägt, steht hier, bis Claude die Notiz auf ✅ setzt. Nichts davon wird erneut gefragt. */
+function umsetzungCard(){
+  const UMS_N=6;
+  const off=(R.entschieden||[]).filter(r=>/⏳/.test(r[4]||''));
+  if(!off.length) return '';
+  const bene=off.filter(r=>r[3]==='bene').length;
+  return `<div class="card s12" id="umsetzungCard"><h3>🧾 ${off.length} entschieden, noch nicht umgesetzt <span class="cnt">${bene?bene+' bei dir · ':''}${off.length-bene} bei Claude</span></h3>
+    ${off.slice(0,UMS_N).map(r=>`<div class="item"><div class="ic">${r[3]==='bene'?'🙋':'🤖'}</div><div class="body"><div class="t">${esc(r[2])} <span class="mini">· ${esc(datumKurz(r[0]))}</span></div><div class="m">${esc((r[4]||'').replace(/^[^⏳]*⏳\s*/,''))}</div></div></div>`).join('')}
+    ${off.length>UMS_N?`<div class="mini">und ${off.length-UMS_N} weitere — alle stehen in rhythmus-data.js › entschieden.</div>`:''}</div>`;
 }
 /* ---------- Ticket-Aufräumen (aufraeumen-data.js) ---------- */
 function aufraeumCard(){
@@ -4447,6 +4510,108 @@ async function poolSchritt(id,status,btn){
       : 'John-Server nicht erreichbar.', true);
   }finally{ clearTimeout(uhr); }
 }
+/* ---------- Mandats-Puls (06.09., Rückfrage „mandats-puls“, Bene: „mach es“) -------------
+   GET /api/ausschreibungen zeigt, was der Ausschreibungs-Scan gerade in der Hand hält. Er läuft
+   seit dem 03.09. jeden Morgen und führt einen Ledger; gehört hat der Compass davon bisher nur,
+   wenn schon entschieden werden musste. Der Zustand dazwischen war unsichtbar — am 06.09. um
+   10:18 lagen zwei Angebote bei Jan Edinger mit Frist 12:00 Uhr, und im Morgencheck stand davon
+   kein Wort. Nach Ablauf reicht `job-weiterleitung-takt` sie selbsttätig weiter.
+
+   Drei Blöcke, weil es drei verschiedene Dinge sind: ⏳ läuft eine Frist (Stunden, nicht Tage —
+   deshalb steht hier eine Uhrzeit und kein „seit 3 Tagen“) · ⏸ liegt ein Treffer ohne Kette ·
+   🎯 deine eigene Pipeline aus pipeline.md.
+
+   Der Ledger ist das Bild des Scans, nicht der Markt: läuft der Scan nicht, altert das Bild mit
+   (am 04.09. ist der Tageslauf ausgefallen und der Ledger blieb einen Tag stehen). Ist er nicht
+   frisch, sagt die Karte das und die Blüte bleibt leer — Ruhe und Stillstand dürfen nie gleich
+   aussehen. Namen bleiben in dieser Karte, NIE in einer *-data.js (30-Minuten-Deploy). */
+const AUS={ data:null, fehler:null, geladen:false };
+function ausFristen(){ return ((AUS.data||{}).fristen)||[]; }
+/* Stunden lesbar machen. Unter einer Stunde zählen Minuten, darüber reicht die halbe Stunde. */
+function ausRest(h){
+  if(h==null) return '';
+  const neg=h<0, a=Math.abs(h);
+  if(a<1)  return (neg?'seit ':'noch ')+Math.max(1,Math.round(a*60))+' Min';
+  if(a<24) return (neg?'seit ':'noch ')+(a<3?a.toFixed(1).replace('.',','):Math.round(a))+' h';
+  return (neg?'seit ':'noch ')+Math.round(a/24)+' T';
+}
+function ausCard(){
+  return `<div class="card s6 tone-bene" id="ausCard"><h3>🎯 Mandate <span class="cnt" id="ausStand">lädt …</span></h3>
+    <div id="ausBody"><div class="empty">Der Ausschreibungs-Scan wird gelesen …</div></div></div>`;
+}
+function ausRefresh(){
+  const body=document.getElementById('ausBody'), stand=document.getElementById('ausStand');
+  if(!body||!stand) return;
+  if(!AUS.geladen){ stand.textContent='lädt …'; return; }
+  if(!AUS.data){
+    stand.textContent = AUS.fehler ? 'Fehler' : 'offline';
+    body.innerHTML = AUS.fehler
+      ? `<div class="empty">Der Mandats-Puls meldet: ${esc(AUS.fehler.error||'unbekannter Fehler')}${AUS.fehler.hint?' — '+esc(AUS.fehler.hint):''}</div>`
+      : `<div class="empty">John-Server nicht erreichbar — <code>john-server.cmd</code> starten, dann ↻ Neu laden.
+         Leer heißt hier <b>nicht</b> „keine Frist läuft“.</div>`;
+    return;
+  }
+  const a=AUS.data, fr=ausFristen(), wa=a.wartend||[], so=a.sonstige||[], pi=a.pipeline||{};
+  const ueber=(pi.zeilen||[]).filter(z=>z.ueberTage!=null&&z.ueberTage>0);
+  const eilig=fr.filter(f=>!f.abgelaufen&&f.restStd!=null&&f.restStd<=3).length;
+  stand.textContent = !a.frisch ? 'Bild ist alt'
+                    : (eilig ? `${eilig} ${eilig===1?'Frist läuft ab':'Fristen laufen ab'}`
+                             : (a.wartetAufDich ? `${a.wartetAufDich} offen` : 'nichts liegt'));
+  const kopf=`<div class="kpis" style="margin-bottom:8px">
+      <div class="kpi"><div class="v">${a.fristenOffen||0}</div><div class="l">${a.fristenOffen===1?'Frist läuft':'Fristen laufen'}</div></div>
+      <div class="kpi"><div class="v">${wa.length+so.length}</div><div class="l">warten auf dich</div></div>
+      <div class="kpi"><div class="v">${ueber.length}</div><div class="l">überfällig bei dir</div></div>
+      <div class="kpi"><div class="v">${a.n||0}</div><div class="l">im Ledger</div></div>
+    </div>`;
+  /* Ein alter Ledger sieht sonst aus wie ein ruhiger Tag — genau die Verwechslung, die am 04.09.
+     einen ganzen Tag gekostet hat. Deshalb steht die Warnung oben, nicht als Fußnote. */
+  const alt = a.frisch ? '' : `<div class="item"><div class="ic">⚠️</div><div class="body">
+      <div class="t">Dieses Bild ist ${a.ledgerAlterStd!=null?Math.round(a.ledgerAlterStd)+' Stunden':'unbekannt'} alt</div>
+      <div class="m">Der Ausschreibungs-Scan hat den Ledger seit ${esc(String(a.ledgerStand||'').slice(0,16).replace('T',' '))} nicht mehr geschrieben.
+      Was hier steht, ist der Stand von damals — nicht „es liegt nichts an“. Aufgabe <code>ausschreibungs-scan-taeglich</code> prüfen.</div></div></div>`;
+  const fristHtml = fr.map(f=>{
+    const rot = f.abgelaufen || (f.restStd!=null && f.restStd<=3);
+    return `<div class="qa"><div class="qp">⏳ Angebot läuft · ${esc(f.anbieter||'')} <span class="tg">${esc(ausRest(f.restStd))}${f.abgelaufen?' abgelaufen':''}</span></div>
+      <div class="qq">${esc(f.titel||'')}</div>
+      <div class="qw">Liegt bei <b>${esc(f.person||'—')}</b> seit ${esc(String(f.gesendet||'').slice(0,16).replace('T',' '))} · Frist ${esc(String(f.frist||'').slice(0,16).replace('T',' '))}</div>
+      <div class="hint" style="margin-top:4px">${rot?'Ohne Antwort geht das Angebot beim nächsten Takt-Lauf an die nächste Person der Kette.':'Der Takt-Lauf <code>job-weiterleitung-takt</code> zieht die Frist selbst.'}</div></div>`;
+  }).join('');
+  const warteHtml = wa.concat(so).slice(0,5).map(w=>`<div class="qa">
+      <div class="qp">⏸ ${esc(w.status==='wartet'?'Ohne Kette':w.status)} · ${esc(w.anbieter||'')} ${w.tage!=null?`<span class="tg">${w.tage===0?'heute gesehen':'seit '+w.tage+' T'}</span>`:''}</div>
+      <div class="qq">${esc(w.titel||'')}</div>
+      <div class="qw">${esc([w.ort,w.remote,w.dauer].filter(Boolean).join(' · '))}</div>
+      ${w.notiz?`<div class="hint" style="margin-top:4px">${esc(w.notiz)}</div>`:''}</div>`).join('')
+    + ((wa.length+so.length)>5?`<div class="hint">… und ${wa.length+so.length-5} weitere im Ledger.</div>`:'');
+  const pipeHtml = ueber.slice(0,4).map(z=>`<div class="item"><div class="ic">🎯</div><div class="body">
+      <div class="t">${esc(z.rolle||'')} <span class="tg">${z.ueberTage} T überfällig</span></div>
+      <div class="m">${esc(z.firma||'')} · ${esc(z.status||'')}</div>
+      <div class="m" style="margin-top:3px">➜ ${esc(z.schritt||'')}</div></div></div>`).join('');
+  /* pipeline.md ist eine Markdown-Tabelle, kein JSON. Wenn dort niemand mehr etwas erkennt, muss
+     die Karte das sagen — sonst liest sich eine umbenannte Spalte wie „nichts läuft“. */
+  const pipeWarn = (pi.ok===false||pi.gelesen===0) ? `<div class="hint" style="margin-top:6px">⚠️ Aus <code>pipeline.md</code> konnte ich ${pi.ok===false?'nichts lesen ('+esc(pi.grund||'')+')':'keine Zeile erkennen'} — deine eigenen Vorgänge fehlen hier deshalb.</div>` : '';
+  const leer = (!fr.length && !wa.length && !so.length && !ueber.length)
+    ? `<div class="empty">✓ Keine Frist läuft, kein Treffer liegt ohne Kette, nichts in deiner Pipeline ist überfällig.</div>` : '';
+  body.innerHTML = kopf + alt + fristHtml + warteHtml + pipeHtml + leer + pipeWarn
+    + `<div class="hint" style="margin-top:6px">Quelle: der Ledger des Ausschreibungs-Scans (lokal, Stand ${esc(String(a.ledgerStand||'').slice(0,16).replace('T',' '))}) und <code>pipeline.md</code> mit ${pi.gelesen||0} Zeilen. Der Ledger zeigt, was der Scan gesehen hat — nicht den Markt.</div>`;
+}
+/* Die Neukunden-Karte trug drei Konstanten vom 11.08. („Setup fertig 5/5“) und nannte den
+   Ausschreibungs-Scan als künftigen Schritt, obwohl er läuft. Dieselbe Bauart wie
+   vereinUebernehmen(): gemessene Zahlen legen sich über die getippten, sonst bleibt alles stehen. */
+function ausUebernehmen(){
+  const a=AUS.data; if(!a) return;
+  const p=(D.projekte||{}).neukunden; if(!p) return;
+  const ueber=((a.pipeline||{}).zeilen||[]).filter(z=>z.ueberTage!=null&&z.ueberTage>0).length;
+  const kp=[[String(a.fristenOffen||0),(a.fristenOffen===1?'Angebot mit Frist':'Angebote mit Frist')],
+            [String((a.wartend||[]).length+(a.sonstige||[]).length),'Treffer ohne Kette'],
+            [String((a.pipeline||{}).gelesen||0),'Vorgänge in der Pipeline']];
+  if(ueber) kp.push([String(ueber),'davon überfällig']);
+  p.kpis=kp;
+  if(Array.isArray(p.anfragen)){
+    const zeile=['🎯',`Ausschreibungs-Scan läuft täglich · Ledger-Stand ${String(a.ledgerStand||'').slice(0,16).replace('T',' ')} · ${a.n||0} Vorgänge, davon ${a.wartetAufDich||0} ohne Bewegung`];
+    const i=p.anfragen.findIndex(z=>/Ausschreibungs-Scan l\u00e4uft/.test(z[1]||''));
+    if(i>=0) p.anfragen[i]=zeile; else p.anfragen.unshift(zeile);
+  }
+}
 /* Die Live-Zahlen über die Projektkarte legen — wie vereinUebernehmen(): eine Wahrheit, nicht zwei. */
 function finUebernehmen(){
   const f=FIN.data; if(!f||!D.projekte||!D.projekte.finance) return;
@@ -4636,12 +4801,14 @@ function gitSpaeter(btn){
 }
 /* Karte ausfaden und entfernen, danach nachziehen. Inline-Höhe zuerst, dann Reflow, dann die Klasse —
    ohne den Reflow springt die Höhe ohne Übergang auf null. */
-function gitWeg(box){
+function gitWeg(box){ qaWeg(box,gitNachziehen); }
+/* Dasselbe für jede lebendige Liste (06.09.): Karte zuklappen, entfernen, dann `danach` — Freigaben und Rückfragen. */
+function qaWeg(box,danach){
   if(!box||box.classList.contains('weg')) return;
   box.style.height=box.offsetHeight+'px'; box.style.overflow='hidden';
   void box.offsetHeight;
   box.classList.add('weg');
-  setTimeout(()=>{ box.remove(); gitNachziehen(); },620);
+  setTimeout(()=>{ box.remove(); if(typeof danach==='function') danach(); },620);
 }
 function gitNachziehen(){
   const liste=document.getElementById('gitListe'); if(!liste) return;
@@ -4989,6 +5156,16 @@ const LOTUS_KATALOG={
                        const w=triOffen(), b=TRI.data.nachBahn||{};
                        return {heute:w.length,gestern:histWert('aufnahme'),
                                sub:`${TRI.data.aeltesteTage!=null?`ältester seit ${TRI.data.aeltesteTage} T`:'nichts offen'} · ${b.ankommen||0} ankommen · ${b.kollektiv||0} Kollektiv · ${b.einsatz||0} Einsatz`}; }},
+  /* Mandats-Puls (06.09.). Gezählt wird, was ohne Bewegung liegt: Treffer ohne Kette plus die
+     überfälligen Zeilen deiner eigenen Pipeline. Die laufenden Fristen stehen bewusst NICHT drin —
+     die sind eine Sache von Stunden und gehören in die Karte, nicht in eine Tageskennzahl.
+     Ist der Ledger nicht frisch, gibt es keine Zahl: ein alter Ledger sieht sonst aus wie Ruhe. */
+  mandate:{icon:'\U0001F3AF',label:'Mandate ohne Bewegung',besser:'weniger',ziele:[5,2,0],
+            quelle:'Ausschreibungs-Scan (live über john-server, GET /api/ausschreibungen — Ledger + pipeline.md, beides lokal)',
+            wert:()=>{ if(!AUS.data||!AUS.data.frisch) return null;   /* alter Ledger = keine Zahl */
+                       const a=AUS.data, fr=(a.fristen||[]).filter(f=>!f.abgelaufen).length;
+                       return {heute:a.wartetAufDich,gestern:histWert('mandate'),
+                               sub:`${fr?fr+(fr===1?' Frist läuft':' Fristen laufen'):'keine Frist läuft'} · ${a.n||0} im Ledger`}; }},
   trichter:{icon:'🫧',label:'CRM-Konversion',einheit:'%',besser:'mehr',ziele:[35,45,60],
             quelle:'Analytics-Plugin auf vaikuntha.eu (live über john-server) — Kontakte, die Mitglied geworden sind',
             wert:d=>{ const c=d.verein&&d.verein.crm; if(!c||c.konversion==null) return null;
@@ -5270,7 +5447,7 @@ function lotusRender(neuChips){
 }
 async function lotusLaden(){
   const jget=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); const j=await r.json(); return (j&&j.ok!==false)?j:null; }catch(e){ return null; } };
-  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter]=await Promise.all([
+  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter,ausschr]=await Promise.all([
     jget(JOHN_API+'/api/arbeit'),
     jget(JOHN_API+'/api/kpi/jira'),
     (async()=>{ try{ const r=await fetch(PORSCHE_STE+'data/aggregated.json?t='+Date.now()); const d=await r.json(); return d&&d.vs?d:null; }catch(e){ return null; } })(),
@@ -5309,7 +5486,11 @@ async function lotusLaden(){
        nur eine Quelle erreichbar war — welche fehlt, steht in `fehlt`, und Karte wie Ritual sagen
        es. Ein Trichter, der bei toter Quelle „niemand wartet“ zeigt, wäre die gefährlichste Karte
        in diesem Cockpit: er würde Menschen unsichtbar machen, die auf eine Antwort warten. */
-    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/trichter',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/trichter',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
+    /* Mandats-Puls (06.09.): rein lokal, kann also nur fehlschlagen, wenn der Ledger fehlt oder
+       unlesbar ist (NO_LEDGER / BAD_LEDGER). Genau das muss die Karte sagen dürfen — ein fehlender
+       Ledger heißt „der Scan schreibt nicht mehr“, nicht „es liegt nichts an“. */
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/ausschreibungen',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
   ]);
   KAL.data=(kal&&kal.ok)?kal:null; KAL.fehler=(kal&&kal.ok===false)?kal:null; KAL.geladen=true;
   GIT.data=(git&&git.ok)?git:null; GIT.fehler=(git&&git.ok===false)?git:null; GIT.geladen=true; gitRefresh();
@@ -5327,14 +5508,16 @@ async function lotusLaden(){
   finUebernehmen();
   NUTZ.data=(nutzer&&nutzer.ok)?nutzer:null; NUTZ.fehler=(nutzer&&nutzer.ok===false)?nutzer:null; NUTZ.geladen=true;
   TRI.data=(trichter&&trichter.ok)?trichter:null; TRI.fehler=(trichter&&trichter.ok===false)?trichter:null; TRI.geladen=true;
+  AUS.data=(ausschr&&ausschr.ok)?ausschr:null; AUS.fehler=(ausschr&&ausschr.ok===false)?ausschr:null; AUS.geladen=true;
+  ausUebernehmen();                         /* gemessene Zahlen über die Neukunden-Karte legen, BEVOR gerendert wird */
   rhythmMalen();                            /* die Zeile „🫂 Menschen im Trichter“ hängt am Trichter-Stand */
-  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data,nutzer:NUTZ.data,trichter:TRI.data}; LOT.geladen=true;
+  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data,nutzer:NUTZ.data,trichter:TRI.data,ausschr:AUS.data}; LOT.geladen=true;
   /* Verbindungszustand für die Verbindungswacht. Unterschieden wird streng: null = der Abruf kam
      gar nicht durch (Server weg), ein Objekt = der Server hat geantwortet — auch {ok:false}, denn
      das heißt „diese eine Quelle fehlt", nicht „der Server ist tot". Nur so kann die Wacht den
      Takt richtig wählen, statt bei einer fehlenden Kalenderadresse dauernd nachzuklopfen. */
   if(typeof SRV!=='undefined'&&SRV){
-    const erreicht=[kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter].some(x=>x!==null&&x!==undefined);
+    const erreicht=[kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter,ausschr].some(x=>x!==null&&x!==undefined);
     SRV.ok=erreicht;
     if(erreicht){ SRV.stand=Date.now(); SRV.fehl=0; } else { SRV.fehl++; }
     if(typeof srvStandMalen==='function') srvStandMalen();
@@ -5342,7 +5525,7 @@ async function lotusLaden(){
     if(erreicht&&typeof finStimmenNachreichen==='function'){ try{ finStimmenNachreichen(); }catch(e){} }
   }
   if(arbeit) arbeitXpVerbuchen(arbeit);
-  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh();
+  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh(); ausRefresh();
   lotusRender(false);
   fortschrittRefresh();
   if(SUMMARY_NEU||!(S.summary&&S.summary.datum===heute())){ const f=SUMMARY_NEU; SUMMARY_NEU=false; summaryHolen(f); }
@@ -5919,7 +6102,7 @@ function render(c){
      das, woran heute gearbeitet wird —, und erst darunter Kompass und John. */
   h+=secHtml('heute', lotusCard()
     + kpiTicker()
-    + meldeBanner() + fragenBanner()
+    + meldeBanner() + fragenBanner() + umsetzungCard()
     + kanbanCard()
     + (selHat('va')?kiCard(true):'') + (d.jira?jiraCard(d.jira,true):'')
     + kompassKino() + johnKachel());
@@ -5929,7 +6112,7 @@ function render(c){
      Rückfragen, die Bene deshalb nie sah („keine Fragen an mich“). Sechs Leute, die auf eine
      Antwort warten, sind ein nächster Schritt, kein Kanalzustand. */
   h+=secHtml('schritte',
-      kalenderCard() + triCard() + postfCard() + slrCard() + wetterCard() + finCard() + nutzCard()
+      kalenderCard() + triCard() + ausCard() + postfCard() + slrCard() + wetterCard() + finCard() + nutzCard()
     + `<div class="card s6 ${tone}"><h3>⚡ Jetzt wichtig</h3>${itemsHtml(d.next,'dashboard.html › CTX.'+c+'.next',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>📅 Termine</h3>${itemsHtml(d.termine,'dashboard.html › CTX.'+c+'.termine',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>🗂️ Vorbereiten</h3>${itemsHtml(d.vorbereiten,'dashboard.html › CTX.'+c+'.vorbereiten',qo)}</div>`
@@ -5973,7 +6156,7 @@ function render(c){
   /* 31.08.: Postfach, Sicherungen, Wetter und Routinen fehlten hier. Ihre Karten rendern leer und
      werden aus dem geladenen Zustand gefüllt — nach jedem erneuten render() (Kontextwechsel!)
      standen sie darum dauerhaft auf „lädt …“, obwohl die Daten längst da waren. */
-  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh();
+  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh(); ausRefresh();
   if(KAN.mode==='personal'){ if(KAN.view==='board'){ pkDnD(); if(!PK.geladen) pkLaden(false); } else trelloLive(); }
   else { if(VA.tickets.length) vaPaint(); else vaLaden(false); }
 }
@@ -6233,6 +6416,7 @@ srvPlanen();    /* ab jetzt hält die Verbindungswacht die Anzeige frisch und fi
 setTimeout(()=>{ uebergabeNachholen().then(f=>{ if(!f) uebergabeWacht(); }); },1600);
 setTimeout(boardLaden,2600);   /* jüngstes Board für den Link im Kopf (02.09.) */   /* liegengebliebene Übergabe still nachreichen, notfalls im Takt weiter (siehe checkinSenden) */
 antwortenSync();                       /* beantwortete Rückfragen mit dem john-server abgleichen (31.08.) */
+chatFragenLaden();                     /* unbeantwortete Chat-Fragen aus den Sitzungsdateien holen (06.09.) */
 CHECKIN_SYNC=checkinSync();                         /* Morgencheck + „Das Eine" aus checkins\ übernehmen, egal in welcher Fassung er lief (31.08.) */
 einstellungenSync();                   /* Farbschema, Sprache, Tagesphase — eine Wahl für alle Fassungen (31.08.) */
 

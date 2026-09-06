@@ -64,6 +64,14 @@
                                  gleich · alt (der Befund) · unpruefbar (nicht abrufbar — dafür ist der
                                  Seiten-Wächter zuständig, hier gibt es dafür kein zweites Rot).
                                  Paare stehen im Parameter -DeployPaare; GET /api/deploy/status zeigt sie.
+   20) GET  /api/ausschreibungen[?fresh=1] → Mandats-Puls (06.09.): was der Ausschreibungs-Scan gerade
+                                 in der Hand hält. Rein lokal — gelesen werden der Ledger
+                                 john\bewerbungen\scan\scan-ledger.json (laufende Ketten mit Frist,
+                                 Treffer auf „wartet“) und die Tabelle john\bewerbungen\pipeline.md
+                                 (Benes eigene Vorgänge). Kein Netz, kein Schlüssel, kein Konto.
+                                 Der Ledger ist das Bild des Scans, nicht der Markt: läuft der Scan
+                                 nicht, altert das Bild mit — deshalb trägt jede Antwort `ledgerAlterStd`
+                                 und `frisch`, und die Karte wird grau statt zu behaupten, es sei ruhig.
    14) GET  /api/postfach     → wer wartet auf eine Antwort von dir. Der Server liest hier nur die Datei
                                  postfach.json neben diesem Skript und rechnet das Alter frisch aus; gefüllt
                                  wird sie von der geplanten Aufgabe „compass-postfach“ (Claude + Gmail-Connector),
@@ -213,6 +221,19 @@ param(
        name = 'KI-Trainer-Wochencheck';     wirkung = 'Lern-Tickets der Folgewoche, Confluence-Stand' }
     @{ id = 'Vishnu Flow Compass publish';  art = 'windows'; cron = '*/30 * * * *';     ktx = 'pr'
        name = 'Compass veröffentlichen';    wirkung = 'baut Compass, Demo und Instanzen und lädt sie auf bene./demo./<team>.vishnuartists.com' }
+    # 06.09.2026: fünf geplante Aufgaben fehlten hier. Aufgefallen beim Bauen des Mandats-Puls — der
+    # Tageslauf des Ausschreibungs-Scans ist am 04.09. ausgefallen, und weil er in dieser Liste nicht
+    # stand, hat es niemand gesehen. Diese Liste ist die einzige Stelle, an der eine Aufgabe „existiert“.
+    @{ id = 'ausschreibungs-scan-taeglich'; art = 'claude';  cron = '30 6 * * *';       ktx = 'pr'
+       name = 'Ausschreibungs-Scan';        wirkung = 'Job-Alerts prüfen, Ketten starten, Ledger schreiben' }
+    @{ id = 'job-weiterleitung-takt';       art = 'claude';  cron = '0 7-23/2 * * *';   ktx = 'pr'
+       name = 'Weitergabe-Takt';            wirkung = 'Antworten lesen, Fristen ziehen, an die nächste Person' }
+    @{ id = 'pool-verfuegbarkeit-nachfragen'; art = 'claude'; cron = '0 10 * * 1';      ktx = 'va'
+       name = 'Verfügbarkeit nachfragen';   wirkung = 'Kollektiv nach Kapazität fragen' }
+    @{ id = 'finanzlauf-leistungsnachweis'; art = 'claude';  cron = '0 9 1 * *';        ktx = 'va'
+       name = 'Leistungsnachweis';          wirkung = 'Timesheets und Rechnungen des Monats' }
+    @{ id = 'dvct-mail-an-gudrun-freitag';  art = 'claude';  cron = '0 16 * * 5';       ktx = 'pr'
+       name = 'dvct-Mail an Gudrun';        wirkung = 'wöchentliche Mail zur Fachgruppe KI-Ethik' }
     @{ id = 'porsche-agile-triage';         art = 'cloud';   cron = '0 8,16 * * 1-5';   ktx = 'va'
        name = 'Porsche AGILE triagieren';   wirkung = 'labelt und kommentiert AGILE-Tickets (Cloud-Aufgabe)' }
   ),
@@ -241,7 +262,18 @@ param(
   [string]$PortalAdminUrl = 'https://vishnuartists.com/portal-admin.php?v=bewerbungen',
   [int]$PoolCacheSec = 300,
   [int]$PoolTimeoutSec = 10,
+  # Mandats-Puls (06.09.2026, Rückfrage `mandats-puls`, Bene: „mach es“): der Ausschreibungs-Scan
+  # (geplante Aufgabe ausschreibungs-scan-taeglich) führt einen maschinenlesbaren Ledger; der Takt-Lauf
+  # job-weiterleitung-takt reicht Angebote nach Fristablauf selbsttätig weiter. Beides lief bisher an
+  # diesem Cockpit vorbei. Zwei lokale Dateien, kein Netz — 2 Min Cache reichen, der Scan schreibt
+  # höchstens alle zwei Stunden.
+  [string]$ScanLedger = 'C:\dev\john\bewerbungen\scan\scan-ledger.json',
+  [string]$ScanPipeline = 'C:\dev\john\bewerbungen\pipeline.md',
+  [int]$ScanCacheSec = 120,
+  [int]$ScanFrischStd = 36,          # älter = die Karte wird grau; der Tageslauf ist am 04.09. schon einmal ausgefallen
   [int]$RoutinenCacheSec = 600,      # Sitzungsdateien aendern sich langsam; 10 Min reichen
+  [int]$ChatFrageStd = 5,            # Chat-Fragen ohne Antwort: ab so vielen Stunden werden sie Compass-Rueckfragen (06.09.)
+  [int]$ChatFrageTage = 7,           # aeltere Fragen sind meist ueberholt; Erstlauf 06.09. fand 55 in 46 Tagen, 20 in 7
   [int]$RoutinenToleranzStd = 3,     # so lange darf eine Routine nach ihrem Termin ausstehen (Rechner war aus, Nachlauf)
   [int]$WachtCacheSec = 900,        # Erreichbarkeit: alle 15 Minuten neu
   [int]$WachtTlsCacheSec = 43200,   # Zertifikate ändern sich in Monaten, nicht in Minuten -> alle 12 h
@@ -2679,6 +2711,200 @@ function Send-PoolSchritt($in) {
 }
 
 # ---------------------------------------------------------------------------
+# Mandats-Puls — /api/ausschreibungen (06.09.2026, Rueckfrage `mandats-puls`, Bene: "mach es")
+#
+#   WOZU: seit dem 03.09. liest die geplante Aufgabe `ausschreibungs-scan-taeglich` jeden Morgen
+#   die Job-Alert-Mails, prueft jede Ausschreibung in der Kette Bene -> Kernteam -> Netzwerk und
+#   fuehrt darueber einen maschinenlesbaren Ledger. Der Compass hat davon bisher nur dann etwas
+#   gehoert, wenn schon entschieden werden musste (Rueckfrage `job-…`). Der Zustand dazwischen war
+#   unsichtbar: am 06.09. um 10:18 lagen zwei Angebote bei Jan Edinger mit Frist 12:00 Uhr — in
+#   knapp zwei Stunden haette `job-weiterleitung-takt` sie selbsttaetig an Domingo weitergereicht,
+#   und im Morgencheck stand davon kein Wort.
+#
+#   REIN LOKAL. Zwei Dateien, kein Netz, kein Schluessel, kein Konto. Der Ledger ist JSON, die
+#   Pipeline eine Markdown-Tabelle — deshalb wird sie defensiv gelesen (siehe Get-AusPipeline):
+#   erkannt wird sie ueber ihre Kopfzeile, und wie viele Zeilen ankamen, steht in der Antwort.
+#   Aendert jemand die Spalten, meldet die Karte "0 Zeilen gelesen" statt still leer zu bleiben.
+#
+#   ABGRENZUNG gegen /api/pool (05.09.): der Pool misst, was schon ein CRM-Vorgang ist. Die beiden
+#   Ketten-Angebote stehen dort als Vorgang 2 und 3 — aber ohne Frist, das Feld gibt es drueben
+#   nicht, und die Treffer auf `wartet` sind nie ein Vorgang geworden. Dieser Endpunkt misst, was
+#   davor liegt. Beide zusammen ergeben erst den Weg.
+#
+#   EHRLICHKEIT: der Ledger ist das Bild des Scans, nicht der Markt. Laeuft der Scan nicht, altert
+#   das Bild mit — genau das ist am 04.09. passiert (kein Protokolleintrag, Ledger blieb einen Tag
+#   stehen). Jede Antwort traegt deshalb `ledgerStand`, `ledgerAlterStd` und `frisch`; ist sie
+#   nicht frisch, zeigt die Karte das und die Bluete bleibt leer, statt Ruhe zu behaupten.
+#
+#   DATENSCHUTZ: im Ledger stehen Namen und Mailadressen (die Person in der Kette, bei Hays die
+#   Ansprechpartnerin der Agentur). Dieselbe Regel wie bei Postfach, Slack und Trichter — im
+#   Server rechnen, in der Karte zeigen, NIE in eine *-data.js: die geht alle 30 Minuten auf
+#   bene., demo. und die Team-Subdomains. Mailadressen gibt dieser Endpunkt gar nicht erst heraus.
+# ---------------------------------------------------------------------------
+$script:AusCache = @{ zeit = $null; out = $null }
+$script:AusFormate = @('dd.MM.yyyy', 'dd.MM.yyyy, HH:mm', 'dd.MM.yyyy HH:mm', 'd.M.yyyy', 'd.M.yyyy, HH:mm')
+function Get-AusDatum([string]$roh) {
+  # REIHENFOLGE IST DIE GANZE SACHE. [datetime]::TryParse mit InvariantCulture frisst "08.09.2026"
+  # klaglos und macht daraus den 9. AUGUST — Monat und Tag vertauscht. Gemessen am 06.09.: die
+  # Pipeline-Zeile "faellig 08.09.2026" kam als 28 Tage ueberfaellig heraus, "06.09.2026, 12:00"
+  # als 89 Tage. Deshalb entscheidet erst die Schreibweise, dann wird geparst: was mit vier Ziffern
+  # und Bindestrich beginnt, ist ISO (so schreibt der Ledger, mit Zeitzone); alles andere ist die
+  # deutsche Tabelle in pipeline.md und wird ausschliesslich gegen feste Formate geprueft.
+  $t = ([string]$roh).Trim()
+  if (-not $t) { return $null }
+  $d = [datetime]::MinValue
+  $inv = [Globalization.CultureInfo]::InvariantCulture
+  $de  = [Globalization.CultureInfo]::GetCultureInfo('de-DE')
+  $stil = [Globalization.DateTimeStyles]::AllowWhiteSpaces
+  if ($t -match '^\d{4}-\d{2}-\d{2}') {
+    if ([datetime]::TryParse($t, $inv, $stil, [ref]$d)) { return $d }
+    return $null
+  }
+  foreach ($f in $script:AusFormate) {
+    if ([datetime]::TryParseExact($t, $f, $de, $stil, [ref]$d)) { return $d }
+  }
+  # Letzter Versuch mit deutscher Kultur — nie mit der invarianten, siehe oben.
+  if ([datetime]::TryParse($t, $de, $stil, [ref]$d)) { return $d }
+  $null
+}
+function Get-AusKurz([string]$text, [int]$n) {
+  $t = ([string]$text) -replace '\s+', ' '
+  $t = $t.Trim()
+  if ($t.Length -le $n) { return $t }
+  $t.Substring(0, $n - 1) + [char]0x2026
+}
+# Die Markdown-Tabellen aus pipeline.md. Bewusst tolerant: erkannt wird eine Tabelle an ihrer
+# Kopfzeile (eine Zelle heisst "Rolle"), die Spalten werden ueber die Kopfnamen zugeordnet statt
+# ueber ihre Position. Verschiebt jemand eine Spalte, stimmt es trotzdem; benennt jemand sie um,
+# faellt genau dieses Feld weg und die Zeile bleibt stehen. Ueberschriften (##) werden zum Bereich.
+function Get-AusPipeline([string]$pfad) {
+  if (-not (Test-Path -LiteralPath $pfad)) {
+    return @{ ok = $false; grund = 'Datei fehlt'; datei = $pfad; gelesen = 0; zeilen = @() }
+  }
+  $zeilen = @(); $bereich = 'Bewerbungen'; $kopf = $null
+  try { $roh = Get-Content -LiteralPath $pfad -Encoding UTF8 } catch {
+    return @{ ok = $false; grund = ('nicht lesbar: ' + $_.Exception.Message); datei = $pfad; gelesen = 0; zeilen = @() }
+  }
+  foreach ($z in $roh) {
+    $t = ([string]$z).Trim()
+    if ($t -match '^#{1,6}\s+(.+)$') { $bereich = $Matches[1].Trim(); $kopf = $null; continue }
+    if ($t -notmatch '^\|') { if ($t -eq '') { $kopf = $null }; continue }
+    $zellen = @(($t.Trim('|') -split '(?<!\\)\|') | ForEach-Object { $_.Trim() })
+    if (-not $zellen.Count) { continue }
+    # Trennzeile (|---|---|) — nie Inhalt
+    $nurStriche = $true
+    foreach ($c in $zellen) { if ($c -notmatch '^:?-{2,}:?$') { $nurStriche = $false; break } }
+    if ($nurStriche) { continue }
+    if (-not $kopf) {
+      if (($zellen -join '|') -match '(?i)rolle') { $kopf = $zellen }
+      continue                                    # Kopfzeile selbst ist keine Zeile
+    }
+    $hol = {
+      param($muster)
+      for ($i = 0; $i -lt $kopf.Count; $i++) {
+        if ($kopf[$i] -match $muster -and $i -lt $zellen.Count) { return [string]$zellen[$i] }
+      }
+      ''
+    }
+    $rolle = & $hol '(?i)rolle'
+    if (-not $rolle) { continue }
+    $faellig = & $hol '(?i)f(ä|ae)llig'
+    $fd = Get-AusDatum $faellig
+    $tage = $null
+    if ($fd) { $tage = [int][math]::Floor(((Get-Date).Date - $fd.Date).TotalDays) }   # >0 = ueberfaellig
+    $zeilen += , @{ bereich = $bereich
+                    firma   = (Get-AusKurz (& $hol '(?i)firma|kunde') 90)
+                    rolle   = (Get-AusKurz $rolle 90)
+                    status  = (Get-AusKurz (& $hol '(?i)status') 60)
+                    schritt = (Get-AusKurz (& $hol '(?i)schritt') 180)
+                    faellig = $faellig
+                    ueberTage = $tage }
+  }
+  @{ ok = $true; datei = $pfad; gelesen = @($zeilen).Count; zeilen = @($zeilen)
+     ueberfaellig = @($zeilen | Where-Object { $null -ne $_.ueberTage -and $_.ueberTage -gt 0 }).Count }
+}
+function Get-Ausschreibungen([bool]$fresh) {
+  $cc = $script:AusCache
+  if (-not $fresh -and $cc.out -and $cc.zeit -and ((Get-Date) - $cc.zeit).TotalSeconds -lt $ScanCacheSec) { return $cc.out }
+  if (-not (Test-Path -LiteralPath $ScanLedger)) {
+    return @{ ok = $false; error = 'NO_LEDGER'; datei = $ScanLedger
+              hint = 'Der Ledger des Ausschreibungs-Scans fehlt. Laeuft die geplante Aufgabe ausschreibungs-scan-taeglich noch?' }
+  }
+  try { $j = (Get-Content -LiteralPath $ScanLedger -Raw -Encoding UTF8) | ConvertFrom-Json }
+  catch { return @{ ok = $false; error = 'BAD_LEDGER'; datei = $ScanLedger; hint = ('Ledger nicht lesbar: ' + $_.Exception.Message) } }
+
+  $jetzt = Get-Date
+  $lStand = Get-AusDatum ([string]$j.stand)
+  $lAlter = $null
+  if ($lStand) { $lAlter = [math]::Round(($jetzt - $lStand).TotalHours, 1) }
+  $frisch = ($null -ne $lAlter -and $lAlter -le $ScanFrischStd)
+
+  $fristen = @(); $wartend = @(); $sonstige = @(); $stille = 0
+  foreach ($e in @($j.eintraege)) {
+    if (-not $e) { continue }
+    $st = [string]$e.status
+    $basis = @{ schluessel = [string]$e.schluessel
+                titel   = (Get-AusKurz ([string]$e.titel) 110)
+                anbieter= (Get-AusKurz ([string]$e.anbieter) 60)
+                kunde   = (Get-AusKurz ([string]$e.kunde) 60)
+                ort     = (Get-AusKurz ([string]$e.ort) 60)
+                remote  = (Get-AusKurz ([string]$e.remote) 60)
+                start   = (Get-AusKurz ([string]$e.start) 40)
+                dauer   = (Get-AusKurz ([string]$e.dauer) 60)
+                rate    = (Get-AusKurz ([string]$e.rate) 60)
+                url     = [string]$e.url
+                stufe   = [string]$e.stufe
+                status  = $st
+                gesehen = [string]$e.gesehen_am }
+    if ($st -eq 'keine') { $stille++; continue }
+    if ($st -eq 'kette') {
+      # Nur die offenen Glieder — beantwortete sind erledigt und gehoeren nicht in eine Fristenliste.
+      foreach ($k in @($e.kette)) {
+        if (-not $k) { continue }
+        if ($null -ne $k.antwort -and [string]$k.antwort -ne '') { continue }
+        $fd = Get-AusDatum ([string]$k.frist)
+        $rest = $null
+        if ($fd) { $rest = [math]::Round(($fd - $jetzt).TotalHours, 1) }
+        $z = @{} ; foreach ($p in $basis.GetEnumerator()) { $z[$p.Key] = $p.Value }
+        $z.person    = [string]$k.name                 # Name ja, Mailadresse nie
+        $z.gesendet  = [string]$k.gesendet_am
+        $z.frist     = [string]$k.frist
+        $z.restStd   = $rest
+        $z.abgelaufen = ($null -ne $rest -and $rest -lt 0)
+        $z.vorgangId = $(if ($k.bewerbung_id) { [int]$k.bewerbung_id } else { $null })
+        $fristen += , $z
+      }
+      continue
+    }
+    $z = @{} ; foreach ($p in $basis.GetEnumerator()) { $z[$p.Key] = $p.Value }
+    $z.notiz = (Get-AusKurz ([string]$e.notiz) 260)
+    $z.tage  = $(if ($e.gesehen_am) { $d = Get-AusDatum ([string]$e.gesehen_am); if ($d) { [int][math]::Floor(($jetzt.Date - $d.Date).TotalDays) } else { $null } } else { $null })
+    if ($st -eq 'wartet') { $wartend += , $z } else { $sonstige += , $z }
+  }
+
+  # Faellige zuerst: was am ehesten ablaeuft, gehoert nach oben. Ohne Frist ans Ende.
+  $fristen = @($fristen | Sort-Object @{ Expression = { if ($null -eq $_.restStd) { 9999 } else { $_.restStd } } })
+  $wartend = @($wartend | Sort-Object @{ Expression = { if ($null -eq $_.tage) { -1 } else { $_.tage } }; Descending = $true })
+
+  $pipe = Get-AusPipeline $ScanPipeline
+  $offenN = @($fristen | Where-Object { -not $_.abgelaufen }).Count
+  $abN    = @($fristen | Where-Object { $_.abgelaufen }).Count
+  $naechste = $null
+  foreach ($f in @($fristen)) { if (-not $f.abgelaufen -and $null -ne $f.restStd -and ($null -eq $naechste -or $f.restStd -lt $naechste)) { $naechste = $f.restStd } }
+
+  $out = @{ ok = $true; stand = $jetzt.ToString('o'); cacheSec = $ScanCacheSec
+            ledger = $ScanLedger; ledgerStand = [string]$j.stand; ledgerAlterStd = $lAlter; frisch = $frisch; frischStd = $ScanFrischStd
+            n = @($j.eintraege).Count; stille = $stille
+            fristen = @($fristen); fristenOffen = $offenN; fristenAbgelaufen = $abN; naechsteFristStd = $naechste
+            wartend = @($wartend); wartendN = @($wartend).Count
+            sonstige = @($sonstige); sonstigeN = @($sonstige).Count
+            pipeline = $pipe
+            wartetAufDich = (@($wartend).Count + @($sonstige).Count + [int]$pipe.ueberfaellig) }
+  $script:AusCache = @{ zeit = Get-Date; out = $out }
+  $out
+}
+
+# ---------------------------------------------------------------------------
 # Routinen-Waechter — /api/routinen (31.08.2026)
 #   Elf Routinen arbeiten fuer Bene, und der Compass sagte ueber keine davon ein Wort. Heikel ist
 #   das, weil das Scheitern still ist: bleibt eine Routine weg, rechnen die Karten ihre Alter
@@ -2802,6 +3028,129 @@ function Get-RoutinenLaeufe {
     if ($t) { if (-not $letzte.ContainsKey($t.name) -or $letzte[$t.name] -lt $t.zeit) { $letzte[$t.name] = $t.zeit } }
   }
   $letzte
+}
+
+# ---------------------------------------------------------------------------
+# Chat-Fragen ohne Antwort — GET /api/chatfragen[?fresh=1] (06.09.2026)
+#   Bene: „regelmaessig dahin channeln, wenn ich hier 5 Stunden keine Antwort gebe“. Eine Frage, die
+#   Claude im Chat stellt, ist weg, sobald die Session zu ist. Deshalb liest der Server die
+#   Sitzungsdateien (~/.claude/projects/*/*.jsonl, letzte $ChatFrageTage Tage) und sucht Sessions, deren
+#   letzte Nachricht von Claude ist, eine Frage oder Bitte an Bene enthaelt und seit >= $ChatFrageStd
+#   Stunden unbeantwortet steht. Geplante Aufgaben (Marker scheduled-task in den ersten Zeilen) zaehlen
+#   nicht: dort antwortet niemand, und sie legen ihre Rueckfragen selbst in rhythmus-data.js ab.
+#   Je Datei wird nur gemerkt, welche Zeile die letzte Nutzer- bzw. Claude-Zeile mit Text ist; geparst
+#   werden genau diese. Ergebnis $RoutinenCacheSec im Cache, je Datei nach Aenderungszeit.
+#   Keine Personendaten Dritter: nur Benes eigene erste Chat-Zeile (70 Zeichen) und Claudes Frage;
+#   die Antwort landet wie jede Rueckfrage lokal in antworten.json und im Checkin.
+$script:ChatFragenCache = @{ zeit = $null; out = $null }
+$script:ChatFragenDateien = @{}   # Pfad -> @{ mtime; eintrag }
+function Get-ChatText($line) {
+  try { $d = $line | ConvertFrom-Json } catch { return $null }
+  if (-not $d -or -not $d.message) { return $null }
+  $c = $d.message.content
+  $t = ''
+  if ($c -is [string]) { $t = $c }
+  else { foreach ($b in @($c)) { if ($b -and $b.type -eq 'text' -and $b.text) { $t += $b.text + "`n" } } }
+  $zt = $null
+  if ($d.timestamp) { try { $zt = [datetime]::Parse([string]$d.timestamp, $null, 'RoundtripKind').ToLocalTime() } catch { } }
+  @{ text = $t.Trim(); zeit = $zt; cwd = [string]$d.cwd; sid = [string]$d.sessionId }
+}
+function Get-ChatFrageAus([string]$text) {
+  # Saetze mit Fragezeichen an Bene oder Bitten („sag Bescheid“, „fehlt nur dein …“) — sonst $null
+  $saetze = [regex]::Split($text, '(?<=[.!?])\s+|\n+') | ForEach-Object { $_.Trim() } | Where-Object { $_ }
+  $treffer = @()
+  foreach ($s in $saetze) {
+    if ($s.Length -lt 12 -or $s.Length -gt 400) { continue }
+    if ($s -match '^\s*[-*#>|]' -or $s -match '^```') { continue }
+    $frage = ($s -match '\?\s*$' -and $s -match '(?i)\b(du|dir|dich|dein\w*|soll ich|sollen wir|willst|magst|moechtest|möchtest|kannst|passt|okay|ok)\b')
+    $bitte = ($s -match '(?i)(sag (mir )?bescheid|gib mir|schick(e)? mir|brauche ich von dir|von dir (fehlt|brauche)|fehlt (nur |noch )?(dein|deine|von dir)|musst du|bitte (pruef|prüf|schau|entscheid|bestaetig|bestätig|sag))')
+    if ($frage -or $bitte) { $treffer += $s }
+  }
+  if (-not $treffer.Count) { return $null }
+  $t = (@($treffer | Select-Object -Last 2) -join ' ') -replace '\*\*', '' -replace '`', ''
+  if ($t.Length -gt 300) { $t = $t.Substring(0, 297) + '…' }
+  $t
+}
+function Get-ChatOptionen([string]$text, [string]$frage) {
+  # Nummerierte oder Aufzaehlungs-Zeilen HINTER der Frage — nur, wenn es 2 bis 4 sind; sonst Ja/Nein/Uebergabe.
+  # Listen vor der Frage sind fast immer Befunde oder Dateinamen, keine Wahlmoeglichkeiten (Erstlauf 06.09.).
+  $opt = @()
+  $rest = $text
+  if ($frage) {
+    $kern = $frage.Substring(0, [Math]::Min(40, $frage.Length))
+    $i = $text.IndexOf($kern)
+    if ($i -ge 0) { $rest = $text.Substring($i) }
+  }
+  foreach ($z in ($rest -split "`n")) {
+    if ($z -match '^\s*(?:\d+[.)]|[-*•]|[a-cA-C][.)])\s+(.{3,120})$') {
+      $o = $Matches[1] -replace '\*\*', '' -replace '`', ''
+      $o = $o -replace '\s*[—:–].*$', ''
+      if ($o.Length -gt 80) { $o = $o.Substring(0, 77) + '…' }
+      if ($o.Trim()) { $opt += $o.Trim() }
+    }
+  }
+  if ($opt.Count -ge 2 -and $opt.Count -le 4) { return @($opt) }
+  @('Ja', 'Nein', 'Antwort steht in der Übergabe an Claude')
+}
+function Get-ChatFragen([bool]$fresh) {
+  $cc = $script:ChatFragenCache
+  if (-not $fresh -and $cc.out -and $cc.zeit -and ((Get-Date) - $cc.zeit).TotalSeconds -lt $RoutinenCacheSec) { return $cc.out }
+  $wurzel = Join-Path $env:USERPROFILE '.claude\projects'
+  if (-not (Test-Path $wurzel)) { return @{ ok = $false; error = 'NO_SESSIONS'; hint = 'Keine Sitzungsdateien unter ~/.claude/projects.' } }
+  $seit = (Get-Date).AddDays(-$ChatFrageTage)
+  $jetzt = Get-Date
+  $fragen = @(); $geprueft = 0
+  $dateien = @(Get-ChildItem $wurzel -Directory -ErrorAction SilentlyContinue | ForEach-Object { Get-ChildItem $_.FullName -Filter *.jsonl -File -ErrorAction SilentlyContinue } | Where-Object { $_.LastWriteTime -ge $seit })
+  foreach ($f in $dateien) {
+    $k = $f.FullName
+    $alt = $script:ChatFragenDateien[$k]
+    if ($alt -and $alt.mtime -eq $f.LastWriteTimeUtc) { if ($alt.eintrag) { $fragen += , $alt.eintrag }; continue }
+    $geprueft++
+    $eintrag = $null; $sr = $null
+    try {
+      $sr = New-Object IO.StreamReader($k, [Text.Encoding]::UTF8)
+      $n = 0; $routine = $false; $erste = $null; $lastA = $null; $nutzer = 0
+      while ($null -ne ($z = $sr.ReadLine())) {
+        $n++
+        if ($n -le 6 -and $z -match 'scheduled-task name=') { $routine = $true; break }
+        if ($z.Contains('"isSidechain":true')) { continue }
+        if ($z.Contains('"type":"user"')) {
+          if ($z.Contains('"tool_result"') -or $z.Contains('"isMeta":true')) { continue }
+          $nutzer++; $lastA = $null
+          if (-not $erste) { $erste = $z }
+        } elseif ($z.Contains('"type":"assistant"') -and $z.Contains('"type":"text"')) { $lastA = $z }
+      }
+      $sr.Close(); $sr = $null
+      if (-not $routine -and $nutzer -ge 1 -and $lastA) {
+        $a = Get-ChatText $lastA
+        # Alter der Frage selbst, nicht der Datei: Sitzungsdateien werden auch Wochen spaeter noch angefasst
+        if ($a -and $a.text -and $a.zeit -and (($jetzt - $a.zeit).TotalHours -ge $ChatFrageStd) -and (($jetzt - $a.zeit).TotalDays -le $ChatFrageTage)) {
+          $frage = Get-ChatFrageAus $a.text
+          if ($frage) {
+            $e = Get-ChatText $erste
+            $titel = ''
+            if ($e -and $e.text) { $titel = ($e.text -replace '\s+', ' ').Trim(); if ($titel.Length -gt 70) { $titel = $titel.Substring(0, 67) + '…' } }
+            $ordner = ''
+            if ($a.cwd) { $ordner = Split-Path $a.cwd -Leaf }
+            $std = [int][math]::Round(($jetzt - $a.zeit).TotalHours)
+            $sid = $(if ($a.sid -and $a.sid.Length -ge 8) { $a.sid.Substring(0, 8) } else { [IO.Path]::GetFileNameWithoutExtension($k) })
+            $eintrag = @{ id = 'chat:' + $sid
+                          projekt = 'Chat · ' + $ordner + $(if ($titel) { ' · „' + $titel + '“' } else { '' })
+                          frage = $frage
+                          warum = ('Gestellt am {0} im Chat und seit {1} Stunden ohne Antwort. Der Chat ist vermutlich zu — deine Antwort hier landet im Checkin, den Claude beim nächsten Sessionstart liest.' -f $a.zeit.ToString('dd.MM. HH:mm'), $std)
+                          optionen = @(Get-ChatOptionen $a.text $frage)
+                          session = $sid; gestellt = $a.zeit.ToString('s'); stunden = $std }
+          }
+        }
+      }
+    } catch { try { if ($sr) { $sr.Close() } } catch { } }
+    $script:ChatFragenDateien[$k] = @{ mtime = $f.LastWriteTimeUtc; eintrag = $eintrag }
+    if ($eintrag) { $fragen += , $eintrag }
+  }
+  $out = @{ ok = $true; stand = $jetzt.ToString('s'); schwelleStd = $ChatFrageStd; tage = $ChatFrageTage; geprueft = $geprueft
+            anzahl = @($fragen).Count; fragen = @($fragen | Sort-Object { $_.gestellt } -Descending) }
+  $script:ChatFragenCache = @{ zeit = $jetzt; out = $out }
+  $out
 }
 
 $script:RoutinenCache = @{ zeit = $null; out = $null }
@@ -3355,6 +3704,10 @@ try {
         Send-Json $ctx (Get-Routinen ($req.QueryString['fresh'] -eq '1'))
         continue
       }
+      if ($path -eq '/api/chatfragen') {
+        Send-Json $ctx (Get-ChatFragen ($req.QueryString['fresh'] -eq '1')) 200   # {ok:false} ist eine Antwort, kein HTTP-Fehler
+        continue
+      }
 
       if ($path -eq '/api/finanzen') {
         $f = Get-Finanzen ($req.QueryString['fresh'] -eq '1')
@@ -3374,6 +3727,10 @@ try {
         continue
       }
 
+      if ($path -eq '/api/ausschreibungen') {
+        Send-Json $ctx (Get-Ausschreibungen ($req.QueryString['fresh'] -eq '1')) 200   # {ok:false} ist eine Antwort, kein HTTP-Fehler
+        continue
+      }
       if ($path -eq '/api/pool') {
         Send-Json $ctx (Get-Pool ($req.QueryString['fresh'] -eq '1')) 200   # {ok:false} ist eine Antwort, kein HTTP-Fehler
         continue
