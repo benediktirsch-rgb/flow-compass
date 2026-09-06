@@ -222,6 +222,15 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .item.link::after{content:'↗';position:absolute;right:9px;top:9px;font-size:11px;font-weight:700;color:var(--dim);opacity:.5;transition:.15s}
 .item.link:hover::after,.item.link:focus-visible::after{opacity:1;color:var(--va-l)}
 .item.link.multi::after{content:'⋯'}
+/* Entschieden-Karte verarbeitbar (06.09.): vier Knöpfe je Zeile, kleiner Fragen-Dialog, ↩ in der Fußzeile */
+.item.ums .opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.item.ums .opts button{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:700;color:var(--sub);cursor:pointer}
+.item.ums .opts button:hover{border-color:var(--line2);color:var(--ink)}
+.item.ums .opts button.a{background:var(--bene);border-color:var(--bene);color:#1c1300}
+.item.ums .umsdlg{margin-top:8px}
+.item.ums .umsdlg textarea{width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;font-size:12.5px;color:var(--ink);resize:vertical}
+.item.ums .dt{color:var(--dim);font-size:11.5px}
+.ums-ru{background:none;border:0;color:var(--va-l);cursor:pointer;font:inherit;font-weight:700;padding:0 2px}
 #qov .sheet{max-width:540px}
 #qov .qh{padding:18px 44px 8px 24px;position:relative}
 #qov .qh .src{font-size:11px;color:var(--dim);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
@@ -1815,7 +1824,7 @@ function checkinNutzlast(art,text){
   return {art,datum:heute(),titel:(FLOW&&FLOW.titel)||art,text,
           fokus:(S.fokus.datum===heute()&&S.fokus.text)||'',
           auftrag:(art==='morgen'&&a.auftrag)||'',
-          antworten:a,wahl:w,entschieden:frisch,
+          antworten:a,wahl:w,entschieden:frisch.concat(umsFrisch()),
           offen:offeneFragen().map(q=>q.id),
           quelle:location.origin+location.pathname};
 }
@@ -1927,7 +1936,7 @@ function boardCta(){
    hin und übernimmt, was er noch nicht kennt. Ist der Server aus, bleibt alles
    beim Alten — der lokale Stand gilt weiter, und der nächste Ladeversuch holt es nach.
    ========================================================================== */
-function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null)||(S.meldeFragen||{})[id]||((typeof CHATF!=='undefined'?CHATF.list:[])||[]).find(x=>x.id===id); return q?q.frage:''; }
+function antwortText(id){ if(/^ums:/.test(id)){ const r=umsZeile(id); return r?'Umsetzung: '+r[2]+' ('+(r[3]==='bene'?'bei die Nutzerin':'bei Claude')+', '+datumKurz(r[0])+')':''; } const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null)||(S.meldeFragen||{})[id]||((typeof CHATF!=='undefined'?CHATF.list:[])||[]).find(x=>x.id===id); return q?q.frage:''; }
 function antwortMerken(frage){ const k=frageSchluessel(frage); if(k) ANTW_TEXT.add(k); }
 /* Eine frisch gegebene Antwort sofort hinschicken. Fehlschlag ist unkritisch:
    sie steht im localStorage, geht mit dem Checkin mit und wird beim nächsten
@@ -2173,6 +2182,8 @@ function briefing(art){
   (FLOW.schritte||[]).forEach(s=>{ const a=FLOW.antworten[s.id]; if(a) L.push(`${s.icon||'•'} ${s.titel||s.frage}: ${a}`); });
   const frisch=(R.rueckfragen||[]).filter(q=>S.antworten[q.id] && S.antworten[q.id].ts===heute());
   if(frisch.length){ L.push(''); L.push('Antworten auf deine Rückfragen:'); frisch.forEach(q=>L.push(`- ${q.frage} → ${S.antworten[q.id].a}`)); }
+  const ums=umsFrisch();
+  if(ums.length){ L.push(''); L.push('Rückmeldungen zu „entschieden, noch nicht umgesetzt“ (ums:<id> in antworten.json):'); ums.forEach(u=>L.push(`- ${u.frage} → ${u.antwort}`)); }
   const nochOffen=offeneFragen();
   if(nochOffen.length){ L.push(''); L.push(`(${nochOffen.length} Rückfragen noch offen)`); }
   L.push('');
@@ -2337,7 +2348,7 @@ function qmark(titel,text,herkunft,opt){
   if(q&&q.quelle) hints.unshift(q.quelle);
   const id=QREG.push({titel:String(titel||''),text:String(text||''),quellen,hints,herkunft:herkunft||'',fn:opt.fn||null,akt:opt.akt||null,stand:opt.stand||''})-1;
   const direkt = quellen.length===1 && quellen[0].typ!=='file' && !opt.fn && !opt.akt;
-  const tip = direkt ? 'Öffnen ↗ '+quellen[0].label : (opt.fn ? (opt.tip||'Öffnen') : opt.akt ? (opt.tip||'Entscheiden · Einplanen · Coach fragen') : (quellen.length?quellen.length+' Quellen — Details anzeigen':'Details & Herkunft anzeigen'));
+  const tip = direkt ? 'Öffnen ↗ '+quellen[0].label : (opt.fn ? (opt.tip||'Öffnen') : opt.akt ? (opt.tip||'Entscheiden · Einplanen · Coach fragen') : (quellen.length?quellen.length+' Quellen — Details anzeigen':'Einstieg: Jira-Suche · Einplanen · An Claude · Coach fragen'));
   return {c:'link'+(direkt?'':' multi'), a:` data-q="${id}" tabindex="0" role="${direkt?'link':'button'}" title="${escA(tip)}"`};
 }
 function quelleOeffnen(i){
@@ -2354,13 +2365,19 @@ function quelleOverlay(q){
   const rows=q.quellen.map(l=>l.typ==='file'
     ? `<div class="qf"><span>📁</span><span class="ql" title="${escA(l.url)}">${esc(l.label)}</span><small>lokal</small><button type="button" data-copy="${escA(l.url)}">📋 Pfad kopieren</button></div>`
     : `<a href="${escA(l.url)}" target="_blank" rel="noopener"><span>${ic[l.typ]||'🔗'}</span><span class="ql">${esc(l.label)}</span><small>${esc(l.typ==='explizit'?'Link':l.typ)} ↗</small></a>`).join('');
+  /* Einstieg (06.09., die Nutzerin: „Hier direkt einen Einstieg ins Thema ermöglichen“): eine Zeile ohne Link war bisher eine
+     Sackgasse — der Dialog sagte nur, dass nichts verlinkt ist. Jetzt bietet jede Zeile ohne eigene Aktionen den
+     Standard-Einstieg: Jira-Suche nach dem Titel, Karte auf Mein Board, Auftrag an Claude, Coach fragen. */
+  const akt=q.akt||handEinstieg(q);
+  const suche=q.quellen.some(l=>l.typ==='jira')?'':`<a href="${escA(jiraSucheUrl(q.titel))}" target="_blank" rel="noopener"><span>🔎</span><span class="ql">In Jira suchen: „${esc(q.titel)}“</span><small>Suche ↗</small></a>`;
   document.getElementById('qovBody').innerHTML=`${q.text?`<div class="txt">${esc(q.text)}</div>`:''}
-    ${rows?`<div class="qlinks">${rows}</div>`:'<div class="hint" style="margin-top:12px;color:var(--dim);font-size:12px">Keine Verlinkung erkannt — ein Jira-Key, eine URL oder ein wp-admin-Pfad im Text macht die Zeile direkt anklickbar; alternativ {url:…} als letztes Element der Datenzeile.</div>'}
+    ${(rows||suche)?`<div class="qlinks">${rows}${suche}</div>`:''}
+    ${rows?'':'<div class="hint" style="margin-top:12px;color:var(--dim);font-size:12px">Kein Link in der Zeile — der Einstieg geht über die Knöpfe unten. Ein Jira-Key oder eine URL im Text macht die Zeile direkt anklickbar.</div>'}
     ${q.hints.length?`<div class="mini">Erwähnt: ${q.hints.map(esc).join(' · ')}</div>`:''}
     ${q.stand?`<div class="mini">${esc(q.stand)}</div>`:''}
-    ${q.akt?`<div class="chipbar">${q.akt.map((a,i)=>`<button type="button" class="btn ${a.cls||''}" data-akt="${i}" title="${escA(a.tip||'')}">${esc(a.label)}</button>`).join('')}</div>`:''}`;
+    ${akt?`<div class="chipbar">${akt.map((a,i)=>`<button type="button" class="btn ${a.cls||''}" data-akt="${i}" title="${escA(a.tip||'')}">${esc(a.label)}</button>`).join('')}</div>`:''}`;
   /* Aktionen (05.09.): Overlay zu, dann handeln — das Ziel (Ritual, Karten-Dialog, Coach) öffnet sein eigenes Fenster. */
-  document.querySelectorAll('#qovBody [data-akt]').forEach(b=>b.addEventListener('click',()=>{ quelleSchliessen(); const a=q.akt[Number(b.dataset.akt)]; if(a&&a.fn) a.fn(); }));
+  document.querySelectorAll('#qovBody [data-akt]').forEach(b=>b.addEventListener('click',()=>{ quelleSchliessen(); const a=akt[Number(b.dataset.akt)]; if(a&&a.fn) a.fn(); }));
   document.querySelectorAll('#qovBody [data-copy]').forEach(b=>b.addEventListener('click',()=>{
     const p=b.dataset.copy.replace(/^file:\/\/\//,'').replace(/\//g,'\\'); let s; try{ s=decodeURIComponent(p); }catch(e){ s=p; }
     (navigator.clipboard?navigator.clipboard.writeText(s):Promise.reject()).then(()=>{ b.textContent='✓ kopiert'; }).catch(()=>prompt('Pfad kopieren:',s));
@@ -2368,6 +2385,26 @@ function quelleOverlay(q){
   qov.classList.add('on');
 }
 function quelleSchliessen(){ qov.classList.remove('on'); }
+function jiraSucheUrl(titel){ const s=String(titel||'').replace(/["\\]/g,' ').slice(0,80); return JIRA_VA_URL.replace(/browse\/$/,'issues/?jql=')+encodeURIComponent('text ~ "'+s+'" ORDER BY updated DESC'); }
+function handEinstieg(q){
+  const satz=`„${q.titel}“${q.text?' — '+q.text:''}${q.herkunft?' (Quelle: '+q.herkunft+')':''}`;
+  return [
+    {label:'📅 Einplanen',cls:'w',tip:'Als Karte auf Mein Board — von dort weiter nach Trello oder Jira',fn:()=>pkNeu('bereit',{name:q.titel,desc:[q.text,q.herkunft?'Quelle: '+q.herkunft:''].filter(Boolean).join('\n')})},
+    {label:'🤖 An Claude',cls:'a',tip:'Als Auftrag nach checkins/ — die nächste Claude-Session steigt damit ein',fn:()=>handAnClaude(q.titel,satz)},
+    {label:'🧠 Coach fragen',cls:'',tip:'Coach ordnet das Thema ein und schlägt den ersten Schritt vor',fn:()=>johnOpen(`Im Compass steht ${satz}. Wo steige ich am besten ein, und was ist der erste Schritt?`)}];
+}
+/* Auftrag an Claude über denselben Weg wie Coach- Stapel (POST /api/john/stapel/stand mit auftrag) — der Server hängt
+   ihn an checkins\<datum>-auftraege.md, jede Claude-Session liest den Ordner. Der Stapel-Stand unter hand:<slug>
+   ist Beifang (24 h Wiedervorlage) und stört nichts, weil kein Stapel-Punkt diesen Schlüssel trägt. */
+async function handAnClaude(titel,auftrag){
+  const key='hand:'+String(titel||'').toLowerCase().replace(/[^a-z0-9äöüß]+/g,'-').replace(/^-|-$/g,'').slice(0,40);
+  try{
+    const r=await fetch(JOHN_API+'/api/john/stapel/stand',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({key,status:'wieder',aktion:'An Claude',titel,stunden:24,auftrag}),signal:AbortSignal.timeout(15000)});
+    const j=await r.json(); if(j&&j.ok){ toast('🤖 Auftrag liegt in checkins/ — die nächste Claude-Session steigt damit ein','ok'); return true; }
+  }catch(e){}
+  toast('Der john-server war nicht erreichbar — Auftrag nicht abgelegt.','warn'); return false;
+}
 qov.addEventListener('click',e=>{ if(e.target===qov) quelleSchliessen(); });
 document.getElementById('qovX').addEventListener('click',quelleSchliessen);
 /* Delegation auf dem Grid: Klick/Enter/Space auf .item.link — Inline-Links und Buttons behalten Vorrang */
@@ -2409,20 +2446,95 @@ function mehrAuf(b,id){
   b.textContent = auf ? '▴ weniger zeigen' : '▾ '+(b.dataset.rest||'')+' weitere zeigen';
   if(typeof kinoHoehe==='function') kinoHoehe();   /* die Kino-Karte misst ihre Bühne selbst nach */
 }
-function itemsHtml(arr,herkunft,opt){return kurzListe(arr.map(r=>{const {row:x,q}=zeileTrennen(r); const m=qmark(x[1],x[2],herkunft,Object.assign({},opt,{q}));
+/* ---------- Gegencheck Handliste ↔ Jira (06.09.2026, die Nutzerin: „gegencheck fehlt. Thema längst geschlossen“) ----------
+   Handgetippte Zeilen (CTX.*.next/termine/vorbereiten hier, woche.* in dashboard-data.js) nennen oft ein
+   Jira-Ticket — und niemand las nach, ob es noch offen ist: VA-12830 (SPC-Erneuerung) stand als Termin
+   31.12. auf der Karte, obwohl es seit 28.08. Done war. jiraStand() fragt die zwei Stände, die der Compass
+   ohnehin lädt: das Team-Board (va-data.json, alle Vorgänge inkl. Erledigt-Fenster) und die Live-Liste
+   meiner offenen Vorgänge (/api/jira/meine). Eine Zeile fliegt nur, wenn JEDES genannte Ticket erledigt
+   ist; die Karte sagt dann in der Fußzeile, was sie ausgeblendet hat und wo die Zeile zu streichen ist —
+   still verschwinden darf nichts. Kommen die Daten erst nach dem Render, zieht handRefresh() nach. */
+function jiraStand(key){
+  const t=(VA.tickets||[]).find(x=>x.key===key);
+  if(t) return {key,erledigt:!!t.erledigt,resolved:t.resolved||'',status:(VA.spalten||[])[Math.min(t.col||0,5)]||'',quelle:'va-data.json'};
+  const i=(typeof PK!=='undefined'&&PK.jira&&PK.jira.issues||[]).find(x=>x.key===key);
+  if(i) return {key,erledigt:false,resolved:'',status:i.status||'',quelle:'/api/jira/meine'};
+  return null;
+}
+const JIRA_KEY_RE=/\b(?:VA|STA|COM|VAEV|KPI)-\d+\b/g;
+function handZeilen(arr){
+  const sicht=[], weg=[];
+  (arr||[]).forEach(r=>{
+    const {row:x}=zeileTrennen(r);
+    const keys=Array.from(new Set(String((x[1]||'')+' '+(x[2]||'')).match(JIRA_KEY_RE)||[]));
+    const st=keys.map(jiraStand).filter(Boolean);
+    if(keys.length && st.length===keys.length && st.every(s=>s.erledigt)){ st.forEach(s=>weg.push({key:s.key,resolved:s.resolved,titel:x[1]||''})); return; }
+    sicht.push(r);
+  });
+  return {sicht,weg};
+}
+function handFuss(weg,herkunft){
+  if(!weg||!weg.length) return '';
+  const l=weg.map(w=>esc(w.key)+(w.resolved?' (Done '+esc(datumKurz(w.resolved))+')':'')).join(', ');
+  return `<div class="mini">✅ Ausgeblendet, in Jira erledigt: ${l} — Zeile in ${esc(herkunft||'der Quelle')} streichen.</div>`;
+}
+let HAND_SIG='';
+const handSig=()=>String(VA.stand||'')+':'+(VA.tickets||[]).length+':'+((typeof PK!=='undefined'&&PK.jira&&PK.jira.stand)||'');
+function handCard(art){
+  const d=ctxAktiv(), tone='tone-'+(d.tone||'none'), qo={wpBase:(SEL.length===1?WP_BASE[aktuell]:null)||WP_BASE.standard};
+  const k={next:['s6','⚡ Jetzt wichtig'],termine:['s3','📅 Termine'],vorbereiten:['s3','🗂️ Vorbereiten']}[art];
+  return `<div class="card ${k[0]} ${tone}" data-hand="${art}"><h3>${k[1]}</h3>${itemsHtml(d[art]||[],'dashboard.html › CTX.'+aktuell+'.'+art,qo)}</div>`;
+}
+/* Nach jedem neuen Datenstand (Team-Board, Live-Jira) die vier Handlisten-Karten an Ort und Stelle neu malen —
+   nur wenn sich der Stand wirklich geändert hat, vaPaint() läuft auch bei jedem Filterklick. */
+function handRefresh(force){
+  const sig=handSig(); if(!force&&sig===HAND_SIG) return; HAND_SIG=sig;
+  document.querySelectorAll('.card[data-hand]').forEach(el=>{
+    const t=document.createElement('div');
+    t.innerHTML = el.dataset.hand==='woche' ? wocheCard().replace('class="card s6 tone-bene"','class="card s12 tone-bene"') : handCard(el.dataset.hand);
+    if(t.firstElementChild) el.replaceWith(t.firstElementChild);
+  });
+}
+function itemsHtml(arr,herkunft,opt){const hz=handZeilen(arr); return kurzListe(hz.sicht.map(r=>{const {row:x,q}=zeileTrennen(r); const m=qmark(x[1],x[2],herkunft,Object.assign({},opt,{q}));
   return `<div class="item ${m.c}"${m.a}><div class="ic">${x[0]}</div><div class="body">
   <div class="t">${esc(x[1])}${x[3]?`<span class="tag ${x[3]}">${x[3]==='red'?'dringend':x[3]==='amb'?'bald':x[3]==='grn'?'in Arbeit':x[3]==='blu'?'geplant':'offen'}</span>`:''}</div>
-  ${x[2]?`<div class="m">${esc(x[2])}</div>`:''}</div></div>`;}))}
+  ${x[2]?`<div class="m">${esc(x[2])}</div>`:''}</div></div>`;}),undefined,'<div class="empty">nichts offen</div>')+handFuss(hz.weg,herkunft)}
 
-function jiraCard(mode,kompakt){
-  let rows=JIRA_VA;
-  if(mode==='va-fin') rows=JIRA_VA.filter(r=>/Rechnung|Gehalt|Gerichts|Arbeitsamt|SPC|Invoice/i.test(r[2]));
-  return `<div class="card s6 tone-va${kompakt?' kompakt':''}"><h3>🎫 Meine Vorgänge <span class="cnt">${esc((K.durchsatz||{}).offen||D.jiraOpenCount||'?')} offen · Top ${rows.length}</span></h3>
-    ${kurzListe(rows.map(r=>{const m=qmark(r[0]+' '+r[2],r[4]+' · Status: '+r[1],'dashboard-data.js › jira');return `<div class="item ${m.c}"${m.a}><div class="ic">🎫</div><div class="body">
-      <div class="t"><a href="${JIRA_VA_URL}${r[0]}" target="_blank" rel="noopener">${r[0]}</a> ${esc(r[2])}
-      <span class="tag ${r[3]}">${esc(r[1])}</span></div><div class="m">${esc(r[4])}</div></div></div>`;}))}
-    <div class="mini">Quelle: dein Vorgangssystem · Stand: ${esc(D.stand||'?')}</div></div>`;
+/* Jira-Karte (06.09.): liest die Live-Liste aus /api/jira/meine (Compass-Server, alle meine offenen
+   Vorgänge) und sortiert nach Arbeitsnähe — erst In Arbeit, dann Checking, dann Bereit, dann
+   Refinement/Backlog, Pool of Ideas zuletzt; innerhalb einer Stufe zählt das Fälligkeitsdatum,
+   dann die letzte Änderung. Die Handliste dashboard-data.js › jira ist nur noch das Netz, wenn der
+   Compass-Server fehlt oder kein Token da ist — und dann steht das auch so unter der Karte statt
+   „Live-Quelle“. Anlass: VA-13307 war seit 17.08. Done und stand am 06.09. noch als „Ready to work“
+   auf der Karte, weil niemand die Handliste nachgezogen hatte. */
+function jiraRang(st){ const s=String(st||'').toLowerCase(); if(/progress|flight|arbeit/.test(s)) return 0; if(/check|review|waiting|blocked/.test(s)) return 1; if(/ready|to do|selected/.test(s)) return 2; if(/refine/.test(s)) return 3; if(/pool|idea/.test(s)) return 5; return 4; }
+function jiraTagCls(i,h){ if(i.due&&i.due<h) return 'red'; const c=pkJiraCol(i.status); return c==='doing'?'amb':c==='wartet'?'grn':c==='bereit'?'blu':'gry'; }
+function jiraZeilen(mode){
+  const h=heute(); const fin=/Rechnung|Gehalt|Gerichts|Arbeitsamt|SPC|Invoice|salary|court|payment|Steuer|tax/i;
+  if(PK.jira&&PK.jira.issues){
+    let l=PK.jira.issues.slice();
+    if(mode==='va-fin') l=l.filter(i=>fin.test(i.titel||''));
+    l.sort((a,b)=>(jiraRang(a.status)-jiraRang(b.status))||String(a.due||'9').localeCompare(String(b.due||'9'))||String(b.aktiv||'').localeCompare(String(a.aktiv||'')));
+    return {live:true,anzahl:PK.jira.anzahl,rows:l.slice(0,10).map(i=>[i.key,i.status,i.titel,jiraTagCls(i,h),
+      [i.projekt,i.typ,i.prio,i.due?(i.due<h?'überfällig seit '+i.due:'fällig '+i.due):null].filter(Boolean).join(' · ')])};
+  }
+  let rows=JIRA_VA; if(mode==='va-fin') rows=rows.filter(r=>fin.test(r[2]));
+  return {live:false,anzahl:(K.durchsatz||{}).offen||D.jiraOpenCount||'?',rows};
 }
+function jiraCard(mode,kompakt){
+  const z=jiraZeilen(mode); const rows=z.rows;
+  const stand=z.live?new Date(PK.jira.stand).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'';
+  const fuss=z.live?`Live: ${esc(PK.jira.site||'Jira')} · Stand: ${esc(stand)}`
+    :`Quelle: dein Vorgangssystem · Stand: ${esc(D.stand||'?')}`;
+  return `<div class="card s6 tone-va${kompakt?' kompakt':''}" data-jira="${esc(mode||'')}"><h3>🎫 Meine Vorgänge <span class="cnt">${esc(z.anzahl)} offen · Top ${rows.length}</span></h3>
+    ${kurzListe(rows.map(r=>{const m=qmark(r[0]+' '+r[2],r[4]+' · Status: '+r[1],z.live?'Compass-Server › /api/jira/meine':'dashboard-data.js › jira');return `<div class="item ${m.c}"${m.a}><div class="ic">🎫</div><div class="body">
+      <div class="t"><a href="${JIRA_VA_URL}${r[0]}" target="_blank" rel="noopener">${r[0]}</a> ${esc(r[2])}
+      <span class="tag ${r[3]}">${esc(r[1])}</span></div><div class="m">${esc(r[4])}</div></div></div>`;}),undefined,'<div class="empty">Nichts offen.</div>')}
+    <div class="mini">${fuss}</div></div>`;
+}
+/* Die Karte rendert vor dem Laden mit der Handliste; sobald pkLaden() die Live-Liste hat, wird sie an
+   Ort und Stelle ersetzt (gleiches Muster wie postfRefresh & Co.). */
+function jiraRefresh(){ document.querySelectorAll('.card[data-jira]').forEach(el=>{ const t=document.createElement('div'); t.innerHTML=jiraCard(el.dataset.jira||undefined,el.classList.contains('kompakt')); el.replaceWith(t.firstElementChild); }); }
 function bugCard(){
   const b=K.bugs||{}; const off=(b.liste||[]).filter(r=>r[1]!=='Done');
   return `<div class="card s6 tone-va"><h3>🐞 Web-Meldungen <span class="cnt">${esc(b.offen||0)} offen · ${esc(b.erledigt||0)} erledigt</span></h3>
@@ -2440,12 +2552,12 @@ function wocheCard(){
   /* Zeile → Kontext: {ktx:…} im Options-Objekt schlägt die Stichwörter aus Titel + Detail */
   const passt=r=>{ const {row:x,q}=zeileTrennen(r); return ktxTreffer({name:x[1],extra:x[2],ktx:q&&q.ktx}); };
   let weg=0;
-  const li=(arr,herk)=>{ const roh=arr||[]; const sicht=roh.filter(passt); weg+=roh.length-sicht.length;
+  const li=(arr,herk)=>{ const roh=arr||[], hz=handZeilen(roh); const sicht=hz.sicht.filter(passt); weg+=hz.sicht.length-sicht.length;
     return kurzListe(sicht.map(r=>{const {row:x,q}=zeileTrennen(r); const m=qmark(x[1],x[2],herk,{q});return `<div class="item ${m.c}"${m.a}><div class="ic">${x[0]}</div><div class="body"><div class="t">${esc(x[1])}${x[3]?`<span class="tag ${x[3]}">${esc(x[4]||x[3])}</span>`:''}</div>${x[2]?`<div class="m">${esc(x[2])}</div>`:''}</div></div>`;}),
-      KURZ_N,'<div class="empty">in diesem Kontext nichts offen</div>'); };
+      KURZ_N,'<div class="empty">in diesem Kontext nichts offen</div>')+handFuss(hz.weg,herk); };
   const inhalt=`<div class="wk"><div><h4 class="b">🙋 Deine Schritte</h4>${li(w.bene,'dashboard-data.js › woche.bene')}</div><div><h4 class="c">🤖 Dein Coach übernimmt</h4>${li(w.claude,'dashboard-data.js › woche.claude')}</div></div>`;
   const ktxHinweis=weg?` · <a href="#" onclick="setCtx('alle');return false">${weg} in anderen Kontexten</a>`:'';
-  return `<div class="card s6 tone-bene"><h3>🗓️ Diese Woche <span class="cnt">${esc(ctxAktiv().name||'')} · Stand ${esc(w.stand||D.stand||'')}</span></h3>
+  return `<div class="card s6 tone-bene" data-hand="woche"><h3>🗓️ Diese Woche <span class="cnt">${esc(ctxAktiv().name||'')} · Stand ${esc(w.stand||D.stand||'')}</span></h3>
     ${inhalt}
     <div class="mini">Gefiltert nach deiner Kontextauswahl${ktxHinweis}. Zeilen ohne erkennbaren Kontext bleiben überall stehen. Aus deinen Entscheidungen im Morgencheck (siehe rhythmus-data.js → entschieden); Fertiges fliegt raus, Neues kommt per Tages-Update.</div></div>`;
 }
@@ -2456,7 +2568,7 @@ let FRAGEN_AB=0;
 /* Was heute entschieden wurde — aus S.antworten (Rückfragen + Finanz-Entscheidungen), nur mit Datum von heute. */
 function heuteEntschieden(){
   const h=heute(), out=[];
-  Object.keys(S.antworten||{}).forEach(id=>{ const w=S.antworten[id]; if(!w||!w.a||w.ts!==h) return;
+  Object.keys(S.antworten||{}).forEach(id=>{ const w=S.antworten[id]; if(!w||!w.a||w.ts!==h||(/^ums:/.test(id)&&w.a==='offen')) return;
     let frage=antwortText(id);
     if(!frage&&/^fin-/.test(id)&&FIN.data){ const x=(FIN.data.entscheidungen||[]).find(y=>'fin-'+y.id===id); if(x) frage=x.titel+' — '+x.frage; }
     out.push({id,frage:frage||id,antwort:w.a}); });
@@ -2493,15 +2605,78 @@ function fragenWeiter(){
    lagen in antworten.json, ohne dass Claude sie abgeholt hätte — für die Nutzerin sah das aus wie „alles
    beantwortet, und nichts passiert“. Jede Zeile in rhythmus-data.js › entschieden, deren Notiz ein ⏳
    trägt, steht hier, bis Claude die Notiz auf ✅ setzt. Nichts davon wird erneut gefragt. */
+/* Seit dem 06.09. abends ist die Karte verarbeitbar (die Nutzerin: „Diese Informationen müssen weiter verarbeitbar
+   sein — Ja, Nein, Link, Fragen-Dialog“). Jede Zeile trägt vier Knöpfe:
+     ✓ Ja      = ist umgesetzt oder erledigt → Antwort `ums:<id>` = „erledigt“, Zeile raus
+     ✗ Nein    = nicht mehr nötig            → Antwort `ums:<id>` = „verworfen“, Zeile raus
+     ↗ Link    = Herkunft (rhythmus-data.js › entschieden[id]) und erkannte Quellen (Jira-Key, URL, Datei)
+     💬 Fragen = kleiner Dialog: Frage oder Anmerkung an Claude (Antwort „Frage: …“, Zeile bleibt mit Marke)
+                 oder dieselbe Frage an Coach.
+   Die Antworten gehen wie jede Rückfrage über antwortSenden() → antworten.json und mit dem nächsten Checkin
+   mit (checkinNutzlast/briefing). Claude liest sie beim nächsten Lauf und setzt die Notiz in rhythmus-data.js
+   auf ✅ (erledigt) bzw. streicht die Zeile (verworfen); eine Frage beantwortet er dort oder als neue Rückfrage.
+   ↩ macht eine Wahl vom selben Tag rückgängig (Antwort „offen“ — der Server nimmt sie, weil eine einzelne
+   Antwort aus dem Compass seit 06.09. auch am selben Tag überschreiben darf, Add-Antwort -direkt). */
+let UMS_ALLE=false;
+function umsId(r){ return 'ums:'+r[1]; }
+function umsZeile(id){ return (R.entschieden||[]).find(r=>'ums:'+r[1]===id)||null; }
+function umsStand(r){ const w=(S.antworten||{})[umsId(r)]; return (w&&w.a)?w:null; }
+function umsNotiz(r){ return String(r[4]||'').replace(/^[^⏳]*⏳\s*/,''); }
+function umsWeg(w){ return !!w && /^(erledigt|verworfen)\b/.test(w.a); }
+function umsOffen(){ return (R.entschieden||[]).filter(r=>/⏳/.test(r[4]||'')&&!umsWeg(umsStand(r))); }
+function umsHeuteWeg(){ const h=heute(); return (R.entschieden||[]).filter(r=>{ const w=umsStand(r); return umsWeg(w)&&w.ts===h; }); }
+/* Heutige Rückmeldungen in der Form der Rückfragen-Antworten — für Checkin (entschieden[]) und Übergabetext. */
+function umsFrisch(){ const h=heute(); return Object.keys(S.antworten||{}).filter(id=>/^ums:/.test(id)).map(id=>({id,w:S.antworten[id]})).filter(x=>x.w&&x.w.a&&x.w.ts===h&&x.w.a!=='offen').map(x=>({id:x.id,frage:antwortText(x.id),antwort:x.w.a})); }
 function umsetzungCard(){
   const UMS_N=6;
-  const off=(R.entschieden||[]).filter(r=>/⏳/.test(r[4]||''));
-  if(!off.length) return '';
+  const off=umsOffen(), weg=umsHeuteWeg();
+  if(!off.length&&!weg.length) return '';
   const bene=off.filter(r=>r[3]==='bene').length;
-  return `<div class="card s12" id="umsetzungCard"><h3>🧾 ${off.length} entschieden, noch nicht umgesetzt <span class="cnt">${bene?bene+' bei dir · ':''}${off.length-bene} bei Claude</span></h3>
-    ${off.slice(0,UMS_N).map(r=>`<div class="item"><div class="ic">${r[3]==='bene'?'🙋':'🤖'}</div><div class="body"><div class="t">${esc(r[2])} <span class="mini">· ${esc(datumKurz(r[0]))}</span></div><div class="m">${esc((r[4]||'').replace(/^[^⏳]*⏳\s*/,''))}</div></div></div>`).join('')}
-    ${off.length>UMS_N?`<div class="mini">und ${off.length-UMS_N} weitere — alle stehen in rhythmus-data.js › entschieden.</div>`:''}</div>`;
+  const zeigen=UMS_ALLE?off:off.slice(0,UMS_N);
+  return `<div class="card s12" id="umsetzungCard"><h3>🧾 ${off.length?off.length+' entschieden, noch nicht umgesetzt':'Alles verarbeitet'} <span class="cnt">${off.length?`${bene?bene+' bei dir · ':''}${off.length-bene} bei Claude`:'nichts wartet mehr'}</span></h3>
+    ${zeigen.map(umsItem).join('')}
+    ${off.length>UMS_N?`<div class="chipbar"><button type="button" class="btn" onclick="umsAlle()">${UMS_ALLE?'▴ nur die ersten '+UMS_N:'▸ alle '+off.length+' zeigen'}</button></div>`:''}
+    ${weg.length?`<div class="mini">Heute verarbeitet: ${weg.map(r=>`${/^erledigt/.test(umsStand(r).a)?'✓':'✗'} ${esc(kurz(r[2],48))} <button type="button" class="ums-ru" onclick="umsZurueck('${escA(umsId(r))}')" title="Rückgängig — die Zeile kommt zurück">↩</button>`).join(' · ')}</div>`:''}
+    <div class="mini">✓ Ja = umgesetzt oder erledigt · ✗ Nein = nicht mehr nötig · ↗ Link = Herkunft und Quellen · 💬 Fragen = Frage oder Anmerkung an Claude. Deine Wahl geht an den john-server; Claude zieht rhythmus-data.js › entschieden beim nächsten Lauf nach.</div></div>`;
 }
+function umsItem(r){
+  const id=umsId(r), w=umsStand(r), frage=(w&&/^Frage:/.test(w.a))?w.a.replace(/^Frage:\s*/,''):'';
+  const m=qmark(r[2],umsNotiz(r),'rhythmus-data.js › entschieden['+r[1]+']',{tip:'Herkunft und Quellen anzeigen'});
+  return `<div class="item ums ${m.c}"${m.a} data-ums="${escA(id)}"><div class="ic">${r[3]==='bene'?'🙋':'🤖'}</div><div class="body">
+    <div class="t">${esc(r[2])} <span class="dt">· ${esc(datumKurz(r[0]))}</span>${frage?` <span class="tag blu" title="${escA(frage)}">💬 gefragt ${esc(datumKurz(w.ts))}</span>`:''}</div>
+    <div class="m">${esc(umsNotiz(r))}</div>
+    <div class="opts">
+      <button type="button" data-ums-a="erledigt" title="Ja — ist umgesetzt oder erledigt. Die Zeile kommt raus, Claude setzt die Notiz auf ✅">✓ Ja</button>
+      <button type="button" data-ums-a="verworfen" title="Nein — nicht mehr nötig. Die Zeile kommt raus, Claude streicht sie">✗ Nein</button>
+      <button type="button" data-ums-a="link" title="Herkunft, Jira-Keys, Adressen und Dateien aus dieser Zeile">↗ Link</button>
+      <button type="button" data-ums-a="fragen" title="Frage oder Anmerkung an Claude — oder Coach dazu fragen">💬 Fragen</button></div>
+    <div class="umsdlg" hidden><textarea rows="3" placeholder="Deine Frage oder Anmerkung zu dieser Entscheidung — Claude liest sie beim nächsten Sessionstart.">${esc(frage)}</textarea>
+      <div class="opts"><button type="button" class="a" data-ums-a="senden">💬 An Claude senden</button><button type="button" data-ums-a="john">🧠 Coach fragen</button><button type="button" data-ums-a="zu">Abbrechen</button></div></div>
+  </div></div>`;
+}
+function umsAktion(it,a){
+  const id=it.dataset.ums, r=umsZeile(id); if(!r) return;
+  const dlg=it.querySelector('.umsdlg'), ta=dlg?dlg.querySelector('textarea'):null, text=ta?ta.value.trim():'';
+  if(a==='link'){ quelleOeffnen(Number(it.dataset.q)); return; }
+  if(a==='fragen'){ if(dlg){ dlg.hidden=!dlg.hidden; if(!dlg.hidden&&ta) ta.focus(); } return; }
+  if(a==='zu'){ if(dlg) dlg.hidden=true; return; }
+  if(a==='john'){ johnOpen(`Im Compass steht die Entscheidung „${r[2]}“ vom ${datumKurz(r[0])} noch als nicht umgesetzt (${r[3]==='bene'?'liegt bei mir':'liegt bei Claude'}): ${umsNotiz(r)}${text?' — Meine Frage dazu: '+text:''} Was bedeutet das für mich, und was wäre der nächste sinnvolle Schritt?`); return; }
+  if(a==='senden'){ if(!text){ if(ta) ta.focus(); return; } umsAntwort(id,'Frage: '+text); toast('💬 Frage an Claude hinterlegt — steht in antworten.json und geht mit dem nächsten Checkin mit','ok'); umsNeu(); return; }
+  if(a==='erledigt'||a==='verworfen'){ umsAntwort(id,a); toast(a==='erledigt'?'✓ Als umgesetzt gemeldet — Claude setzt die Notiz auf ✅':'✗ Als nicht mehr nötig gemeldet — Claude streicht die Zeile','ok'); umsNeu(); }
+}
+function umsAntwort(id,a){
+  if(!S.antworten[id]&&/^(erledigt|verworfen)$/.test(a)) S.xp+=(R.xp.rueckfrage||5);   /* eine Entscheidung wie jede andere, nur ohne den Fragen-Zähler */
+  S.antworten[id]={a,ts:heute()}; speichern(); kopfMalen(); antwortSenden(id,a);
+}
+function umsZurueck(id){ umsAntwort(id,'offen'); toast('↩ Zurück in der Liste — Claude lässt die Zeile stehen','ok'); umsNeu(); }
+function umsAlle(){ UMS_ALLE=!UMS_ALLE; umsNeu(); }
+function umsNeu(){ const el=document.getElementById('umsetzungCard'); if(!el) return; const html=umsetzungCard(); if(html) el.outerHTML=html; else el.remove(); if(typeof kinoHoehe==='function') kinoHoehe(); }
+/* Die Knöpfe laufen über das Grid (Delegation), weil die Karte bei jedem render() neu entsteht. Der Klick auf die
+   Zeile selbst öffnet weiter das Quellen-Overlay (qmark) — Knöpfe und Textfeld nimmt dessen Delegation bewusst aus. */
+document.getElementById('grid').addEventListener('click',e=>{
+  const b=e.target.closest('[data-ums-a]'); if(!b) return;
+  const it=b.closest('.item.ums'); if(it) umsAktion(it,b.dataset.umsA);
+});
 /* ---------- Ticket-Aufräumen (aufraeumen-data.js) ---------- */
 function aufraeumCard(){
   if(!AUF) return '';
@@ -2916,7 +3091,7 @@ function pkDnD(){
 }
 let pkLauf=0;
 async function pkLaden(fresh){
-  const lauf=++pkLauf;
+  const lauf=++pkLauf; PK.laedt=true;
   await Promise.all([...Object.keys(TRELLO).map(async k=>{
     try{ const r=await fetch(JOHN_API+'/api/trello?board='+k+(fresh?'&fresh=1':''),{cache:'no-store'}); const d=await r.json();
       if(d&&d.ok){ PK.trello[k]=d; PK.stand[k]=''; } else { PK.trello[k]=null; PK.stand[k]=(TRELLO[k].label+': '+(d&&d.error==='NO_KEY'?'kein Trello-Schlüssel':(d&&d.error)||'Fehler')); }
@@ -2926,7 +3101,7 @@ async function pkLaden(fresh){
       if(d&&d.ok){ PK.jira=d; PK.jiraHint=''; } else { PK.jira=null; PK.jiraHint=d&&d.error==='NO_KEY'?'Jira: Top-Tickets aus dashboard-data.js (live mit Zugang im Compass-Server)':'Jira: '+((d&&d.error)||'Fehler'); }
     }catch(e){ PK.jira=null; PK.jiraHint=''; } })()]);
   if(lauf!==pkLauf) return;
-  PK.geladen=true; pkRender();
+  PK.laedt=false; PK.geladen=true; pkRender(); jiraRefresh(); handRefresh();
 }
 function pkZeilen(){ /* für die Rückschau (Schritt „Fluss der Woche“) und Coach-Kontext */
   const m=pkMetrik(pkQuellen());
@@ -3343,7 +3518,7 @@ function vaPaintBody(){
   if(st&&VA.stand){ const d=new Date(VA.stand);
     st.textContent = `Stand ${d.toLocaleString(LOC(),{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})} · ${VA.tickets.length} Tickets${VA.puffer?' · aus dem Puffer':''}`; }
 }
-function vaPaint(){ vaPaintKpi(); vaPaintFil(); vaPaintBody(); }
+function vaPaint(){ vaPaintKpi(); vaPaintFil(); vaPaintBody(); handRefresh(); }
 
 function kanbanCard(){
   const c=CTX[aktuell]||{};
@@ -6194,6 +6369,7 @@ function render(c){
   const d=ctxAktiv(); const g=document.getElementById('grid');
   const tone='tone-'+(d.tone||'none');
   QREG.length=0;   /* Quellen-Registry je Render neu (Zeilen bekommen data-q) */
+  HAND_SIG=handSig();   /* die Handlisten-Karten rechnen gleich mit diesem Stand */
   const qo={wpBase:(SEL.length===1?WP_BASE[c]:null)||WP_BASE.standard};
   let h='';
   /* 1 · Heute im Blick — Lotus-KPIs + Coach-Summary, darunter die Kontext-Zahlen und
@@ -6214,9 +6390,7 @@ function render(c){
      Antwort warten, sind ein nächster Schritt, kein Kanalzustand. */
   h+=secHtml('schritte',
       kalenderCard() + triCard() + ausCard() + postfCard() + slrCard() + wetterCard() + finCard() + nutzCard()
-    + `<div class="card s6 ${tone}"><h3>⚡ Jetzt wichtig</h3>${itemsHtml(d.next,'dashboard.html › CTX.'+c+'.next',qo)}</div>`
-    + `<div class="card s3 ${tone}"><h3>📅 Termine</h3>${itemsHtml(d.termine,'dashboard.html › CTX.'+c+'.termine',qo)}</div>`
-    + `<div class="card s3 ${tone}"><h3>🗂️ Vorbereiten</h3>${itemsHtml(d.vorbereiten,'dashboard.html › CTX.'+c+'.vorbereiten',qo)}</div>`
+    + handCard('next') + handCard('termine') + handCard('vorbereiten')   /* Handlisten mit Jira-Gegencheck (06.09.) */
     + wocheCard().replace('class="card s6 tone-bene"','class="card s12 tone-bene"'));
   if(!fokusModus){
     /* 4 · Arbeit & Werkzeuge */
@@ -6258,7 +6432,10 @@ function render(c){
      werden aus dem geladenen Zustand gefüllt — nach jedem erneuten render() (Kontextwechsel!)
      standen sie darum dauerhaft auf „lädt …“, obwohl die Daten längst da waren. */
   postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh(); ausRefresh();
-  if(KAN.mode==='personal'){ if(KAN.view==='board'){ pkDnD(); if(!PK.geladen) pkLaden(false); } else trelloLive(); }
+  jiraRefresh();               /* Jira-Karte: Live-Liste, sobald pkLaden() sie hat (06.09.) */
+  if(!PK.geladen&&!PK.laedt) pkLaden(false);   /* die Live-Liste braucht die Jira-Karte auch ohne Mein Board */
+  if(KAN.mode==='personal'){ if(KAN.view==='board'){ pkDnD(); if(!PK.geladen) pkLaden(false); } else trelloLive();
+    if(!VA.tickets.length&&!VA.lauf) vaLaden(false); }   /* Team-Board auch hinter „Mein Board“ holen — der Jira-Gegencheck der Handlisten braucht es (06.09.) */
   else { if(VA.tickets.length) vaPaint(); else vaLaden(false); }
 }
 
@@ -6938,5 +7115,6 @@ johnUhr(); setInterval(johnUhr,1000);
      #grid und bringt sein CSS selbst mit. Muss nach dem Haupt-Skript stehen. -->
 <script src="compass-focus.js"></script>
 <script src="compass-edit.js"></script>
+<script src="compass-live.js"></script>
 </body>
 </html>
