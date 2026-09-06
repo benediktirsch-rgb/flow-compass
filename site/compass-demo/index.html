@@ -1530,14 +1530,14 @@ function koerper(s){
       <input type="text" id="ovIn" placeholder="Was noch heute passieren muss …">`;
   }
   if(s.typ==='fragen'){
-    const offen=offeneFragen().slice(0,3);
-    if(!offen.length) return `<div class="empty">Alles beantwortet — danke. Neue Rückfragen lege ich hier ab, sobald welche auftauchen.</div>`;
-    return offen.map(q=>`<div class="qa" data-q="${q.id}">
-      <div class="qp">${esc(q.projekt)}</div>
-      <div class="qq">${esc(q.frage)}</div>
-      <div class="qw">${esc(q.warum)}</div>
-      <div class="opts">${q.optionen.map(o=>`<button data-a="${esc(o)}">${esc(o)}</button>`).join('')}
-        <button data-a="später">später</button></div></div>`).join('');
+    /* Lebendige Liste (06.09.2026, die Nutzerin: „zeigt nur 3 an, man kann nicht weiterblättern — die Liste soll
+       dynamisch nachziehen, wenn das oberste Item abgearbeitet ist“). Wie der Freigabe-Schritt: drei Karten
+       sichtbar, jede Antwort fadet ihre Karte aus (qaWeg) und die nächste offene Frage rückt nach
+       (fragenNachziehen). Vorher stand slice(0,3) fest — bei 17 offenen sah man 14 erst nach Schließen
+       und neu Öffnen des Rituals. */
+    const offen=offeneFragen();
+    if(!offen.length) return fragenLeer();
+    return `<div id="fragenListe">${offen.slice(0,FRAGEN_SICHTBAR).map(frageKarte).join('')}</div>${fragenRest(offen.length)}`;
   }
   if(s.typ==='freigabe'){
     /* Lebendige Liste (05.09.2026, die Nutzerin: „nach 3 Antworten ist die Liste leer und muss wieder geöffnet
@@ -1611,8 +1611,27 @@ function verdrahten(s){
     box.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     FLOW.wahl[box.dataset.w]=b.dataset.a;
   }));
-  document.querySelectorAll('#ovBody .qa[data-q] .opts button').forEach(b=>b.addEventListener('click',()=>{
-    const box=b.closest('.qa'); const id=box.dataset.q;
+  document.querySelectorAll('#ovBody .qa[data-q]').forEach(frageVerdrahten);
+}
+/* Rückfragen-Schritt als lebendige Liste (06.09.2026): Karte, Anschluss, Nachziehen. */
+const FRAGEN_SICHTBAR=3;
+function frageKarte(q){
+  return `<div class="qa" data-q="${esc(q.id)}">
+      <div class="qp">${esc(q.projekt)}</div>
+      <div class="qq">${esc(q.frage)}</div>
+      <div class="qw">${esc(q.warum)}</div>
+      <div class="opts">${(q.optionen||[]).map(o=>`<button data-a="${esc(o)}">${esc(o)}</button>`).join('')}
+        <button data-a="später">später</button></div></div>`;
+}
+function fragenLeer(){ return `<div class="empty">Alles beantwortet — danke. Neue Rückfragen lege ich hier ab, sobald welche auftauchen.</div>`; }
+function fragenRest(n){
+  const rest=Math.max(0,n-FRAGEN_SICHTBAR);
+  return `<div class="hint" id="fragenRest" style="margin-top:10px">${rest?`Noch ${rest} weitere ${rest===1?'wartet':'warten'} — ${rest===1?'sie rückt':'sie rücken'} nach, sobald du entscheidest.`:''}</div>`;
+}
+function frageVerdrahten(box){
+  const id=box.dataset.q;
+  box.querySelectorAll('.opts button').forEach(b=>b.addEventListener('click',()=>{
+    if(box.classList.contains('beantwortet')) return;   /* Doppelklick während des Ausfadens zählt nicht doppelt */
     box.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     box.classList.add('beantwortet');
     if(!S.antworten[id]){ S.z.antworten++; S.xp += (R.xp.rueckfrage||5); }
@@ -1620,7 +1639,19 @@ function verdrahten(s){
     speichern(); kopfMalen();
     antwortSenden(id,b.dataset.a);   /* damit die Frage auch in jeder anderen Fassung verschwindet (31.08.) */
     finStimmeAusRitual(id,b.dataset.a); /* Finanz-Entscheidung: als Stimme zurück auf die Website (02.09.) */
+    setTimeout(()=>qaWeg(box,fragenNachziehen),450);   /* kurz die Wahl zeigen, dann Platz machen */
   }));
+}
+function fragenNachziehen(){
+  const liste=document.getElementById('fragenListe'); if(!liste) return;
+  const da=new Set([...liste.querySelectorAll('.qa[data-q]')].map(b=>b.dataset.q));
+  const offen=offeneFragen();
+  const naechste=offen.filter(q=>!da.has(q.id)).slice(0,Math.max(0,FRAGEN_SICHTBAR-da.size));
+  naechste.forEach(q=>{ const t=document.createElement('div'); t.innerHTML=frageKarte(q);
+    const k=t.firstElementChild; k.classList.add('neu'); liste.appendChild(k); frageVerdrahten(k); });
+  const r=document.getElementById('fragenRest'); if(r) r.outerHTML=fragenRest(offen.length);
+  if(!liste.querySelector('.qa[data-q]')) liste.innerHTML=fragenLeer();
+  if(typeof kinoHoehe==='function') kinoHoehe();
 }
 
 function weiter(){
@@ -4707,12 +4738,14 @@ function gitSpaeter(btn){
 }
 /* Karte ausfaden und entfernen, danach nachziehen. Inline-Höhe zuerst, dann Reflow, dann die Klasse —
    ohne den Reflow springt die Höhe ohne Übergang auf null. */
-function gitWeg(box){
+function gitWeg(box){ qaWeg(box,gitNachziehen); }
+/* Dasselbe für jede lebendige Liste (06.09.): Karte zuklappen, entfernen, dann `danach` — Freigaben und Rückfragen. */
+function qaWeg(box,danach){
   if(!box||box.classList.contains('weg')) return;
   box.style.height=box.offsetHeight+'px'; box.style.overflow='hidden';
   void box.offsetHeight;
   box.classList.add('weg');
-  setTimeout(()=>{ box.remove(); gitNachziehen(); },620);
+  setTimeout(()=>{ box.remove(); if(typeof danach==='function') danach(); },620);
 }
 function gitNachziehen(){
   const liste=document.getElementById('gitListe'); if(!liste) return;
