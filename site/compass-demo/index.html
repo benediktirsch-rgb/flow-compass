@@ -376,6 +376,9 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .qa .opts button:hover{border-color:var(--line2);color:var(--ink)}
 .qa .opts button.on{background:var(--bene);border-color:var(--bene);color:#1c1300}
 .qa.beantwortet{opacity:.6}
+/* Trichter (06.09.): zwei Spalten in der breiten Karte; Link-Knopf wie ein Knopf */
+.tri-liste{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-top:4px}.tri-liste .qa{margin-top:0}
+.qa .opts a{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700;color:var(--sub);text-decoration:none}.qa .opts a:hover{border-color:var(--line2);color:var(--ink)}
 /* Freigabe-Schritt (05.09.2026): eine beantwortete Karte klappt zu und verschwindet, das nächste Paket
    rückt von unten nach. Die Höhe setzt gitWeg() vorher als Inline-Wert, sonst gibt es nichts zu animieren. */
 .qa.weg{opacity:0;transform:translateX(14px);height:0!important;margin-top:0!important;padding-top:0!important;padding-bottom:0!important;border-width:0;overflow:hidden;
@@ -1356,7 +1359,7 @@ const frageSchluessel=t=>String(t||'').toLowerCase().replace(/[^0-9a-zäöüß]+
 function beantwortet(q){ return !!S.antworten[q.id] || (q.frage && ANTW_TEXT.has(frageSchluessel(q.frage))); }
 /* Dazu die offenen Entscheidungen der Finanzverwaltung (finFragen, 02.09.) — sie leben auf dem
    Server, nicht in S.antworten: beantwortet ist, was dort eine Stimme hat. */
-function offeneFragen(){ return (R.rueckfragen||[]).filter(q=>!beantwortet(q)).concat(typeof finFragen==='function'?finFragen():[]).concat(typeof meldeFragen==='function'?meldeFragen():[]); }
+function offeneFragen(){ return (R.rueckfragen||[]).filter(q=>!beantwortet(q)).concat(typeof finFragen==='function'?finFragen():[]).concat(typeof meldeFragen==='function'?meldeFragen():[]).concat(typeof chatFragen==='function'?chatFragen():[]); }
 /* Das Eine von heute: zuerst aus diesem Browser (localStorage), sonst aus dem
    Morgencheck-Protokoll in rhythmus-data.js. Sonst stünde auf dem Handy „noch
    nicht gesetzt“, obwohl der Checkin längst gemacht ist. */
@@ -1387,7 +1390,7 @@ function rhythmMalen(){
   const offen = offeneFragen().length;
   const abendOk = S.lastAbend===heute();
   const abendZeit = new Date().getHours()>=17;
-  const zug=triOffen().length;   /* Menschen im Trichter: Vereinszugänge + offene Vorgänge im Portal (05.09.) */
+  const zug=triAktiv().length;   /* Menschen im Trichter: Vereinszugänge + offene Vorgänge im Portal (05.09.) — ohne die, die heute schon entschieden oder auf später gelegt sind (06.09.) */
   const rits=[
     {id:'morgen', ic:'☀️', t:'Morgencheck', s:'5 Minuten, dann läuft der Tag', due:!morgenOk, done:morgenOk, badge: morgenOk?'erledigt':'5 Min'},
     {id:'wochenstart', ic:'🧭', t:'Wochenstart', s: tag===1?'Heute — Woche setzen':'montags', due: tag===1&&!wsOk, done: wsOk, badge: wsOk?'gesetzt':(tag===1?'fällig':'Mo')},
@@ -1551,10 +1554,12 @@ function koerper(s){
        nachsehen“ dürfen sich nicht gleich lesen. */
     if(!TRI.geladen) return `<div class="empty">Der Trichter wird geladen …</div>`;
     if(!TRI.data) return `<div class="empty">Compass-Server nicht erreichbar — wer wartet, weiß ich gerade nicht.</div>`;
-    const z=triOffen(), namen=(TRI.data.fehlt||[]).map(x=>x==='verein'?'Projekt':'das Freelancer-Portal');
+    const z=triAktiv(), h=triHeute(), namen=(TRI.data.fehlt||[]).map(x=>x==='verein'?'Projekt':'das Freelancer-Portal');
     const warn=namen.length?`<div class="hint" style="margin-bottom:8px">⚠️ ${namen.join(' und ')} ${namen.length>1?'antworten':'antwortet'} gerade nicht — diese Liste ist unvollständig.</div>`:'';
-    if(!z.length) return warn+(namen.length?'':`<div class="empty">Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.</div>`);
-    return warn+z.map(x=>triZeile(x,triKnoepfe)).join('');
+    /* Dieselbe Liste wie in der Karte (06.09.): wer heute schon entschieden ist, steht kompakt darunter —
+       nicht noch einmal mit Knöpfen, als wäre nichts geschehen. */
+    const leer = z.length ? '' : (namen.length ? '' : `<div class="empty">${h.length?`✓ Alle entschieden — ${h.length} heute erledigt.`:'Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.'}</div>`);
+    return warn+z.map(x=>triZeile(x,triKnoepfe)).join('')+leer+h.map(triKompakt).join('');
   }
   if(s.typ==='auftrag'){
     return `<textarea id="ovIn" placeholder="z. B. Aufräum-Vorschlag umsetzen, Domain-Umzugsplan, Kennzahlen ziehen">${esc(S.auftrag||'')}</textarea>`;
@@ -1842,7 +1847,9 @@ function boardCta(){
   else {
     const grenze=new Date(Date.now()-4*864e5).toISOString().slice(0,10);
     b=liste.filter(x=>x.datum<h&&x.datum>=grenze).sort((x,y)=>x.datum<y.datum?1:-1)[0]||null;
-    if(b) text=boardIcon(b.art)+' '+boardName(b.art)+' · '+b.datum.slice(8,10)+'.'+b.datum.slice(5,7)+'.';
+    /* 06.09.: ein Sonntag zeigte hier „Morgenboard · 04.09.“ — das las sich wie heute. Der Wochentag
+       davor macht klar, dass es ein älteres Board ist; das von heute entsteht erst mit dem Morgencheck. */
+    if(b){ const wt=['So','Mo','Di','Mi','Do','Fr','Sa'][new Date(b.datum+'T12:00:00').getDay()]; text=boardIcon(b.art)+' '+boardName(b.art)+' · '+wt+' '+b.datum.slice(8,10)+'.'+b.datum.slice(5,7)+'. (älter)'; }
   }
   return b?{url:JOHN_API+b.url,text,title:boardName(b.art)+' vom '+b.datum+' — öffnet in einem neuen Tab'}:null;
 }
@@ -1855,7 +1862,7 @@ function boardCta(){
    hin und übernimmt, was er noch nicht kennt. Ist der Server aus, bleibt alles
    beim Alten — der lokale Stand gilt weiter, und der nächste Ladeversuch holt es nach.
    ========================================================================== */
-function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null)||(S.meldeFragen||{})[id]; return q?q.frage:''; }
+function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null)||(S.meldeFragen||{})[id]||((typeof CHATF!=='undefined'?CHATF.list:[])||[]).find(x=>x.id===id); return q?q.frage:''; }
 function antwortMerken(frage){ const k=frageSchluessel(frage); if(k) ANTW_TEXT.add(k); }
 /* Eine frisch gegebene Antwort sofort hinschicken. Fehlschlag ist unkritisch:
    sie steht im localStorage, geht mit dem Checkin mit und wird beim nächsten
@@ -1882,6 +1889,23 @@ async function antwortenSync(){
     /* Kein XP, kein Zähler: die Antwort wurde woanders gegeben, nicht hier noch einmal. */
     if(!S.antworten[id]){ S.antworten[id]={a:w.a,ts:w.ts||heute()}; neu++; } });
   if(neu||ANTW_TEXT.size){ speichern(); render(aktuell); kopfMalen(); rhythmMalen(); }
+}
+
+/* Chat-Fragen ohne Antwort (06.09.2026, die Nutzerin: „regelmäßig dahin channeln, wenn ich hier 5 Stunden
+   keine Antwort gebe“). Eine Frage, die Claude im Chat stellt, ist weg, sobald die Session zu ist.
+   Der john-server liest deshalb die Sitzungsdateien und liefert über GET /api/chatfragen jede Session,
+   deren letzte Nachricht von Claude ist, eine Frage oder Bitte an die Nutzerin enthält und seit mindestens
+   fünf Stunden unbeantwortet steht. Hier laufen sie wie jede andere Rückfrage: Banner, Ritual,
+   antwortSenden() → antworten.json → Checkin, den Claude beim nächsten Sessionstart liest.
+   Ohne Server gibt es keine Chat-Fragen — CHATF.fehler hält fest, dass nicht nachgesehen werden konnte. */
+const CHATF={ list:[], geladen:false, fehler:null, stand:null };
+function chatFragen(){ return (CHATF.list||[]).filter(q=>!beantwortet(q)).map(q=>({id:q.id,projekt:q.projekt,frage:q.frage,warum:q.warum,optionen:(q.optionen||[]).slice()})); }
+async function chatFragenLaden(){
+  let d=null;
+  try{ const r=await fetch(JOHN_API+'/api/chatfragen',{cache:'no-store'}); d=await r.json(); }
+  catch(e){ CHATF.fehler='Server nicht erreichbar'; CHATF.geladen=true; return; }
+  CHATF.list=(d&&d.ok)?(d.fragen||[]):[]; CHATF.fehler=(d&&d.ok===false)?(d.error||'Fehler'):null; CHATF.stand=(d&&d.stand)||null; CHATF.geladen=true;
+  if(chatFragen().length){ render(aktuell); kopfMalen(); rhythmMalen(); }
 }
 
 /* Gemacht ist gemacht — auch in einer anderen Fassung (31.08.2026).
@@ -2399,6 +2423,19 @@ function fragenWeiter(){
   FRAGEN_AB+=KURZ_N;                    /* Überlauf fängt fragenBanner() selbst → von vorn */
   el.outerHTML=fragenBanner();
   if(typeof kinoHoehe==='function') kinoHoehe();
+}
+/* Entschieden, aber noch nicht umgesetzt (06.09.2026). 27 Antworten aus den Morgenchecks vom 01.–06.09.
+   lagen in antworten.json, ohne dass Claude sie abgeholt hätte — für die Nutzerin sah das aus wie „alles
+   beantwortet, und nichts passiert“. Jede Zeile in rhythmus-data.js › entschieden, deren Notiz ein ⏳
+   trägt, steht hier, bis Claude die Notiz auf ✅ setzt. Nichts davon wird erneut gefragt. */
+function umsetzungCard(){
+  const UMS_N=6;
+  const off=(R.entschieden||[]).filter(r=>/⏳/.test(r[4]||''));
+  if(!off.length) return '';
+  const bene=off.filter(r=>r[3]==='bene').length;
+  return `<div class="card s12" id="umsetzungCard"><h3>🧾 ${off.length} entschieden, noch nicht umgesetzt <span class="cnt">${bene?bene+' bei dir · ':''}${off.length-bene} bei Claude</span></h3>
+    ${off.slice(0,UMS_N).map(r=>`<div class="item"><div class="ic">${r[3]==='bene'?'🙋':'🤖'}</div><div class="body"><div class="t">${esc(r[2])} <span class="mini">· ${esc(datumKurz(r[0]))}</span></div><div class="m">${esc((r[4]||'').replace(/^[^⏳]*⏳\s*/,''))}</div></div></div>`).join('')}
+    ${off.length>UMS_N?`<div class="mini">und ${off.length-UMS_N} weitere — alle stehen in rhythmus-data.js › entschieden.</div>`:''}</div>`;
 }
 /* ---------- Ticket-Aufräumen (aufraeumen-data.js) ---------- */
 function aufraeumCard(){
@@ -4173,12 +4210,38 @@ function nutzRefresh(){
    alle 30 Minuten veröffentlicht. Wie Postfach, Slack und Nutzerzahlen. */
 const TRI={ data:null, fehler:null, geladen:false, laeuft:{} };
 function triOffen(){ return ((TRI.data||{}).wartende)||[]; }
+/* Gedächtnis (06.09., die Nutzerin: „speichere die Freigaben“): jede Entscheidung — Stufe, Absage, Freigabe, „später“ —
+   steht in S.tri unter dem Schlüssel der Zeile, mit Datum und Uhrzeit. Vorher lebte sie nur im DOM: der
+   nächste Abruf, ein Neuladen oder das zweite Exemplar der Liste (Karte unter dem Ritual) zeigten die
+   Person wieder mit allen Knöpfen, als wäre nichts geschehen. Ein Eintrag gilt für heute; morgen ist der
+   Vorgang mit seiner neuen Stufe wieder eine offene Entscheidung. Namen bleiben im localStorage dieses
+   Browsers — nie in einer *-data.js. */
+function triMerk(w){ const m=(S.tri||{})[w.schluessel]; return (m&&m.ts===heute())?m:null; }
+function triMerken(w,wahl,text){
+  S.tri=S.tri||{};
+  Object.keys(S.tri).forEach(k=>{ if(S.tri[k].ts!==heute()) delete S.tri[k]; });   /* alte Tage räumen */
+  S.tri[w.schluessel]={ts:heute(),um:new Date().toTimeString().slice(0,5),wahl:wahl,text:text||'',
+                       name:w.name||'',bahn:w.bahn||'',id:w.id||null,personId:w.personId||null,uid:w.uid||null};
+  speichern();
+}
+function triVergessen(schluessel){ if(S.tri&&S.tri[schluessel]){ delete S.tri[schluessel]; speichern(); } triAlleMalen(); }
+function triAktiv(){ return triOffen().filter(w=>!triMerk(w)); }          /* wartet noch auf dich */
+function triHeute(){ const t=S.tri||{}, h=heute();                        /* heute entschieden oder auf später gelegt */
+  return Object.keys(t).filter(k=>t[k].ts===h).map(k=>Object.assign({schluessel:k},t[k],{zeile:triOffen().find(w=>w.schluessel===k)||null}))
+    .sort((a,b)=>(a.um||'')<(b.um||'')?1:-1); }
 const TRI_BAHN={ ankommen:{ic:'🚪',t:'Ankommen',haus:'Projekt'},
                  kollektiv:{ic:'🤝',t:'Ins Kollektiv',haus:'Kontext 1'},
                  einsatz:{ic:'🚀',t:'Zum Kunden',haus:'Kontext 1'} };
 function triCard(){
-  return `<div class="card s6 tone-va" id="triCard"><h3>🫂 Trichter <span class="cnt" id="triStand">lädt …</span></h3>
+  return `<div class="card s12 tone-va" id="triCard"><h3>🫂 Trichter <span class="cnt" id="triStand">lädt …</span></h3>
     <div id="triBody"><div class="empty">Wer wartet, wird geladen …</div></div></div>`;
+}
+/* Der Weg ins Backend (06.09., die Nutzerin: „gib einen Link zum Prozess“): nicht die Übersicht, sondern genau dieser
+   Vorgang — portal-admin.php filtert auf die Person und springt per Anker #b<id> auf die Zeile. */
+function triLink(w){
+  if(!w||w.bahn==='ankommen'||!w.id) return '';
+  const base=((TRI.data&&TRI.data.urlPflege)||'https://example.com/portal-admin.php?v=bewerbungen').replace(/#.*$/,'');
+  return base+(base.indexOf('?')>=0?'&':'?')+'zeige=alle'+(w.personId?'&person='+Number(w.personId):'')+'#b'+Number(w.id);
 }
 function triZeile(w,knoepfe){
   const b=TRI_BAHN[w.bahn]||{ic:'•',t:w.bahn,haus:''};
@@ -4193,7 +4256,18 @@ function triZeile(w,knoepfe){
       <div class="qw">${esc(w.was||'')}${detail.length?' — '+detail.join(' · '):''}</div>
       ${w.auchBekannt?`<div class="hint" style="margin-top:4px">🔗 Dieselbe Adresse ist ${esc(w.auchBekannt)}.</div>`:''}
       ${knoepfe?knoepfe(w):''}
-      <div class="hint triout" style="margin-top:6px"></div></div>`;
+      <div class="hint triout zugout" style="margin-top:6px"></div></div>`;
+}
+/* Heute schon entschieden: eine Zeile, kein Knopf zum Nochmal — nur der Weg ins Portal und ein Zurück. */
+function triKompakt(m){
+  const w=m.zeile||m, b=TRI_BAHN[m.bahn]||{ic:'•',t:m.bahn,haus:''};
+  const was = m.wahl==='spaeter' ? 'auf später gelegt' : (m.wahl==='freigegeben'||m.wahl==='abgelehnt' ? m.wahl : '→ '+(m.text||m.wahl));
+  const link=triLink(w);
+  return `<div class="qa beantwortet" data-tri="${esc(m.schluessel)}">
+      <div class="qp">${b.ic} ${esc(b.t)} · ${esc(b.haus)} <span class="tg">heute ${esc(m.um||'')}</span></div>
+      <div class="qq">${m.wahl==='spaeter'?'⏸':'✓'} ${esc(m.name||'ohne Namen')} <span style="font-weight:400;color:var(--sub)">· ${esc(was)}</span></div>
+      <div class="opts" style="margin-top:8px">${link?`<a href="${esc(link)}" target="_blank" rel="noopener">Vorgang im Portal ↗</a>`:''}
+        <button onclick="triVergessen('${esc(m.schluessel)}')">${m.wahl==='spaeter'?'doch jetzt':'nächste Stufe'}</button></div></div>`;
 }
 function kurz(s,n){ s=String(s||''); return s.length>n?s.slice(0,n-1)+'…':s; }
 /* Die Knöpfe je Bahn: die Vereins-Registrierung geht über den vorhandenen Weg (03.09.), ein
@@ -4203,17 +4277,33 @@ function kurz(s,n){ s=String(s||''); return s.length>n?s.slice(0,n-1)+'…':s; }
 function triKnoepfe(w){
   if(w.bahn==='ankommen'){
     return `<div class="opts" style="margin-top:8px">
-        <button onclick="zugangEntscheiden(${Number(w.uid)},'ja',this)">✅ Freigeben</button>
-        <button onclick="zugangEntscheiden(${Number(w.uid)},'nein',this)">🗑️ Ablehnen</button>
-        <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button></div>`;
+        <button onclick="triZugang(${Number(w.uid)},'ja',this)">✅ Freigeben</button>
+        <button onclick="triZugang(${Number(w.uid)},'nein',this)">🗑️ Ablehnen</button>
+        <button onclick="triSpaeter('${esc(w.schluessel)}')">später</button></div>`;
   }
   const n=(w.naechste||[])[0];
   const ab=(w.naechste||[]).find(x=>x.status==='abgesagt');
+  const link=triLink(w);
   return `<div class="opts" style="margin-top:8px">
       ${n?`<button onclick="poolSchritt(${Number(w.id)},'${esc(n.status)}',this)">➜ ${esc(n.text)}</button>`:''}
       ${ab?`<button onclick="poolSchritt(${Number(w.id)},'abgesagt',this)">✖ Absage</button>`:''}
-      <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button>
-      ${TRI.data&&TRI.data.urlPflege?`<button onclick="window.open('${esc(TRI.data.urlPflege)}','_blank')">im Portal ↗</button>`:''}</div>`;
+      <button onclick="triSpaeter('${esc(w.schluessel)}')">später</button>
+      ${link?`<a href="${esc(link)}" target="_blank" rel="noopener">Vorgang im Portal ↗</a>`:''}</div>`;
+}
+function triSpaeter(schluessel){
+  const w=triOffen().find(x=>x.schluessel===schluessel); if(!w) return;
+  triMerken(w,'spaeter','später'); triAlleMalen();
+}
+/* Vereins-Freigabe aus dem Trichter heraus: derselbe Weg wie im Vereins-Puls, danach merken und die
+   Zeile aus der Liste nehmen — der Vereins-Abruf allein hätte den Trichter nicht aktualisiert. */
+async function triZugang(uid,tun,btn){
+  const w=triOffen().find(x=>Number(x.uid)===Number(uid)), box=btn.closest('.qa');
+  await zugangEntscheiden(uid,tun,btn);
+  if(w&&box&&box.classList.contains('beantwortet')){
+    triMerken(w,tun==='ja'?'freigegeben':'abgelehnt',tun==='ja'?'freigegeben':'abgelehnt');
+    if(TRI.data) TRI.data.wartende=triOffen().filter(x=>x.schluessel!==w.schluessel);
+    triAlleMalen();
+  }
 }
 function triRefresh(){
   const body=document.getElementById('triBody'), stand=document.getElementById('triStand');
@@ -4227,10 +4317,11 @@ function triRefresh(){
          Leer heißt hier <b>nicht</b> „niemand wartet“.</div>`;
     return;
   }
-  const t=TRI.data, w=triOffen();
+  const t=TRI.data, w=triAktiv(), h=triHeute();
   const blind=(t.fehlt||[]).length;
-  stand.textContent = blind ? `${w.length} gefunden · teilweise blind`
-                            : (w.length ? `${w.length} ${w.length===1?'wartet':'warten'}` : 'niemand wartet');
+  stand.textContent = (blind ? `${w.length} gefunden · teilweise blind`
+                             : (w.length ? `${w.length} ${w.length===1?'wartet':'warten'}` : 'niemand wartet'))
+                      + (h.length?` · ${h.length} heute erledigt`:'');
   /* Eine tote Quelle darf nie wie eine leere aussehen — das wäre die gefährlichste Karte hier. */
   const luecken=[];
   if((t.fehlt||[]).indexOf('verein')>=0) luecken.push('Projekt antwortet gerade nicht'+(t.vereinFehler?` (${esc(t.vereinFehler.error)})`:'')+' — ob dort jemand auf Freigabe wartet, weiß ich nicht');
@@ -4238,13 +4329,16 @@ function triRefresh(){
   const kpi=t.kpi, pz=t.personenZahlen;
   const kopf=`<div class="kpis" style="margin-bottom:8px">
       <div class="kpi"><div class="v">${w.length}</div><div class="l">${w.length===1?'wartet auf dich':'warten auf dich'}</div></div>
+      <div class="kpi"><div class="v">${h.length}</div><div class="l">heute entschieden</div></div>
       <div class="kpi"><div class="v">${kpi?kpi.pool:'–'}</div><div class="l">im Kollektiv</div></div>
       <div class="kpi"><div class="v">${kpi?kpi.verfuegbar:'–'}</div><div class="l">verfügbar</div></div>
       <div class="kpi"><div class="v">${kpi?kpi.im_einsatz:'–'}</div><div class="l">im Einsatz</div></div>
     </div>`;
-  const liste = w.length
-    ? w.slice(0,6).map(x=>triZeile(x,triKnoepfe)).join('')
-      + (w.length>6?`<div class="hint">… und ${w.length-6} weitere — im Ritual „🫂 Trichter“ kommen sie nach.</div>`:'')
+  /* Volle Breite, zwei Spalten (06.09.): die Karte stand als s6 zwischen lauter s12-Karten — die halbe
+     Zeile daneben blieb leer. Offene zuerst, heute Entschiedene kompakt dahinter. */
+  const liste = (w.length||h.length)
+    ? `<div class="tri-liste">${w.slice(0,8).map(x=>triZeile(x,triKnoepfe)).join('')}${h.map(triKompakt).join('')}</div>`
+      + (w.length>8?`<div class="hint">… und ${w.length-8} weitere — im Ritual „🫂 Trichter“ kommen sie nach.</div>`:'')
     : (luecken.length?'':`<div class="empty">✓ Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.</div>`);
   /* Der Trichter dahinter: die Tore aus ziele.php stehen auf „Mein Team“ für alle sichtbar,
      hier standen sie bis heute nicht. Nur gemessene Zahlen, keine erfundenen. */
@@ -4256,35 +4350,172 @@ function triRefresh(){
       <div class="t">${t.doppelt} ${t.doppelt===1?'Person ist':'Personen sind'} in beiden Häusern</div>
       <div class="m">Über die Mailadresse erkannt — der Trichter legt nichts zusammen, er sagt es dir nur.</div></div></div>` : '';
   const warn=luecken.map(l=>`<div class="item"><div class="ic">⚠️</div><div class="body"><div class="t">Teilweise blind</div><div class="m">${l}</div></div></div>`).join('');
-  body.innerHTML = kopf + warn + liste + tore + abgleich
+  const pflege = t.urlPflege ? `<div class="hint" style="margin-top:8px"><a href="${esc(t.urlPflege)}" target="_blank" rel="noopener">Alle Vorgänge in der Portal-Pflege ↗</a></div>` : '';
+  body.innerHTML = kopf + warn + liste + tore + abgleich + pflege
     + `<div class="hint" style="margin-top:6px">Abgleich über die Mailadresse: für eine Bewerbung sieht der Trichter nur, ob dieselbe Person <b>gerade auch</b> auf den Vereinszugang wartet — ob sie Vereinsmitglied ist, gibt die Vereins-Schnittstelle nicht her.</div>`;
 }
-/* Einen Vorgang eine Stufe weiterschieben. Gleiche Bauart wie zugangEntscheiden (03.09.):
-   Knöpfe sperren, Ergebnis in die Zeile, bei Erfolg den Trichter frisch holen. Und wie dort
-   landet die Entscheidung in der Übergabe, damit der Abendcheck weiß, was du getan hast. */
-async function poolSchritt(id,status,btn){
-  const box=btn.closest('.qa')||document, out=box.querySelector('.triout');
-  const w=triOffen().find(x=>Number(x.id)===Number(id))||{};
-  if(status==='abgesagt' && !confirm('Vorgang von '+(w.name||('#'+id))+' wirklich absagen?')) return;
-  const knoepfe=[...box.querySelectorAll('button')];
-  knoepfe.forEach(b=>b.disabled=true); const alt=btn.textContent; btn.textContent='…';
+/* Beide Exemplare der Liste zugleich (06.09., die Nutzerin: „2x eingebunden — oben beantwortet, unten passiert nix“):
+   die Karte und, wenn das Ritual gerade auf dem Trichter-Schritt steht, auch dessen Körper. */
+function triAlleMalen(){
+  triRefresh(); rhythmMalen();
   try{
-    const r=await fetch(JOHN_API+'/api/pool/schritt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:Number(id),status:status})});
+    const s=(FLOW&&FLOW.schritte)?FLOW.schritte[IDX]:null, ov=document.getElementById('ov'), ob=document.getElementById('ovBody');
+    if(s&&s.typ==='trichter'&&ov&&ob&&ov.classList.contains('on')) ob.innerHTML=koerper(s);
+  }catch(e){}
+}
+/* Nach einem Schritt den Stand vom Server holen — ohne fresh=1: der Pool-Cache ist drüben ohnehin
+   geleert, der Vereins-Stand darf aus dem Cache kommen. Solange noch ein Schritt unterwegs ist, wird
+   nicht neu gemalt: sonst verschwindet die Zeile, in der gerade „…“ steht (das war „unten passiert nix“). */
+async function triNachladen(){
+  try{ const t=await (await fetch(JOHN_API+'/api/trichter',{cache:'no-store'})).json();
+       if(t&&t.ok){ TRI.data=t; TRI.geladen=true; if(!Object.keys(TRI.laeuft).length) triAlleMalen(); } }catch(e){}
+}
+/* Den eigenen Stand sofort fortschreiben, statt auf den nächsten Abruf zu warten. */
+function triFortschreiben(w,status,text){
+  if(!TRI.data||!w.schluessel) return;
+  if({abgesagt:1,aufgenommen:1,abgeschlossen:1}[status]){ TRI.data.wartende=triOffen().filter(x=>x.schluessel!==w.schluessel); return; }
+  const i=(w.naechste||[]).findIndex(x=>x.status===status);
+  w.stufe=status; w.was=text; w.liegtTage=0;
+  if(i>=0) w.naechste=w.naechste.slice(i+1);
+}
+/* Einen Vorgang eine Stufe weiterschieben. Gleiche Bauart wie zugangEntscheiden (03.09.):
+   Knöpfe sperren, Ergebnis in die Zeile, bei Erfolg merken und beide Listen neu malen. Und wie dort
+   landet die Entscheidung in der Übergabe, damit der Abendcheck weiß, was du getan hast.
+   Der john-server arbeitet seriell — steckt er gerade in einem Coach-Gespräch, wartet dieser Aufruf
+   dahinter. Deshalb sofort eine Rückmeldung in der Zeile, ein Zeitlimit und eine ehrliche Meldung. */
+async function poolSchritt(id,status,btn){
+  const w=triOffen().find(x=>Number(x.id)===Number(id))||{id:Number(id),schluessel:'pool-'+Number(id)};
+  const text=(((w.naechste||[]).find(x=>x.status===status))||{}).text||status;
+  if(status==='abgesagt' && !confirm('Vorgang von '+(w.name||('#'+id))+' wirklich absagen?')) return;
+  const key=w.schluessel;
+  const boxen=[...document.querySelectorAll('.qa[data-tri="'+key+'"]')];   /* Karte UND Ritual */
+  const sperren=an=>boxen.forEach(bx=>bx.querySelectorAll('button').forEach(b=>b.disabled=an));
+  const melden=(t,err)=>boxen.forEach(bx=>{ const o=bx.querySelector('.triout'); if(o){ o.classList.toggle('err',!!err); o.textContent=t; } });
+  const alt=btn.textContent;
+  sperren(true); btn.textContent='…'; melden('Wird im Portal eingetragen …');
+  TRI.laeuft[key]=1;
+  const ac=new AbortController(); const uhr=setTimeout(()=>ac.abort(),45000);
+  try{
+    const r=await fetch(JOHN_API+'/api/pool/schritt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:Number(id),status:status}),signal:ac.signal});
     const j=await r.json();
+    delete TRI.laeuft[key];
     if(j&&j.ok){
-      btn.textContent='✓ '+alt.replace(/^➜ |^✖ /,''); box.classList.add('beantwortet');
-      if(out){ out.classList.remove('err'); out.textContent='Im Portal eingetragen — die Person sieht den Schritt in ihrem Freelancer-Portal.'; }
+      triMerken(w,status,text); triFortschreiben(w,status,text);
       if(FLOW){ FLOW.antworten=FLOW.antworten||{}; const a=FLOW.antworten['trichter']||'';
-        FLOW.antworten['trichter']=(a?a+' · ':'')+(w.name||('#'+id))+': '+status; }
-      try{ const t=await (await fetch(JOHN_API+'/api/trichter?fresh=1',{cache:'no-store'})).json();
-           if(t&&t.ok){ TRI.data=t; triRefresh(); rhythmMalen(); } }catch(e){}
+        FLOW.antworten['trichter']=(a?a+' · ':'')+(w.name||('#'+id))+': '+text; }
+      triAlleMalen();
+      triNachladen();
     } else {
-      knoepfe.forEach(b=>b.disabled=false); btn.textContent='Nochmal versuchen';
-      if(out){ out.classList.add('err'); out.textContent=(j&&(j.hint||j.error))||'Keine Antwort vom Server.'; }
+      sperren(false); btn.textContent='Nochmal versuchen';
+      melden((j&&(j.hint||j.error))||'Keine Antwort vom Server.',true);
     }
   }catch(e){
-    knoepfe.forEach(b=>b.disabled=false); btn.textContent='Nochmal versuchen';
-    if(out){ out.classList.add('err'); out.textContent='Compass-Server nicht erreichbar.'; }
+    delete TRI.laeuft[key]; sperren(false); btn.textContent=alt;
+    melden(e&&e.name==='AbortError'
+      ? 'Der Compass-Server hat nach 45 s nicht geantwortet — er arbeitet seriell und ist vielleicht gerade mit Coach beschäftigt. Ob der Schritt angekommen ist, zeigt „Vorgang im Portal ↗“; sonst nochmal.'
+      : 'Compass-Server nicht erreichbar.', true);
+  }finally{ clearTimeout(uhr); }
+}
+/* ---------- Mandats-Puls (06.09., Rückfrage „mandats-puls“, die Nutzerin: „mach es“) -------------
+   GET /api/ausschreibungen zeigt, was der Ausschreibungs-Scan gerade in der Hand hält. Er läuft
+   seit dem 03.09. jeden Morgen und führt einen Ledger; gehört hat der Compass davon bisher nur,
+   wenn schon entschieden werden musste. Der Zustand dazwischen war unsichtbar — am 06.09. um
+   10:18 lagen zwei Angebote bei Jan Edinger mit Frist 12:00 Uhr, und im Morgencheck stand davon
+   kein Wort. Nach Ablauf reicht `job-weiterleitung-takt` sie selbsttätig weiter.
+
+   Drei Blöcke, weil es drei verschiedene Dinge sind: ⏳ läuft eine Frist (Stunden, nicht Tage —
+   deshalb steht hier eine Uhrzeit und kein „seit 3 Tagen“) · ⏸ liegt ein Treffer ohne Kette ·
+   🎯 deine eigene Pipeline aus pipeline.md.
+
+   Der Ledger ist das Bild des Scans, nicht der Markt: läuft der Scan nicht, altert das Bild mit
+   (am 04.09. ist der Tageslauf ausgefallen und der Ledger blieb einen Tag stehen). Ist er nicht
+   frisch, sagt die Karte das und die Blüte bleibt leer — Ruhe und Stillstand dürfen nie gleich
+   aussehen. Namen bleiben in dieser Karte, NIE in einer *-data.js (30-Minuten-Deploy). */
+const AUS={ data:null, fehler:null, geladen:false };
+function ausFristen(){ return ((AUS.data||{}).fristen)||[]; }
+/* Stunden lesbar machen. Unter einer Stunde zählen Minuten, darüber reicht die halbe Stunde. */
+function ausRest(h){
+  if(h==null) return '';
+  const neg=h<0, a=Math.abs(h);
+  if(a<1)  return (neg?'seit ':'noch ')+Math.max(1,Math.round(a*60))+' Min';
+  if(a<24) return (neg?'seit ':'noch ')+(a<3?a.toFixed(1).replace('.',','):Math.round(a))+' h';
+  return (neg?'seit ':'noch ')+Math.round(a/24)+' T';
+}
+function ausCard(){
+  return `<div class="card s6 tone-bene" id="ausCard"><h3>🎯 Mandate <span class="cnt" id="ausStand">lädt …</span></h3>
+    <div id="ausBody"><div class="empty">Der Ausschreibungs-Scan wird gelesen …</div></div></div>`;
+}
+function ausRefresh(){
+  const body=document.getElementById('ausBody'), stand=document.getElementById('ausStand');
+  if(!body||!stand) return;
+  if(!AUS.geladen){ stand.textContent='lädt …'; return; }
+  if(!AUS.data){
+    stand.textContent = AUS.fehler ? 'Fehler' : 'offline';
+    body.innerHTML = AUS.fehler
+      ? `<div class="empty">Der Mandats-Puls meldet: ${esc(AUS.fehler.error||'unbekannter Fehler')}${AUS.fehler.hint?' — '+esc(AUS.fehler.hint):''}</div>`
+      : `<div class="empty">Compass-Server nicht erreichbar — <code>deinen Compass-Server</code> starten, dann ↻ Neu laden.
+         Leer heißt hier <b>nicht</b> „keine Frist läuft“.</div>`;
+    return;
+  }
+  const a=AUS.data, fr=ausFristen(), wa=a.wartend||[], so=a.sonstige||[], pi=a.pipeline||{};
+  const ueber=(pi.zeilen||[]).filter(z=>z.ueberTage!=null&&z.ueberTage>0);
+  const eilig=fr.filter(f=>!f.abgelaufen&&f.restStd!=null&&f.restStd<=3).length;
+  stand.textContent = !a.frisch ? 'Bild ist alt'
+                    : (eilig ? `${eilig} ${eilig===1?'Frist läuft ab':'Fristen laufen ab'}`
+                             : (a.wartetAufDich ? `${a.wartetAufDich} offen` : 'nichts liegt'));
+  const kopf=`<div class="kpis" style="margin-bottom:8px">
+      <div class="kpi"><div class="v">${a.fristenOffen||0}</div><div class="l">${a.fristenOffen===1?'Frist läuft':'Fristen laufen'}</div></div>
+      <div class="kpi"><div class="v">${wa.length+so.length}</div><div class="l">warten auf dich</div></div>
+      <div class="kpi"><div class="v">${ueber.length}</div><div class="l">überfällig bei dir</div></div>
+      <div class="kpi"><div class="v">${a.n||0}</div><div class="l">im Ledger</div></div>
+    </div>`;
+  /* Ein alter Ledger sieht sonst aus wie ein ruhiger Tag — genau die Verwechslung, die am 04.09.
+     einen ganzen Tag gekostet hat. Deshalb steht die Warnung oben, nicht als Fußnote. */
+  const alt = a.frisch ? '' : `<div class="item"><div class="ic">⚠️</div><div class="body">
+      <div class="t">Dieses Bild ist ${a.ledgerAlterStd!=null?Math.round(a.ledgerAlterStd)+' Stunden':'unbekannt'} alt</div>
+      <div class="m">Der Ausschreibungs-Scan hat den Ledger seit ${esc(String(a.ledgerStand||'').slice(0,16).replace('T',' '))} nicht mehr geschrieben.
+      Was hier steht, ist der Stand von damals — nicht „es liegt nichts an“. Aufgabe <code>ausschreibungs-scan-taeglich</code> prüfen.</div></div></div>`;
+  const fristHtml = fr.map(f=>{
+    const rot = f.abgelaufen || (f.restStd!=null && f.restStd<=3);
+    return `<div class="qa"><div class="qp">⏳ Angebot läuft · ${esc(f.anbieter||'')} <span class="tg">${esc(ausRest(f.restStd))}${f.abgelaufen?' abgelaufen':''}</span></div>
+      <div class="qq">${esc(f.titel||'')}</div>
+      <div class="qw">Liegt bei <b>${esc(f.person||'—')}</b> seit ${esc(String(f.gesendet||'').slice(0,16).replace('T',' '))} · Frist ${esc(String(f.frist||'').slice(0,16).replace('T',' '))}</div>
+      <div class="hint" style="margin-top:4px">${rot?'Ohne Antwort geht das Angebot beim nächsten Takt-Lauf an die nächste Person der Kette.':'Der Takt-Lauf <code>job-weiterleitung-takt</code> zieht die Frist selbst.'}</div></div>`;
+  }).join('');
+  const warteHtml = wa.concat(so).slice(0,5).map(w=>`<div class="qa">
+      <div class="qp">⏸ ${esc(w.status==='wartet'?'Ohne Kette':w.status)} · ${esc(w.anbieter||'')} ${w.tage!=null?`<span class="tg">${w.tage===0?'heute gesehen':'seit '+w.tage+' T'}</span>`:''}</div>
+      <div class="qq">${esc(w.titel||'')}</div>
+      <div class="qw">${esc([w.ort,w.remote,w.dauer].filter(Boolean).join(' · '))}</div>
+      ${w.notiz?`<div class="hint" style="margin-top:4px">${esc(w.notiz)}</div>`:''}</div>`).join('')
+    + ((wa.length+so.length)>5?`<div class="hint">… und ${wa.length+so.length-5} weitere im Ledger.</div>`:'');
+  const pipeHtml = ueber.slice(0,4).map(z=>`<div class="item"><div class="ic">🎯</div><div class="body">
+      <div class="t">${esc(z.rolle||'')} <span class="tg">${z.ueberTage} T überfällig</span></div>
+      <div class="m">${esc(z.firma||'')} · ${esc(z.status||'')}</div>
+      <div class="m" style="margin-top:3px">➜ ${esc(z.schritt||'')}</div></div></div>`).join('');
+  /* pipeline.md ist eine Markdown-Tabelle, kein JSON. Wenn dort niemand mehr etwas erkennt, muss
+     die Karte das sagen — sonst liest sich eine umbenannte Spalte wie „nichts läuft“. */
+  const pipeWarn = (pi.ok===false||pi.gelesen===0) ? `<div class="hint" style="margin-top:6px">⚠️ Aus <code>pipeline.md</code> konnte ich ${pi.ok===false?'nichts lesen ('+esc(pi.grund||'')+')':'keine Zeile erkennen'} — deine eigenen Vorgänge fehlen hier deshalb.</div>` : '';
+  const leer = (!fr.length && !wa.length && !so.length && !ueber.length)
+    ? `<div class="empty">✓ Keine Frist läuft, kein Treffer liegt ohne Kette, nichts in deiner Pipeline ist überfällig.</div>` : '';
+  body.innerHTML = kopf + alt + fristHtml + warteHtml + pipeHtml + leer + pipeWarn
+    + `<div class="hint" style="margin-top:6px">Quelle: der Ledger des Ausschreibungs-Scans (lokal, Stand ${esc(String(a.ledgerStand||'').slice(0,16).replace('T',' '))}) und <code>pipeline.md</code> mit ${pi.gelesen||0} Zeilen. Der Ledger zeigt, was der Scan gesehen hat — nicht den Markt.</div>`;
+}
+/* Die Neukunden-Karte trug drei Konstanten vom 11.08. („Setup fertig 5/5“) und nannte den
+   Ausschreibungs-Scan als künftigen Schritt, obwohl er läuft. Dieselbe Bauart wie
+   vereinUebernehmen(): gemessene Zahlen legen sich über die getippten, sonst bleibt alles stehen. */
+function ausUebernehmen(){
+  const a=AUS.data; if(!a) return;
+  const p=(D.projekte||{}).neukunden; if(!p) return;
+  const ueber=((a.pipeline||{}).zeilen||[]).filter(z=>z.ueberTage!=null&&z.ueberTage>0).length;
+  const kp=[[String(a.fristenOffen||0),(a.fristenOffen===1?'Angebot mit Frist':'Angebote mit Frist')],
+            [String((a.wartend||[]).length+(a.sonstige||[]).length),'Treffer ohne Kette'],
+            [String((a.pipeline||{}).gelesen||0),'Vorgänge in der Pipeline']];
+  if(ueber) kp.push([String(ueber),'davon überfällig']);
+  p.kpis=kp;
+  if(Array.isArray(p.anfragen)){
+    const zeile=['🎯',`Ausschreibungs-Scan läuft täglich · Ledger-Stand ${String(a.ledgerStand||'').slice(0,16).replace('T',' ')} · ${a.n||0} Vorgänge, davon ${a.wartetAufDich||0} ohne Bewegung`];
+    const i=p.anfragen.findIndex(z=>/Ausschreibungs-Scan l\u00e4uft/.test(z[1]||''));
+    if(i>=0) p.anfragen[i]=zeile; else p.anfragen.unshift(zeile);
   }
 }
 /* Die Live-Zahlen über die Projektkarte legen — wie vereinUebernehmen(): eine Wahrheit, nicht zwei. */
@@ -4829,6 +5060,16 @@ const LOTUS_KATALOG={
                        const w=triOffen(), b=TRI.data.nachBahn||{};
                        return {heute:w.length,gestern:histWert('aufnahme'),
                                sub:`${TRI.data.aeltesteTage!=null?`ältester seit ${TRI.data.aeltesteTage} T`:'nichts offen'} · ${b.ankommen||0} ankommen · ${b.kollektiv||0} Kollektiv · ${b.einsatz||0} Einsatz`}; }},
+  /* Mandats-Puls (06.09.). Gezählt wird, was ohne Bewegung liegt: Treffer ohne Kette plus die
+     überfälligen Zeilen deiner eigenen Pipeline. Die laufenden Fristen stehen bewusst NICHT drin —
+     die sind eine Sache von Stunden und gehören in die Karte, nicht in eine Tageskennzahl.
+     Ist der Ledger nicht frisch, gibt es keine Zahl: ein alter Ledger sieht sonst aus wie Ruhe. */
+  mandate:{icon:'\U0001F3AF',label:'Mandate ohne Bewegung',besser:'weniger',ziele:[5,2,0],
+            quelle:'Ausschreibungs-Scan (live über john-server, GET /api/ausschreibungen — Ledger + pipeline.md, beides lokal)',
+            wert:()=>{ if(!AUS.data||!AUS.data.frisch) return null;   /* alter Ledger = keine Zahl */
+                       const a=AUS.data, fr=(a.fristen||[]).filter(f=>!f.abgelaufen).length;
+                       return {heute:a.wartetAufDich,gestern:histWert('mandate'),
+                               sub:`${fr?fr+(fr===1?' Frist läuft':' Fristen laufen'):'keine Frist läuft'} · ${a.n||0} im Ledger`}; }},
   trichter:{icon:'🫧',label:'CRM-Konversion',einheit:'%',besser:'mehr',ziele:[35,45,60],
             quelle:'Analytics-Plugin auf projekt.example (live über john-server) — Kontakte, die Mitglied geworden sind',
             wert:d=>{ const c=d.verein&&d.verein.crm; if(!c||c.konversion==null) return null;
@@ -5110,7 +5351,7 @@ function lotusRender(neuChips){
 }
 async function lotusLaden(){
   const jget=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); const j=await r.json(); return (j&&j.ok!==false)?j:null; }catch(e){ return null; } };
-  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter]=await Promise.all([
+  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter,ausschr]=await Promise.all([
     jget(JOHN_API+'/api/arbeit'),
     jget(JOHN_API+'/api/kpi/jira'),
     Promise.resolve(null), /* Kundenzahlen: im Produkt gibt es kein Kundenportal */
@@ -5149,7 +5390,11 @@ async function lotusLaden(){
        nur eine Quelle erreichbar war — welche fehlt, steht in `fehlt`, und Karte wie Ritual sagen
        es. Ein Trichter, der bei toter Quelle „niemand wartet“ zeigt, wäre die gefährlichste Karte
        in diesem Cockpit: er würde Menschen unsichtbar machen, die auf eine Antwort warten. */
-    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/trichter',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/trichter',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
+    /* Mandats-Puls (06.09.): rein lokal, kann also nur fehlschlagen, wenn der Ledger fehlt oder
+       unlesbar ist (NO_LEDGER / BAD_LEDGER). Genau das muss die Karte sagen dürfen — ein fehlender
+       Ledger heißt „der Scan schreibt nicht mehr“, nicht „es liegt nichts an“. */
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/ausschreibungen',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
   ]);
   KAL.data=(kal&&kal.ok)?kal:null; KAL.fehler=(kal&&kal.ok===false)?kal:null; KAL.geladen=true;
   GIT.data=(git&&git.ok)?git:null; GIT.fehler=(git&&git.ok===false)?git:null; GIT.geladen=true; gitRefresh();
@@ -5167,14 +5412,16 @@ async function lotusLaden(){
   finUebernehmen();
   NUTZ.data=(nutzer&&nutzer.ok)?nutzer:null; NUTZ.fehler=(nutzer&&nutzer.ok===false)?nutzer:null; NUTZ.geladen=true;
   TRI.data=(trichter&&trichter.ok)?trichter:null; TRI.fehler=(trichter&&trichter.ok===false)?trichter:null; TRI.geladen=true;
+  AUS.data=(ausschr&&ausschr.ok)?ausschr:null; AUS.fehler=(ausschr&&ausschr.ok===false)?ausschr:null; AUS.geladen=true;
+  ausUebernehmen();                         /* gemessene Zahlen über die Neukunden-Karte legen, BEVOR gerendert wird */
   rhythmMalen();                            /* die Zeile „🫂 Menschen im Trichter“ hängt am Trichter-Stand */
-  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data,nutzer:NUTZ.data,trichter:TRI.data}; LOT.geladen=true;
+  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data,nutzer:NUTZ.data,trichter:TRI.data,ausschr:AUS.data}; LOT.geladen=true;
   /* Verbindungszustand für die Verbindungswacht. Unterschieden wird streng: null = der Abruf kam
      gar nicht durch (Server weg), ein Objekt = der Server hat geantwortet — auch {ok:false}, denn
      das heißt „diese eine Quelle fehlt", nicht „der Server ist tot". Nur so kann die Wacht den
      Takt richtig wählen, statt bei einer fehlenden Kalenderadresse dauernd nachzuklopfen. */
   if(typeof SRV!=='undefined'&&SRV){
-    const erreicht=[kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter].some(x=>x!==null&&x!==undefined);
+    const erreicht=[kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter,ausschr].some(x=>x!==null&&x!==undefined);
     SRV.ok=erreicht;
     if(erreicht){ SRV.stand=Date.now(); SRV.fehl=0; } else { SRV.fehl++; }
     if(typeof srvStandMalen==='function') srvStandMalen();
@@ -5182,7 +5429,7 @@ async function lotusLaden(){
     if(erreicht&&typeof finStimmenNachreichen==='function'){ try{ finStimmenNachreichen(); }catch(e){} }
   }
   if(arbeit) arbeitXpVerbuchen(arbeit);
-  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh();
+  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh(); ausRefresh();
   lotusRender(false);
   fortschrittRefresh();
   if(SUMMARY_NEU||!(S.summary&&S.summary.datum===heute())){ const f=SUMMARY_NEU; SUMMARY_NEU=false; summaryHolen(f); }
@@ -5759,7 +6006,7 @@ function render(c){
      das, woran heute gearbeitet wird —, und erst darunter Kompass und Coach. */
   h+=secHtml('heute', lotusCard()
     + kpiTicker()
-    + meldeBanner() + fragenBanner()
+    + meldeBanner() + fragenBanner() + umsetzungCard()
     + kanbanCard()
     + (d.jira?jiraCard(d.jira,true):'')
     + kompassKino() + johnKachel());
@@ -5769,7 +6016,7 @@ function render(c){
      Rückfragen, die die Nutzerin deshalb nie sah („keine Fragen an mich“). Sechs Leute, die auf eine
      Antwort warten, sind ein nächster Schritt, kein Kanalzustand. */
   h+=secHtml('schritte',
-      kalenderCard() + triCard() + postfCard() + slrCard() + wetterCard() + finCard() + nutzCard()
+      kalenderCard() + triCard() + ausCard() + postfCard() + slrCard() + wetterCard() + finCard() + nutzCard()
     + `<div class="card s6 ${tone}"><h3>⚡ Jetzt wichtig</h3>${itemsHtml(d.next,'dashboard.html › CTX.'+c+'.next',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>📅 Termine</h3>${itemsHtml(d.termine,'dashboard.html › CTX.'+c+'.termine',qo)}</div>`
     + `<div class="card s3 ${tone}"><h3>🗂️ Vorbereiten</h3>${itemsHtml(d.vorbereiten,'dashboard.html › CTX.'+c+'.vorbereiten',qo)}</div>`
@@ -5813,7 +6060,7 @@ function render(c){
   /* 31.08.: Postfach, Sicherungen, Wetter und Routinen fehlten hier. Ihre Karten rendern leer und
      werden aus dem geladenen Zustand gefüllt — nach jedem erneuten render() (Kontextwechsel!)
      standen sie darum dauerhaft auf „lädt …“, obwohl die Daten längst da waren. */
-  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh();
+  postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh(); ausRefresh();
   if(KAN.mode==='personal'){ if(KAN.view==='board'){ pkDnD(); if(!PK.geladen) pkLaden(false); } else trelloLive(); }
   else { if(VA.tickets.length) vaPaint(); else vaLaden(false); }
 }
@@ -6132,6 +6379,7 @@ srvPlanen();    /* ab jetzt hält die Verbindungswacht die Anzeige frisch und fi
 setTimeout(()=>{ uebergabeNachholen().then(f=>{ if(!f) uebergabeWacht(); }); },1600);
 setTimeout(boardLaden,2600);   /* jüngstes Board für den Link im Kopf (02.09.) */   /* liegengebliebene Übergabe still nachreichen, notfalls im Takt weiter (siehe checkinSenden) */
 antwortenSync();                       /* beantwortete Rückfragen mit dem john-server abgleichen (31.08.) */
+chatFragenLaden();                     /* unbeantwortete Chat-Fragen aus den Sitzungsdateien holen (06.09.) */
 CHECKIN_SYNC=checkinSync();                         /* Morgencheck + „Das Eine" aus checkins\ übernehmen, egal in welcher Fassung er lief (31.08.) */
 einstellungenSync();                   /* Farbschema, Sprache, Tagesphase — eine Wahl für alle Fassungen (31.08.) */
 
