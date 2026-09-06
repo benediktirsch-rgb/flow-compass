@@ -3596,12 +3596,16 @@ function Add-Einstellung([string]$key, [string]$wert, [string]$ts, [string]$quel
 # Eine Antwort aufnehmen. Neueres Datum gewinnt; bei gleichem Datum bleibt das
 # Bekannte stehen (der Compass schickt seinen ganzen Speicher bei jedem Laden mit).
 # Rueckgabe: $true, wenn sich etwas geaendert hat.
-function Add-Antwort([string]$id, [string]$a, [string]$ts, [string]$frage, [string]$quelle) {
+# -direkt (06.09.2026): eine EINZELNE Antwort, die der Compass in diesem Moment schickt, darf eine Antwort vom
+# selben Tag ueberschreiben — sonst kaemen ↩ (Rueckgaengig) und eine zweite Frage zur selben Entscheidung
+# (ums:<id>, Karte „entschieden, noch nicht umgesetzt“) nie an. Der Abgleich des ganzen Browser-Speichers
+# bleibt beim Alten: bei Gleichstand gewinnt der Server, er weiss nicht, welche Fassung juenger ist.
+function Add-Antwort([string]$id, [string]$a, [string]$ts, [string]$frage, [string]$quelle, [switch]$direkt) {
   if (-not $id -or -not $a) { return $false }
   if ($ts -notmatch '^\d{4}-\d{2}-\d{2}$') { $ts = (Get-Date -Format 'yyyy-MM-dd') }
   $h = Read-Antworten
   $alt = $h[$id]
-  if ($alt -and [string]$alt.a -and ([string]$alt.ts) -ge $ts) {
+  if ($alt -and [string]$alt.a -and ([string]$alt.ts) -ge $ts -and -not ($direkt -and ([string]$alt.ts) -eq $ts)) {
     if ($frage -and -not [string]$alt.frage) { $alt.frage = $frage; return $true }
     return $false
   }
@@ -4079,7 +4083,7 @@ try {
           $n = 0
           # a) eine einzelne Antwort, in dem Moment gegeben: {id, antwort, ts, frage}
           if ([string]$in.id) {
-            if (Add-Antwort ([string]$in.id) ([string]$in.antwort) ([string]$in.ts) ([string]$in.frage) 'compass') { $n++ }
+            if (Add-Antwort ([string]$in.id) ([string]$in.antwort) ([string]$in.ts) ([string]$in.frage) 'compass' -direkt) { $n++ }
           }
           # b) der ganze Speicher des Browsers: {antworten:{id:{a,ts,frage}}} — so kommen
           #    auch Antworten herein, die frueher nur in einer Fassung des Compass lagen.

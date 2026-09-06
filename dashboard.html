@@ -210,6 +210,15 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .item.link::after{content:'↗';position:absolute;right:9px;top:9px;font-size:11px;font-weight:700;color:var(--dim);opacity:.5;transition:.15s}
 .item.link:hover::after,.item.link:focus-visible::after{opacity:1;color:var(--va-l)}
 .item.link.multi::after{content:'⋯'}
+/* Entschieden-Karte verarbeitbar (06.09.): vier Knöpfe je Zeile, kleiner Fragen-Dialog, ↩ in der Fußzeile */
+.item.ums .opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.item.ums .opts button{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:11.5px;font-weight:700;color:var(--sub);cursor:pointer}
+.item.ums .opts button:hover{border-color:var(--line2);color:var(--ink)}
+.item.ums .opts button.a{background:var(--bene);border-color:var(--bene);color:#1c1300}
+.item.ums .umsdlg{margin-top:8px}
+.item.ums .umsdlg textarea{width:100%;box-sizing:border-box;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;font-size:12.5px;color:var(--ink);resize:vertical}
+.item.ums .dt{color:var(--dim);font-size:11.5px}
+.ums-ru{background:none;border:0;color:var(--va-l);cursor:pointer;font:inherit;font-weight:700;padding:0 2px}
 #qov .sheet{max-width:540px}
 #qov .qh{padding:18px 44px 8px 24px;position:relative}
 #qov .qh .src{font-size:11px;color:var(--dim);font-weight:700;letter-spacing:.5px;text-transform:uppercase}
@@ -1811,7 +1820,7 @@ function checkinNutzlast(art,text){
   return {art,datum:heute(),titel:(FLOW&&FLOW.titel)||art,text,
           fokus:(S.fokus.datum===heute()&&S.fokus.text)||'',
           auftrag:(art==='morgen'&&a.auftrag)||'',
-          antworten:a,wahl:w,entschieden:frisch,
+          antworten:a,wahl:w,entschieden:frisch.concat(umsFrisch()),
           offen:offeneFragen().map(q=>q.id),
           quelle:location.origin+location.pathname};
 }
@@ -1923,7 +1932,7 @@ function boardCta(){
    hin und übernimmt, was er noch nicht kennt. Ist der Server aus, bleibt alles
    beim Alten — der lokale Stand gilt weiter, und der nächste Ladeversuch holt es nach.
    ========================================================================== */
-function antwortText(id){ const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null)||(S.meldeFragen||{})[id]||((typeof CHATF!=='undefined'?CHATF.list:[])||[]).find(x=>x.id===id); return q?q.frage:''; }
+function antwortText(id){ if(/^ums:/.test(id)){ const r=umsZeile(id); return r?'Umsetzung: '+r[2]+' ('+(r[3]==='bene'?'bei Bene':'bei Claude')+', '+datumKurz(r[0])+')':''; } const q=(R.rueckfragen||[]).find(x=>x.id===id)||(typeof finFragen==='function'?finFragen().find(x=>x.id===id):null)||(S.meldeFragen||{})[id]||((typeof CHATF!=='undefined'?CHATF.list:[])||[]).find(x=>x.id===id); return q?q.frage:''; }
 function antwortMerken(frage){ const k=frageSchluessel(frage); if(k) ANTW_TEXT.add(k); }
 /* Eine frisch gegebene Antwort sofort hinschicken. Fehlschlag ist unkritisch:
    sie steht im localStorage, geht mit dem Checkin mit und wird beim nächsten
@@ -2169,6 +2178,8 @@ function briefing(art){
   (FLOW.schritte||[]).forEach(s=>{ const a=FLOW.antworten[s.id]; if(a) L.push(`${s.icon||'•'} ${s.titel||s.frage}: ${a}`); });
   const frisch=(R.rueckfragen||[]).filter(q=>S.antworten[q.id] && S.antworten[q.id].ts===heute());
   if(frisch.length){ L.push(''); L.push('Antworten auf deine Rückfragen:'); frisch.forEach(q=>L.push(`- ${q.frage} → ${S.antworten[q.id].a}`)); }
+  const ums=umsFrisch();
+  if(ums.length){ L.push(''); L.push('Rückmeldungen zu „entschieden, noch nicht umgesetzt“ (ums:<id> in antworten.json):'); ums.forEach(u=>L.push(`- ${u.frage} → ${u.antwort}`)); }
   const nochOffen=offeneFragen();
   if(nochOffen.length){ L.push(''); L.push(`(${nochOffen.length} Rückfragen noch offen)`); }
   L.push('');
@@ -2519,7 +2530,7 @@ let FRAGEN_AB=0;
 /* Was heute entschieden wurde — aus S.antworten (Rückfragen + Finanz-Entscheidungen), nur mit Datum von heute. */
 function heuteEntschieden(){
   const h=heute(), out=[];
-  Object.keys(S.antworten||{}).forEach(id=>{ const w=S.antworten[id]; if(!w||!w.a||w.ts!==h) return;
+  Object.keys(S.antworten||{}).forEach(id=>{ const w=S.antworten[id]; if(!w||!w.a||w.ts!==h||(/^ums:/.test(id)&&w.a==='offen')) return;
     let frage=antwortText(id);
     if(!frage&&/^fin-/.test(id)&&FIN.data){ const x=(FIN.data.entscheidungen||[]).find(y=>'fin-'+y.id===id); if(x) frage=x.titel+' — '+x.frage; }
     out.push({id,frage:frage||id,antwort:w.a}); });
@@ -2556,15 +2567,78 @@ function fragenWeiter(){
    lagen in antworten.json, ohne dass Claude sie abgeholt hätte — für Bene sah das aus wie „alles
    beantwortet, und nichts passiert“. Jede Zeile in rhythmus-data.js › entschieden, deren Notiz ein ⏳
    trägt, steht hier, bis Claude die Notiz auf ✅ setzt. Nichts davon wird erneut gefragt. */
+/* Seit dem 06.09. abends ist die Karte verarbeitbar (Bene: „Diese Informationen müssen weiter verarbeitbar
+   sein — Ja, Nein, Link, Fragen-Dialog“). Jede Zeile trägt vier Knöpfe:
+     ✓ Ja      = ist umgesetzt oder erledigt → Antwort `ums:<id>` = „erledigt“, Zeile raus
+     ✗ Nein    = nicht mehr nötig            → Antwort `ums:<id>` = „verworfen“, Zeile raus
+     ↗ Link    = Herkunft (rhythmus-data.js › entschieden[id]) und erkannte Quellen (Jira-Key, URL, Datei)
+     💬 Fragen = kleiner Dialog: Frage oder Anmerkung an Claude (Antwort „Frage: …“, Zeile bleibt mit Marke)
+                 oder dieselbe Frage an John.
+   Die Antworten gehen wie jede Rückfrage über antwortSenden() → antworten.json und mit dem nächsten Checkin
+   mit (checkinNutzlast/briefing). Claude liest sie beim nächsten Lauf und setzt die Notiz in rhythmus-data.js
+   auf ✅ (erledigt) bzw. streicht die Zeile (verworfen); eine Frage beantwortet er dort oder als neue Rückfrage.
+   ↩ macht eine Wahl vom selben Tag rückgängig (Antwort „offen“ — der Server nimmt sie, weil eine einzelne
+   Antwort aus dem Compass seit 06.09. auch am selben Tag überschreiben darf, Add-Antwort -direkt). */
+let UMS_ALLE=false;
+function umsId(r){ return 'ums:'+r[1]; }
+function umsZeile(id){ return (R.entschieden||[]).find(r=>'ums:'+r[1]===id)||null; }
+function umsStand(r){ const w=(S.antworten||{})[umsId(r)]; return (w&&w.a)?w:null; }
+function umsNotiz(r){ return String(r[4]||'').replace(/^[^⏳]*⏳\s*/,''); }
+function umsWeg(w){ return !!w && /^(erledigt|verworfen)\b/.test(w.a); }
+function umsOffen(){ return (R.entschieden||[]).filter(r=>/⏳/.test(r[4]||'')&&!umsWeg(umsStand(r))); }
+function umsHeuteWeg(){ const h=heute(); return (R.entschieden||[]).filter(r=>{ const w=umsStand(r); return umsWeg(w)&&w.ts===h; }); }
+/* Heutige Rückmeldungen in der Form der Rückfragen-Antworten — für Checkin (entschieden[]) und Übergabetext. */
+function umsFrisch(){ const h=heute(); return Object.keys(S.antworten||{}).filter(id=>/^ums:/.test(id)).map(id=>({id,w:S.antworten[id]})).filter(x=>x.w&&x.w.a&&x.w.ts===h&&x.w.a!=='offen').map(x=>({id:x.id,frage:antwortText(x.id),antwort:x.w.a})); }
 function umsetzungCard(){
   const UMS_N=6;
-  const off=(R.entschieden||[]).filter(r=>/⏳/.test(r[4]||''));
-  if(!off.length) return '';
+  const off=umsOffen(), weg=umsHeuteWeg();
+  if(!off.length&&!weg.length) return '';
   const bene=off.filter(r=>r[3]==='bene').length;
-  return `<div class="card s12" id="umsetzungCard"><h3>🧾 ${off.length} entschieden, noch nicht umgesetzt <span class="cnt">${bene?bene+' bei dir · ':''}${off.length-bene} bei Claude</span></h3>
-    ${off.slice(0,UMS_N).map(r=>`<div class="item"><div class="ic">${r[3]==='bene'?'🙋':'🤖'}</div><div class="body"><div class="t">${esc(r[2])} <span class="mini">· ${esc(datumKurz(r[0]))}</span></div><div class="m">${esc((r[4]||'').replace(/^[^⏳]*⏳\s*/,''))}</div></div></div>`).join('')}
-    ${off.length>UMS_N?`<div class="mini">und ${off.length-UMS_N} weitere — alle stehen in rhythmus-data.js › entschieden.</div>`:''}</div>`;
+  const zeigen=UMS_ALLE?off:off.slice(0,UMS_N);
+  return `<div class="card s12" id="umsetzungCard"><h3>🧾 ${off.length?off.length+' entschieden, noch nicht umgesetzt':'Alles verarbeitet'} <span class="cnt">${off.length?`${bene?bene+' bei dir · ':''}${off.length-bene} bei Claude`:'nichts wartet mehr'}</span></h3>
+    ${zeigen.map(umsItem).join('')}
+    ${off.length>UMS_N?`<div class="chipbar"><button type="button" class="btn" onclick="umsAlle()">${UMS_ALLE?'▴ nur die ersten '+UMS_N:'▸ alle '+off.length+' zeigen'}</button></div>`:''}
+    ${weg.length?`<div class="mini">Heute verarbeitet: ${weg.map(r=>`${/^erledigt/.test(umsStand(r).a)?'✓':'✗'} ${esc(kurz(r[2],48))} <button type="button" class="ums-ru" onclick="umsZurueck('${escA(umsId(r))}')" title="Rückgängig — die Zeile kommt zurück">↩</button>`).join(' · ')}</div>`:''}
+    <div class="mini">✓ Ja = umgesetzt oder erledigt · ✗ Nein = nicht mehr nötig · ↗ Link = Herkunft und Quellen · 💬 Fragen = Frage oder Anmerkung an Claude. Deine Wahl geht an den john-server; Claude zieht rhythmus-data.js › entschieden beim nächsten Lauf nach.</div></div>`;
 }
+function umsItem(r){
+  const id=umsId(r), w=umsStand(r), frage=(w&&/^Frage:/.test(w.a))?w.a.replace(/^Frage:\s*/,''):'';
+  const m=qmark(r[2],umsNotiz(r),'rhythmus-data.js › entschieden['+r[1]+']',{tip:'Herkunft und Quellen anzeigen'});
+  return `<div class="item ums ${m.c}"${m.a} data-ums="${escA(id)}"><div class="ic">${r[3]==='bene'?'🙋':'🤖'}</div><div class="body">
+    <div class="t">${esc(r[2])} <span class="dt">· ${esc(datumKurz(r[0]))}</span>${frage?` <span class="tag blu" title="${escA(frage)}">💬 gefragt ${esc(datumKurz(w.ts))}</span>`:''}</div>
+    <div class="m">${esc(umsNotiz(r))}</div>
+    <div class="opts">
+      <button type="button" data-ums-a="erledigt" title="Ja — ist umgesetzt oder erledigt. Die Zeile kommt raus, Claude setzt die Notiz auf ✅">✓ Ja</button>
+      <button type="button" data-ums-a="verworfen" title="Nein — nicht mehr nötig. Die Zeile kommt raus, Claude streicht sie">✗ Nein</button>
+      <button type="button" data-ums-a="link" title="Herkunft, Jira-Keys, Adressen und Dateien aus dieser Zeile">↗ Link</button>
+      <button type="button" data-ums-a="fragen" title="Frage oder Anmerkung an Claude — oder John dazu fragen">💬 Fragen</button></div>
+    <div class="umsdlg" hidden><textarea rows="3" placeholder="Deine Frage oder Anmerkung zu dieser Entscheidung — Claude liest sie beim nächsten Sessionstart.">${esc(frage)}</textarea>
+      <div class="opts"><button type="button" class="a" data-ums-a="senden">💬 An Claude senden</button><button type="button" data-ums-a="john">🧠 John fragen</button><button type="button" data-ums-a="zu">Abbrechen</button></div></div>
+  </div></div>`;
+}
+function umsAktion(it,a){
+  const id=it.dataset.ums, r=umsZeile(id); if(!r) return;
+  const dlg=it.querySelector('.umsdlg'), ta=dlg?dlg.querySelector('textarea'):null, text=ta?ta.value.trim():'';
+  if(a==='link'){ quelleOeffnen(Number(it.dataset.q)); return; }
+  if(a==='fragen'){ if(dlg){ dlg.hidden=!dlg.hidden; if(!dlg.hidden&&ta) ta.focus(); } return; }
+  if(a==='zu'){ if(dlg) dlg.hidden=true; return; }
+  if(a==='john'){ johnOpen(`Im Compass steht die Entscheidung „${r[2]}“ vom ${datumKurz(r[0])} noch als nicht umgesetzt (${r[3]==='bene'?'liegt bei mir':'liegt bei Claude'}): ${umsNotiz(r)}${text?' — Meine Frage dazu: '+text:''} Was bedeutet das für mich, und was wäre der nächste sinnvolle Schritt?`); return; }
+  if(a==='senden'){ if(!text){ if(ta) ta.focus(); return; } umsAntwort(id,'Frage: '+text); toast('💬 Frage an Claude hinterlegt — steht in antworten.json und geht mit dem nächsten Checkin mit','ok'); umsNeu(); return; }
+  if(a==='erledigt'||a==='verworfen'){ umsAntwort(id,a); toast(a==='erledigt'?'✓ Als umgesetzt gemeldet — Claude setzt die Notiz auf ✅':'✗ Als nicht mehr nötig gemeldet — Claude streicht die Zeile','ok'); umsNeu(); }
+}
+function umsAntwort(id,a){
+  if(!S.antworten[id]&&/^(erledigt|verworfen)$/.test(a)) S.xp+=(R.xp.rueckfrage||5);   /* eine Entscheidung wie jede andere, nur ohne den Fragen-Zähler */
+  S.antworten[id]={a,ts:heute()}; speichern(); kopfMalen(); antwortSenden(id,a);
+}
+function umsZurueck(id){ umsAntwort(id,'offen'); toast('↩ Zurück in der Liste — Claude lässt die Zeile stehen','ok'); umsNeu(); }
+function umsAlle(){ UMS_ALLE=!UMS_ALLE; umsNeu(); }
+function umsNeu(){ const el=document.getElementById('umsetzungCard'); if(!el) return; const html=umsetzungCard(); if(html) el.outerHTML=html; else el.remove(); if(typeof kinoHoehe==='function') kinoHoehe(); }
+/* Die Knöpfe laufen über das Grid (Delegation), weil die Karte bei jedem render() neu entsteht. Der Klick auf die
+   Zeile selbst öffnet weiter das Quellen-Overlay (qmark) — Knöpfe und Textfeld nimmt dessen Delegation bewusst aus. */
+document.getElementById('grid').addEventListener('click',e=>{
+  const b=e.target.closest('[data-ums-a]'); if(!b) return;
+  const it=b.closest('.item.ums'); if(it) umsAktion(it,b.dataset.umsA);
+});
 /* ---------- Ticket-Aufräumen (aufraeumen-data.js) ---------- */
 function aufraeumCard(){
   if(!AUF) return '';
