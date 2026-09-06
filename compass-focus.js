@@ -192,6 +192,44 @@ function messZeile(Q){
   return {t:(n==null?'gemessen':(n?n+' warten auf dich':'nichts wartet'))+wann, live:true, warn:n>0};
 }
 
+/* ---- Zähler für die Dashboards (Bene 06.09.: „wir brauchen Daten zur Entscheidung“) ----
+   Dieselbe Strecke wie die Website und der Lean-Prototyp: POST an stats.php?hit=1 des
+   Betreibers, Ereignisname focus:<gruppe>:<schlüssel>, ausgewertet in f/kennzahlen.html.
+   Ziel steht nirgends fest im Code (Wortprüfung des Demo-Builds): entweder trägt die
+   Instanz `COMPASS_INSTANZ.stats` ein, oder die Seite läuft unter derselben Hauptdomain wie
+   das Team-Cockpit — dann ist <hauptdomain>/stats.php das Ziel. Sonst wird nichts gesendet.
+   Kein Cookie, keine Person, kein Inhalt; Do-Not-Track schaltet ab, localhost zählt nicht. */
+function statsZiel(){
+  var eigen=hol(function(){ return window.COMPASS_INSTANZ&&COMPASS_INSTANZ.stats; },''); if(eigen) return String(eigen);
+  if(!/^https?:$/.test(location.protocol)) return '';
+  var apex=function(h){ return String(h||'').toLowerCase().split('.').slice(-2).join('.'); };
+  var hier=apex(location.hostname), cockpit=hol(function(){ return apex(new URL(COMPASS.cockpit.url).hostname); },'');
+  if(hier&&cockpit&&hier===cockpit) return location.protocol+'//'+hier+'/stats.php?hit=1';
+  return '';
+}
+var STATS_AN=!(navigator.doNotTrack=='1'||window.doNotTrack=='1')&&!/^(localhost|127\.|\[?::1)/.test(location.hostname);
+var STATS_LOG=[];
+function statsEv(name){
+  name='focus:'+String(name).toLowerCase().replace(/[^a-z0-9:_\-]/g,'-').slice(0,34);
+  STATS_LOG.push(name); if(STATS_LOG.length>30) STATS_LOG.shift();
+  var ziel=STATS_AN?statsZiel():''; if(!ziel) return;
+  try{
+    var body=JSON.stringify({k:'ev',n:name,p:'/compass/'});
+    if(navigator.sendBeacon) navigator.sendBeacon(ziel,new Blob([body],{type:'text/plain'}));
+    else fetch(ziel,{method:'POST',body:body,keepalive:true,mode:'no-cors'}).catch(function(){});
+  }catch(e){}
+  debugMalen();
+}
+/* ?debug=1 — kleines Fenster unten rechts, dasselbe Werkzeug wie im Lean-Prototyp der Website */
+function debugMalen(){
+  if(new URLSearchParams(location.search).get('debug')!=='1') return;
+  var d=document.getElementById('fvDebug');
+  if(!d){ d=document.createElement('pre'); d.id='fvDebug'; d.style.cssText='position:fixed;right:12px;bottom:84px;z-index:96;max-width:320px;max-height:40vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font:11px/1.4 ui-monospace,Consolas,monospace;color:var(--sub);box-shadow:var(--shadow)'; document.body.appendChild(d); }
+  var g={}; KATALOG.forEach(function(e){ g[e.id]=Math.round(gewicht(e.id)*100)/100; });
+  d.textContent='Focus View · debug\nansicht: '+ansicht()+(F.fuerImmer?' (fest)':'')+'\nstats → '+(STATS_AN?(statsZiel()||'kein Ziel'):'aus (DNT/localhost)')
+    +'\n\ngewichte: '+JSON.stringify(g,null,1).replace(/[{}"]/g,'')+'\npins: '+F.pins.join(', ')+'\n\nletzte Ereignisse:\n'+STATS_LOG.slice(-8).join('\n');
+}
+
 /* ---- Lernen: zählen, gewichten, auswählen -------------------------------- */
 var zuletzt={};
 function zaehlen(id){
@@ -201,6 +239,7 @@ function zaehlen(id){
   zuletzt[id]=now;
   var l=F.nutzung[id]||(F.nutzung[id]=[]); l.push(now); if(l.length>80) l.splice(0,l.length-80);
   sichern();
+  statsEv('einstieg:'+id);
 }
 function gewicht(id){
   var e=KAT(id); if(!e) return 0;
@@ -274,6 +313,7 @@ function istFocus(){ return ansicht()!=='voll'; }
 function ansichtSetzen(a,still){
   if(!ansichtDa(a)) a='voll';
   F.ansicht=a; if(a==='voll') F.buehne=null; sichern();
+  statsEv('ansicht:'+a);
   anwenden();
   try{ render(hol(function(){ return aktuell; },'va')); }catch(e){ nachRender(); }
   if(!still){ var x=ANS(a); sag(x.ic+' '+x.t+' — wechseln: Knopf oben im Kopf oder Taste S'); }
@@ -526,6 +566,7 @@ function wizardWahl(id){
   var w=document.getElementById('ansichtWiz'); var immer=!!(document.getElementById('wizImmer')||{}).checked;
   F.gewaehlt=Date.now(); F.gefragt=Date.now(); F.fuerImmer=immer; sichern();
   if(w) w.classList.remove('on');
+  statsEv('assistent:'+id+(immer?'-fest':''));
   ansichtSetzen(id,true);
   var x=ANS(ansicht());
   sag('Gemerkt: '+x.ic+' '+x.t+' · wechseln: Knopf oben oder Taste S'+(immer?'':' · in 4 Wochen frage ich einmal nach, ob es noch passt'));
@@ -537,6 +578,7 @@ function wizardSpaeter(){
   if(immer){ F.gewaehlt=F.gewaehlt||Date.now(); F.fuerImmer=true; F.gefragt=Date.now(); }
   else F.gefragt=Date.now()-NACHFRAGE+864e5;
   sichern();
+  statsEv('assistent:'+(immer?'spaeter-fest':'spaeter'));
 }
 function dialogOffen(){
   if(document.querySelector('.ov.on:not(#ansichtWiz)')) return true;
@@ -667,7 +709,8 @@ function start(){
   anwenden(); nachRender();
   setInterval(zeilenMalen,15000);
   wizardPruefen();
-  window.compassFocus={ ansicht:ansichtSetzen, oeffnen:oeffnen, assistent:function(){ wizardZeigen(!!F.gewaehlt); },
+  statsEv('start:'+ansicht()); debugMalen();
+  window.compassFocus={ ansicht:ansichtSetzen, oeffnen:oeffnen, assistent:function(){ wizardZeigen(!!F.gewaehlt); }, statsZiel:statsZiel, ereignisse:function(){ return STATS_LOG.slice(); },
     gewichte:function(){ var o={}; KATALOG.forEach(function(e){ o[e.id]=Math.round(gewicht(e.id)*100)/100; }); return o; }, zustand:function(){ return F; } };
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
