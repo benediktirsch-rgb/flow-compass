@@ -364,6 +364,9 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .qa .opts button:hover{border-color:var(--line2);color:var(--ink)}
 .qa .opts button.on{background:var(--bene);border-color:var(--bene);color:#1c1300}
 .qa.beantwortet{opacity:.6}
+/* Trichter (06.09.): zwei Spalten in der breiten Karte; Link-Knopf wie ein Knopf */
+.tri-liste{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-top:4px}.tri-liste .qa{margin-top:0}
+.qa .opts a{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700;color:var(--sub);text-decoration:none}.qa .opts a:hover{border-color:var(--line2);color:var(--ink)}
 /* Freigabe-Schritt (05.09.2026): eine beantwortete Karte klappt zu und verschwindet, das nächste Paket
    rückt von unten nach. Die Höhe setzt gitWeg() vorher als Inline-Wert, sonst gibt es nichts zu animieren. */
 .qa.weg{opacity:0;transform:translateX(14px);height:0!important;margin-top:0!important;padding-top:0!important;padding-bottom:0!important;border-width:0;overflow:hidden;
@@ -1383,7 +1386,7 @@ function rhythmMalen(){
   const offen = offeneFragen().length;
   const abendOk = S.lastAbend===heute();
   const abendZeit = new Date().getHours()>=17;
-  const zug=triOffen().length;   /* Menschen im Trichter: Vereinszugänge + offene Vorgänge im Portal (05.09.) */
+  const zug=triAktiv().length;   /* Menschen im Trichter: Vereinszugänge + offene Vorgänge im Portal (05.09.) — ohne die, die heute schon entschieden oder auf später gelegt sind (06.09.) */
   const rits=[
     {id:'morgen', ic:'☀️', t:'Morgencheck', s:'5 Minuten, dann läuft der Tag', due:!morgenOk, done:morgenOk, badge: morgenOk?'erledigt':'5 Min'},
     {id:'wochenstart', ic:'🧭', t:'Wochenstart', s: tag===1?'Heute — Woche setzen':'montags', due: tag===1&&!wsOk, done: wsOk, badge: wsOk?'gesetzt':(tag===1?'fällig':'Mo')},
@@ -1547,10 +1550,12 @@ function koerper(s){
        nachsehen“ dürfen sich nicht gleich lesen. */
     if(!TRI.geladen) return `<div class="empty">Der Trichter wird geladen …</div>`;
     if(!TRI.data) return `<div class="empty">John-Server nicht erreichbar — wer wartet, weiß ich gerade nicht.</div>`;
-    const z=triOffen(), namen=(TRI.data.fehlt||[]).map(x=>x==='verein'?'Vaikuntha':'das Freelancer-Portal');
+    const z=triAktiv(), h=triHeute(), namen=(TRI.data.fehlt||[]).map(x=>x==='verein'?'Vaikuntha':'das Freelancer-Portal');
     const warn=namen.length?`<div class="hint" style="margin-bottom:8px">⚠️ ${namen.join(' und ')} ${namen.length>1?'antworten':'antwortet'} gerade nicht — diese Liste ist unvollständig.</div>`:'';
-    if(!z.length) return warn+(namen.length?'':`<div class="empty">Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.</div>`);
-    return warn+z.map(x=>triZeile(x,triKnoepfe)).join('');
+    /* Dieselbe Liste wie in der Karte (06.09.): wer heute schon entschieden ist, steht kompakt darunter —
+       nicht noch einmal mit Knöpfen, als wäre nichts geschehen. */
+    const leer = z.length ? '' : (namen.length ? '' : `<div class="empty">${h.length?`✓ Alle entschieden — ${h.length} heute erledigt.`:'Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.'}</div>`);
+    return warn+z.map(x=>triZeile(x,triKnoepfe)).join('')+leer+h.map(triKompakt).join('');
   }
   if(s.typ==='auftrag'){
     return `<textarea id="ovIn" placeholder="z. B. Aufräum-Vorschlag umsetzen, Domain-Umzugsplan, Kennzahlen ziehen">${esc(S.auftrag||'')}</textarea>`;
@@ -4236,12 +4241,38 @@ function nutzRefresh(){
    alle 30 Minuten veröffentlicht. Wie Postfach, Slack und Nutzerzahlen. */
 const TRI={ data:null, fehler:null, geladen:false, laeuft:{} };
 function triOffen(){ return ((TRI.data||{}).wartende)||[]; }
+/* Gedächtnis (06.09., Bene: „speichere die Freigaben“): jede Entscheidung — Stufe, Absage, Freigabe, „später“ —
+   steht in S.tri unter dem Schlüssel der Zeile, mit Datum und Uhrzeit. Vorher lebte sie nur im DOM: der
+   nächste Abruf, ein Neuladen oder das zweite Exemplar der Liste (Karte unter dem Ritual) zeigten die
+   Person wieder mit allen Knöpfen, als wäre nichts geschehen. Ein Eintrag gilt für heute; morgen ist der
+   Vorgang mit seiner neuen Stufe wieder eine offene Entscheidung. Namen bleiben im localStorage dieses
+   Browsers — nie in einer *-data.js. */
+function triMerk(w){ const m=(S.tri||{})[w.schluessel]; return (m&&m.ts===heute())?m:null; }
+function triMerken(w,wahl,text){
+  S.tri=S.tri||{};
+  Object.keys(S.tri).forEach(k=>{ if(S.tri[k].ts!==heute()) delete S.tri[k]; });   /* alte Tage räumen */
+  S.tri[w.schluessel]={ts:heute(),um:new Date().toTimeString().slice(0,5),wahl:wahl,text:text||'',
+                       name:w.name||'',bahn:w.bahn||'',id:w.id||null,personId:w.personId||null,uid:w.uid||null};
+  speichern();
+}
+function triVergessen(schluessel){ if(S.tri&&S.tri[schluessel]){ delete S.tri[schluessel]; speichern(); } triAlleMalen(); }
+function triAktiv(){ return triOffen().filter(w=>!triMerk(w)); }          /* wartet noch auf dich */
+function triHeute(){ const t=S.tri||{}, h=heute();                        /* heute entschieden oder auf später gelegt */
+  return Object.keys(t).filter(k=>t[k].ts===h).map(k=>Object.assign({schluessel:k},t[k],{zeile:triOffen().find(w=>w.schluessel===k)||null}))
+    .sort((a,b)=>(a.um||'')<(b.um||'')?1:-1); }
 const TRI_BAHN={ ankommen:{ic:'🚪',t:'Ankommen',haus:'Vaikuntha'},
                  kollektiv:{ic:'🤝',t:'Ins Kollektiv',haus:'Vishnu Artists'},
                  einsatz:{ic:'🚀',t:'Zum Kunden',haus:'Vishnu Artists'} };
 function triCard(){
-  return `<div class="card s6 tone-va" id="triCard"><h3>🫂 Trichter <span class="cnt" id="triStand">lädt …</span></h3>
+  return `<div class="card s12 tone-va" id="triCard"><h3>🫂 Trichter <span class="cnt" id="triStand">lädt …</span></h3>
     <div id="triBody"><div class="empty">Wer wartet, wird geladen …</div></div></div>`;
+}
+/* Der Weg ins Backend (06.09., Bene: „gib einen Link zum Prozess“): nicht die Übersicht, sondern genau dieser
+   Vorgang — portal-admin.php filtert auf die Person und springt per Anker #b<id> auf die Zeile. */
+function triLink(w){
+  if(!w||w.bahn==='ankommen'||!w.id) return '';
+  const base=((TRI.data&&TRI.data.urlPflege)||'https://vishnuartists.com/portal-admin.php?v=bewerbungen').replace(/#.*$/,'');
+  return base+(base.indexOf('?')>=0?'&':'?')+'zeige=alle'+(w.personId?'&person='+Number(w.personId):'')+'#b'+Number(w.id);
 }
 function triZeile(w,knoepfe){
   const b=TRI_BAHN[w.bahn]||{ic:'•',t:w.bahn,haus:''};
@@ -4256,7 +4287,18 @@ function triZeile(w,knoepfe){
       <div class="qw">${esc(w.was||'')}${detail.length?' — '+detail.join(' · '):''}</div>
       ${w.auchBekannt?`<div class="hint" style="margin-top:4px">🔗 Dieselbe Adresse ist ${esc(w.auchBekannt)}.</div>`:''}
       ${knoepfe?knoepfe(w):''}
-      <div class="hint triout" style="margin-top:6px"></div></div>`;
+      <div class="hint triout zugout" style="margin-top:6px"></div></div>`;
+}
+/* Heute schon entschieden: eine Zeile, kein Knopf zum Nochmal — nur der Weg ins Portal und ein Zurück. */
+function triKompakt(m){
+  const w=m.zeile||m, b=TRI_BAHN[m.bahn]||{ic:'•',t:m.bahn,haus:''};
+  const was = m.wahl==='spaeter' ? 'auf später gelegt' : (m.wahl==='freigegeben'||m.wahl==='abgelehnt' ? m.wahl : '→ '+(m.text||m.wahl));
+  const link=triLink(w);
+  return `<div class="qa beantwortet" data-tri="${esc(m.schluessel)}">
+      <div class="qp">${b.ic} ${esc(b.t)} · ${esc(b.haus)} <span class="tg">heute ${esc(m.um||'')}</span></div>
+      <div class="qq">${m.wahl==='spaeter'?'⏸':'✓'} ${esc(m.name||'ohne Namen')} <span style="font-weight:400;color:var(--sub)">· ${esc(was)}</span></div>
+      <div class="opts" style="margin-top:8px">${link?`<a href="${esc(link)}" target="_blank" rel="noopener">Vorgang im Portal ↗</a>`:''}
+        <button onclick="triVergessen('${esc(m.schluessel)}')">${m.wahl==='spaeter'?'doch jetzt':'nächste Stufe'}</button></div></div>`;
 }
 function kurz(s,n){ s=String(s||''); return s.length>n?s.slice(0,n-1)+'…':s; }
 /* Die Knöpfe je Bahn: die Vereins-Registrierung geht über den vorhandenen Weg (03.09.), ein
@@ -4266,17 +4308,33 @@ function kurz(s,n){ s=String(s||''); return s.length>n?s.slice(0,n-1)+'…':s; }
 function triKnoepfe(w){
   if(w.bahn==='ankommen'){
     return `<div class="opts" style="margin-top:8px">
-        <button onclick="zugangEntscheiden(${Number(w.uid)},'ja',this)">✅ Freigeben</button>
-        <button onclick="zugangEntscheiden(${Number(w.uid)},'nein',this)">🗑️ Ablehnen</button>
-        <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button></div>`;
+        <button onclick="triZugang(${Number(w.uid)},'ja',this)">✅ Freigeben</button>
+        <button onclick="triZugang(${Number(w.uid)},'nein',this)">🗑️ Ablehnen</button>
+        <button onclick="triSpaeter('${esc(w.schluessel)}')">später</button></div>`;
   }
   const n=(w.naechste||[])[0];
   const ab=(w.naechste||[]).find(x=>x.status==='abgesagt');
+  const link=triLink(w);
   return `<div class="opts" style="margin-top:8px">
       ${n?`<button onclick="poolSchritt(${Number(w.id)},'${esc(n.status)}',this)">➜ ${esc(n.text)}</button>`:''}
       ${ab?`<button onclick="poolSchritt(${Number(w.id)},'abgesagt',this)">✖ Absage</button>`:''}
-      <button onclick="this.closest('.qa').classList.add('beantwortet')">später</button>
-      ${TRI.data&&TRI.data.urlPflege?`<button onclick="window.open('${esc(TRI.data.urlPflege)}','_blank')">im Portal ↗</button>`:''}</div>`;
+      <button onclick="triSpaeter('${esc(w.schluessel)}')">später</button>
+      ${link?`<a href="${esc(link)}" target="_blank" rel="noopener">Vorgang im Portal ↗</a>`:''}</div>`;
+}
+function triSpaeter(schluessel){
+  const w=triOffen().find(x=>x.schluessel===schluessel); if(!w) return;
+  triMerken(w,'spaeter','später'); triAlleMalen();
+}
+/* Vereins-Freigabe aus dem Trichter heraus: derselbe Weg wie im Vereins-Puls, danach merken und die
+   Zeile aus der Liste nehmen — der Vereins-Abruf allein hätte den Trichter nicht aktualisiert. */
+async function triZugang(uid,tun,btn){
+  const w=triOffen().find(x=>Number(x.uid)===Number(uid)), box=btn.closest('.qa');
+  await zugangEntscheiden(uid,tun,btn);
+  if(w&&box&&box.classList.contains('beantwortet')){
+    triMerken(w,tun==='ja'?'freigegeben':'abgelehnt',tun==='ja'?'freigegeben':'abgelehnt');
+    if(TRI.data) TRI.data.wartende=triOffen().filter(x=>x.schluessel!==w.schluessel);
+    triAlleMalen();
+  }
 }
 function triRefresh(){
   const body=document.getElementById('triBody'), stand=document.getElementById('triStand');
@@ -4290,10 +4348,11 @@ function triRefresh(){
          Leer heißt hier <b>nicht</b> „niemand wartet“.</div>`;
     return;
   }
-  const t=TRI.data, w=triOffen();
+  const t=TRI.data, w=triAktiv(), h=triHeute();
   const blind=(t.fehlt||[]).length;
-  stand.textContent = blind ? `${w.length} gefunden · teilweise blind`
-                            : (w.length ? `${w.length} ${w.length===1?'wartet':'warten'}` : 'niemand wartet');
+  stand.textContent = (blind ? `${w.length} gefunden · teilweise blind`
+                             : (w.length ? `${w.length} ${w.length===1?'wartet':'warten'}` : 'niemand wartet'))
+                      + (h.length?` · ${h.length} heute erledigt`:'');
   /* Eine tote Quelle darf nie wie eine leere aussehen — das wäre die gefährlichste Karte hier. */
   const luecken=[];
   if((t.fehlt||[]).indexOf('verein')>=0) luecken.push('Vaikuntha antwortet gerade nicht'+(t.vereinFehler?` (${esc(t.vereinFehler.error)})`:'')+' — ob dort jemand auf Freigabe wartet, weiß ich nicht');
@@ -4301,13 +4360,16 @@ function triRefresh(){
   const kpi=t.kpi, pz=t.personenZahlen;
   const kopf=`<div class="kpis" style="margin-bottom:8px">
       <div class="kpi"><div class="v">${w.length}</div><div class="l">${w.length===1?'wartet auf dich':'warten auf dich'}</div></div>
+      <div class="kpi"><div class="v">${h.length}</div><div class="l">heute entschieden</div></div>
       <div class="kpi"><div class="v">${kpi?kpi.pool:'–'}</div><div class="l">im Kollektiv</div></div>
       <div class="kpi"><div class="v">${kpi?kpi.verfuegbar:'–'}</div><div class="l">verfügbar</div></div>
       <div class="kpi"><div class="v">${kpi?kpi.im_einsatz:'–'}</div><div class="l">im Einsatz</div></div>
     </div>`;
-  const liste = w.length
-    ? w.slice(0,6).map(x=>triZeile(x,triKnoepfe)).join('')
-      + (w.length>6?`<div class="hint">… und ${w.length-6} weitere — im Ritual „🫂 Trichter“ kommen sie nach.</div>`:'')
+  /* Volle Breite, zwei Spalten (06.09.): die Karte stand als s6 zwischen lauter s12-Karten — die halbe
+     Zeile daneben blieb leer. Offene zuerst, heute Entschiedene kompakt dahinter. */
+  const liste = (w.length||h.length)
+    ? `<div class="tri-liste">${w.slice(0,8).map(x=>triZeile(x,triKnoepfe)).join('')}${h.map(triKompakt).join('')}</div>`
+      + (w.length>8?`<div class="hint">… und ${w.length-8} weitere — im Ritual „🫂 Trichter“ kommen sie nach.</div>`:'')
     : (luecken.length?'':`<div class="empty">✓ Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.</div>`);
   /* Der Trichter dahinter: die Tore aus ziele.php stehen auf „Mein Vishnu“ für alle sichtbar,
      hier standen sie bis heute nicht. Nur gemessene Zahlen, keine erfundenen. */
@@ -4319,36 +4381,71 @@ function triRefresh(){
       <div class="t">${t.doppelt} ${t.doppelt===1?'Person ist':'Personen sind'} in beiden Häusern</div>
       <div class="m">Über die Mailadresse erkannt — der Trichter legt nichts zusammen, er sagt es dir nur.</div></div></div>` : '';
   const warn=luecken.map(l=>`<div class="item"><div class="ic">⚠️</div><div class="body"><div class="t">Teilweise blind</div><div class="m">${l}</div></div></div>`).join('');
-  body.innerHTML = kopf + warn + liste + tore + abgleich
+  const pflege = t.urlPflege ? `<div class="hint" style="margin-top:8px"><a href="${esc(t.urlPflege)}" target="_blank" rel="noopener">Alle Vorgänge in der Portal-Pflege ↗</a></div>` : '';
+  body.innerHTML = kopf + warn + liste + tore + abgleich + pflege
     + `<div class="hint" style="margin-top:6px">Abgleich über die Mailadresse: für eine Bewerbung sieht der Trichter nur, ob dieselbe Person <b>gerade auch</b> auf den Vereinszugang wartet — ob sie Vereinsmitglied ist, gibt die Vereins-Schnittstelle nicht her.</div>`;
 }
-/* Einen Vorgang eine Stufe weiterschieben. Gleiche Bauart wie zugangEntscheiden (03.09.):
-   Knöpfe sperren, Ergebnis in die Zeile, bei Erfolg den Trichter frisch holen. Und wie dort
-   landet die Entscheidung in der Übergabe, damit der Abendcheck weiß, was du getan hast. */
-async function poolSchritt(id,status,btn){
-  const box=btn.closest('.qa')||document, out=box.querySelector('.triout');
-  const w=triOffen().find(x=>Number(x.id)===Number(id))||{};
-  if(status==='abgesagt' && !confirm('Vorgang von '+(w.name||('#'+id))+' wirklich absagen?')) return;
-  const knoepfe=[...box.querySelectorAll('button')];
-  knoepfe.forEach(b=>b.disabled=true); const alt=btn.textContent; btn.textContent='…';
+/* Beide Exemplare der Liste zugleich (06.09., Bene: „2x eingebunden — oben beantwortet, unten passiert nix“):
+   die Karte und, wenn das Ritual gerade auf dem Trichter-Schritt steht, auch dessen Körper. */
+function triAlleMalen(){
+  triRefresh(); rhythmMalen();
   try{
-    const r=await fetch(JOHN_API+'/api/pool/schritt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:Number(id),status:status})});
+    const s=(FLOW&&FLOW.schritte)?FLOW.schritte[IDX]:null, ov=document.getElementById('ov'), ob=document.getElementById('ovBody');
+    if(s&&s.typ==='trichter'&&ov&&ob&&ov.classList.contains('on')) ob.innerHTML=koerper(s);
+  }catch(e){}
+}
+/* Nach einem Schritt den Stand vom Server holen — ohne fresh=1: der Pool-Cache ist drüben ohnehin
+   geleert, der Vereins-Stand darf aus dem Cache kommen. Solange noch ein Schritt unterwegs ist, wird
+   nicht neu gemalt: sonst verschwindet die Zeile, in der gerade „…“ steht (das war „unten passiert nix“). */
+async function triNachladen(){
+  try{ const t=await (await fetch(JOHN_API+'/api/trichter',{cache:'no-store'})).json();
+       if(t&&t.ok){ TRI.data=t; TRI.geladen=true; if(!Object.keys(TRI.laeuft).length) triAlleMalen(); } }catch(e){}
+}
+/* Den eigenen Stand sofort fortschreiben, statt auf den nächsten Abruf zu warten. */
+function triFortschreiben(w,status,text){
+  if(!TRI.data||!w.schluessel) return;
+  if({abgesagt:1,aufgenommen:1,abgeschlossen:1}[status]){ TRI.data.wartende=triOffen().filter(x=>x.schluessel!==w.schluessel); return; }
+  const i=(w.naechste||[]).findIndex(x=>x.status===status);
+  w.stufe=status; w.was=text; w.liegtTage=0;
+  if(i>=0) w.naechste=w.naechste.slice(i+1);
+}
+/* Einen Vorgang eine Stufe weiterschieben. Gleiche Bauart wie zugangEntscheiden (03.09.):
+   Knöpfe sperren, Ergebnis in die Zeile, bei Erfolg merken und beide Listen neu malen. Und wie dort
+   landet die Entscheidung in der Übergabe, damit der Abendcheck weiß, was du getan hast.
+   Der john-server arbeitet seriell — steckt er gerade in einem John-Gespräch, wartet dieser Aufruf
+   dahinter. Deshalb sofort eine Rückmeldung in der Zeile, ein Zeitlimit und eine ehrliche Meldung. */
+async function poolSchritt(id,status,btn){
+  const w=triOffen().find(x=>Number(x.id)===Number(id))||{id:Number(id),schluessel:'pool-'+Number(id)};
+  const text=(((w.naechste||[]).find(x=>x.status===status))||{}).text||status;
+  if(status==='abgesagt' && !confirm('Vorgang von '+(w.name||('#'+id))+' wirklich absagen?')) return;
+  const key=w.schluessel;
+  const boxen=[...document.querySelectorAll('.qa[data-tri="'+key+'"]')];   /* Karte UND Ritual */
+  const sperren=an=>boxen.forEach(bx=>bx.querySelectorAll('button').forEach(b=>b.disabled=an));
+  const melden=(t,err)=>boxen.forEach(bx=>{ const o=bx.querySelector('.triout'); if(o){ o.classList.toggle('err',!!err); o.textContent=t; } });
+  const alt=btn.textContent;
+  sperren(true); btn.textContent='…'; melden('Wird im Portal eingetragen …');
+  TRI.laeuft[key]=1;
+  const ac=new AbortController(); const uhr=setTimeout(()=>ac.abort(),45000);
+  try{
+    const r=await fetch(JOHN_API+'/api/pool/schritt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:Number(id),status:status}),signal:ac.signal});
     const j=await r.json();
+    delete TRI.laeuft[key];
     if(j&&j.ok){
-      btn.textContent='✓ '+alt.replace(/^➜ |^✖ /,''); box.classList.add('beantwortet');
-      if(out){ out.classList.remove('err'); out.textContent='Im Portal eingetragen — die Person sieht den Schritt in ihrem Freelancer-Portal.'; }
+      triMerken(w,status,text); triFortschreiben(w,status,text);
       if(FLOW){ FLOW.antworten=FLOW.antworten||{}; const a=FLOW.antworten['trichter']||'';
-        FLOW.antworten['trichter']=(a?a+' · ':'')+(w.name||('#'+id))+': '+status; }
-      try{ const t=await (await fetch(JOHN_API+'/api/trichter?fresh=1',{cache:'no-store'})).json();
-           if(t&&t.ok){ TRI.data=t; triRefresh(); rhythmMalen(); } }catch(e){}
+        FLOW.antworten['trichter']=(a?a+' · ':'')+(w.name||('#'+id))+': '+text; }
+      triAlleMalen();
+      triNachladen();
     } else {
-      knoepfe.forEach(b=>b.disabled=false); btn.textContent='Nochmal versuchen';
-      if(out){ out.classList.add('err'); out.textContent=(j&&(j.hint||j.error))||'Keine Antwort vom Server.'; }
+      sperren(false); btn.textContent='Nochmal versuchen';
+      melden((j&&(j.hint||j.error))||'Keine Antwort vom Server.',true);
     }
   }catch(e){
-    knoepfe.forEach(b=>b.disabled=false); btn.textContent='Nochmal versuchen';
-    if(out){ out.classList.add('err'); out.textContent='John-Server nicht erreichbar.'; }
-  }
+    delete TRI.laeuft[key]; sperren(false); btn.textContent=alt;
+    melden(e&&e.name==='AbortError'
+      ? 'Der John-Server hat nach 45 s nicht geantwortet — er arbeitet seriell und ist vielleicht gerade mit John beschäftigt. Ob der Schritt angekommen ist, zeigt „Vorgang im Portal ↗“; sonst nochmal.'
+      : 'John-Server nicht erreichbar.', true);
+  }finally{ clearTimeout(uhr); }
 }
 /* Die Live-Zahlen über die Projektkarte legen — wie vereinUebernehmen(): eine Wahrheit, nicht zwei. */
 function finUebernehmen(){
