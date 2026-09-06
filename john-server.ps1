@@ -22,6 +22,10 @@
                                  JIRA_SITE (Standard vishnuartists.atlassian.net). Ohne Schlüssel: {ok:false, error:NO_KEY}.
     8) POST /api/john/summary  → Johns 2-Satz-Management-Summary (gestern ehrlich bilanziert, heute eingeordnet)
                                  aus den Lotus-KPIs + Fokus/Bilanz, die das Cockpit mitschickt. Kein Tool-Einsatz.
+    9) POST /api/john/stapel   → Johns Stapel, das Coach-Feld im Compass (06.09.): Kandidaten (Rückfragen, Board,
+                                 Trichter) + Pipeline-/TASKS-Fälligkeiten → 3–5 Punkte mit je EINER Aktion als JSON.
+                                 GET liefert Stand + letzte Antwort; POST /api/john/stapel/stand schreibt ok/Wiedervorlage
+                                 nach john-stapel.json und als Notiz zu John. Aufträge an Claude: checkins\<datum>-auftraege.md.
    10) POST /api/checkin       → der Compass legt Morgen-/Abendcheck direkt hier ab (seit 20.08.): eine Datei je
                                  Checkin unter checkins\<datum>-<art>.md (lesbar) + .json (strukturiert). Damit muss
                                  Bene den Checkin nicht mehr in den Chat kopieren — Claude liest ihn beim Sessionstart.
@@ -473,11 +477,20 @@ Regeln dazu: Lob zuerst, dann die offene Tugend — Bene hat ausdrücklich um An
 Nenne nie mehr als eine offene Tugend auf einmal. Erfinde keine Werte: Stehen im Cockpit-Kontext keine Board-Zahlen,
 sag das, statt zu schätzen. Tapferkeit heißt bei ihm konkret: das Unangenehme zuerst, nicht das Schwierigste.
 
-## Deine Kachel im Cockpit
-Im Compass hast du eine eigene kleine Kachel mit fünf Arten, auf Bene zuzugehen: 🎲 Spielen, ⚔️ Fordern,
-⚠️ Warnen, 📋 Briefen, 🤝 Zusammenarbeit verbessern. Klickt er dort, kommt er mit einer fertigen Frage zu dir —
-geh direkt darauf ein, ohne dich neu vorzustellen. Du darfst ihn von dir aus rufen, aber selten: höchstens
-zweimal am Tag. „Rufe mich ab und an, nicht zu oft. Ich komme." (Bene, 21.08.2026)
+## Dein Feld im Compass: der Stapel (seit 06.09.2026)
+Bene hat deine Rolle im Compass neu gefasst: „Im John-Feld brauche ich dich als meinen Coach, der mich an die
+wichtigsten Sachen erinnert, Entscheidungen herbeiführt und als mein Partner und digitales Ich agiert." Dein Feld
+zeigt darum deinen Stapel: die drei wichtigsten Punkte, der Reihe nach, jeder mit genau EINER Aktion, die du
+gewählt hast (entscheiden, Karte, Mail-Entwurf, Termin, an Claude, mit dir klären, Link, Board). Klickt Bene OK, ist
+der Punkt weg und der nächste rückt nach; jede Aktion legt eine Wiedervorlage in 24 Stunden an. Der Stand steht in
+john-stapel.json, jede Änderung als Zeile in den Cockpit-Notizen — du weißt also, was er abgeräumt hat.
+Im Chat gilt dasselbe Rollenbild: erinnern, statt zu berichten; eine Entscheidung herbeiführen, statt Optionen
+aufzuzählen; als sein digitales Ich vorformulieren (Mail, Antwort, Termin), damit er nur noch Ja sagen muss.
+Kommt er mit „Geh meinen Stapel mit mir durch", nimm die Punkte aus dem Cockpit-Kontext und führe Punkt für Punkt
+zur Entscheidung — eine Frage, eine Empfehlung, weiter. Die fünf Chips (🎲 Spielen, ⚔️ Fordern, ⚠️ Warnen,
+📋 Briefen, 🤝 Zusammenarbeit) gibt es weiter, klein unter dem Stapel; klickt er einen, kommt er mit einer
+fertigen Frage — geh direkt darauf ein, ohne dich neu vorzustellen. Du darfst ihn von dir aus rufen, aber
+selten: höchstens zweimal am Tag. „Rufe mich ab und an, nicht zu oft. Ich komme." (Bene, 21.08.2026)
 "@)
   return @{ text = ($parts -join "`n`n"); geladen = $geladen }
 }
@@ -2045,6 +2058,252 @@ $daten
   if ($r.stop_reason -eq 'refusal') { return @{ text = 'Dazu kann ich gerade nichts sagen (Sicherheitsfilter). Versuch es später noch einmal.'; stop_reason = 'refusal'; model = $r.model } }
   $text = (($r.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join ' ').Trim()
   return @{ text = $text; model = $r.model; usage = $r.usage; stand = (Get-Date).ToString('o') }
+}
+
+# ---------- Johns Stapel (06.09.2026) — das Coach-Feld im Compass ----------
+# Bene: „Im John-Feld brauche ich dich als meinen Coach, der mich an die wichtigsten Sachen erinnert,
+# Entscheidungen herbeiführt und als mein Partner und digitales Ich agiert." Die Kachel zeigt darum keinen
+# Spielvorschlag mehr, sondern Johns Stapel: die wichtigsten Punkte, der Reihe nach, jeder mit GENAU EINER
+# Aktion, die John wählt (entscheiden, Karte, Mail, Termin, an Claude, mit John, Link, Board). „OK" räumt
+# ab, der nächste rückt nach; jede Aktion legt eine Wiedervorlage in 24 h an. Der Stand liegt HIER
+# (john-stapel.json), nicht im Browser — Bene schaut mal live, mal lokal, mal am Handy, und ein Punkt,
+# der auf dem Rechner abgeräumt ist, darf auf dem Handy nicht wieder auftauchen.
+#   POST /api/john/stapel        {kandidaten:[…], kontext:'…', fresh:bool} → {ok, punkte:[…], stand:{…}, datum, model}
+#   GET  /api/john/stapel        → {ok, stand, letzte}  (letzte = Johns letzte Antwort, für den schnellen ersten Aufbau)
+#   POST /api/john/stapel/stand  {key, status:'ok'|'wieder'|'offen', aktion, titel, stunden, auftrag} → {ok, stand}
+# Kandidaten liefert der Compass (offene Rückfragen, Board-Zahlen, Trichter); der Server legt dazu, was nur er
+# kennt: Fälligkeiten aus john/bewerbungen/pipeline.md, john/mitglieder/pipeline.md und john/TASKS.md. John sortiert,
+# formuliert den Satz und wählt die Aktion — und darf aus seinem eigenen Wissen (Pipeline, Notizen) Punkte ergänzen.
+$script:StapelDatei = Join-Path $PSScriptRoot 'john-stapel.json'
+$script:Stapel = $null
+$script:StapelArten = @('entscheiden','karte','mail','termin','john','claude','link','board')
+
+function Read-Stapel {
+  if ($null -ne $script:Stapel) { return $script:Stapel }
+  $s = @{ stand = @{}; letzte = $null }
+  if (Test-Path -LiteralPath $script:StapelDatei) {
+    try {
+      $d = (Get-Content -LiteralPath $script:StapelDatei -Raw -Encoding UTF8) | ConvertFrom-Json
+      foreach ($p in @($d.stand.PSObject.Properties)) {
+        if (-not $p) { continue }
+        $s.stand[$p.Name] = @{ status = [string]$p.Value.status; bis = [string]$p.Value.bis; ts = [string]$p.Value.ts
+                               aktion = [string]$p.Value.aktion; titel = [string]$p.Value.titel }
+      }
+      if ($d.letzte) { $s.letzte = $d.letzte }
+    } catch { }
+  }
+  $script:Stapel = $s
+  $s
+}
+function Save-Stapel {
+  $s = Read-Stapel
+  # Aufräumen: was länger als 30 Tage abgeräumt ist, trägt nichts mehr — der Schlüssel taucht ohnehin nicht wieder auf.
+  $grenze = (Get-Date).AddDays(-30)
+  foreach ($k in @($s.stand.Keys)) {
+    $ts = $null; try { $ts = [datetime]::Parse([string]$s.stand[$k].ts) } catch { $ts = $null }
+    if ($ts -and $ts -lt $grenze) { $s.stand.Remove($k) }
+  }
+  $o = @{ geschrieben = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+          hinweis = 'Johns Stapel im Flow Compass: Stand je Punkt (ok = abgeraeumt, wieder = Wiedervorlage bis <bis>) und Johns letzte Antwort. Geschrieben von john-server.ps1 (/api/john/stapel).'
+          stand = $s.stand; letzte = $s.letzte }
+  [IO.File]::WriteAllText($script:StapelDatei, ($o | ConvertTo-Json -Depth 12), (New-Object Text.UTF8Encoding($false)))
+}
+
+# Ein Datum wie „08.09.2026" oder „2026-09-08" (auch mit „, 12:00" dahinter) → [datetime] oder $null
+function ConvertTo-StapelDatum([string]$s) {
+  if (-not $s) { return $null }
+  $m = [regex]::Match($s, '(\d{2})\.(\d{2})\.(\d{4})')
+  if ($m.Success) { try { return [datetime]::new([int]$m.Groups[3].Value, [int]$m.Groups[2].Value, [int]$m.Groups[1].Value) } catch { return $null } }
+  $m = [regex]::Match($s, '(\d{4})-(\d{2})-(\d{2})')
+  if ($m.Success) { try { return [datetime]::new([int]$m.Groups[1].Value, [int]$m.Groups[2].Value, [int]$m.Groups[3].Value) } catch { return $null } }
+  return $null
+}
+function ConvertTo-StapelSlug([string]$s) {
+  $t = $s.ToLowerInvariant().Replace('ä', 'ae').Replace('ö', 'oe').Replace('ü', 'ue').Replace('ß', 'ss')
+  $t = [regex]::Replace($t, '[^a-z0-9]+', '-').Trim('-')
+  if ($t.Length -gt 40) { $t = $t.Substring(0, 40).Trim('-') }
+  $t
+}
+
+# Was nur der Server weiß: Fälligkeiten aus den Pipelines und TASKS.md — fällig bis übermorgen (oder überfällig)
+function Get-StapelKandidatenServer {
+  $out = @()
+  $heute = (Get-Date).Date
+  $bisWann = $heute.AddDays(3)
+  foreach ($rel in @('bewerbungen\pipeline.md', 'mitglieder\pipeline.md')) {
+    $p = Join-Path $JohnDir $rel
+    if (-not (Test-Path $p)) { continue }
+    foreach ($zeile in (Get-Content $p -Encoding UTF8)) {
+      if ($zeile -notmatch '^\|') { continue }
+      $z = $zeile.Trim('|').Split('|') | ForEach-Object { $_.Trim() }
+      if ($z.Count -lt 5) { continue }
+      if ($z[0] -match '^-+$' -or $z[0] -match 'Firma|Person|Name') { continue }
+      if ($z[2] -match 'Absage|Platziert|Abgeschlossen|On hold') { continue }
+      $faellig = $null; $fCell = ''
+      foreach ($c in $z) { $d = ConvertTo-StapelDatum $c; if ($d -and $c.Length -le 24) { $faellig = $d; $fCell = $c; break } }
+      if (-not $faellig -or $faellig -gt $bisWann) { continue }
+      $firma = $z[0]; if ($firma.Length -gt 60) { $firma = $firma.Substring(0, 60) }
+      $naechster = $(if ($z.Count -ge 4) { $z[3] } else { '' }); if ($naechster.Length -gt 220) { $naechster = $naechster.Substring(0, 220) }
+      $tage = [int](($faellig - $heute).TotalDays)
+      $wann = $(if ($tage -lt 0) { "überfällig seit $(-$tage) Tag(en)" } elseif ($tage -eq 0) { 'heute fällig' } else { "fällig in $tage Tag(en) ($fCell)" })
+      $out += , @{ key = 'pipeline:' + (ConvertTo-StapelSlug $firma); titel = "$($z[1]) — $firma"; art = 'pipeline'
+                   warum = "$wann. Status: $($z[2]). Nächster Schritt: $naechster"; faellig = $faellig.ToString('yyyy-MM-dd')
+                   quelle = 'john/' + $rel.Replace('\', '/') }
+    }
+  }
+  $t = Join-Path $JohnDir 'TASKS.md'
+  if (Test-Path $t) {
+    foreach ($zeile in (Get-Content $t -Encoding UTF8)) {
+      if ($zeile -notmatch '^\s*- \[ \] (.+)$') { continue }
+      $text = $Matches[1]
+      $m = [regex]::Match($text, '\(bis (\d{4}-\d{2}-\d{2})\)')
+      if (-not $m.Success) { continue }
+      $faellig = ConvertTo-StapelDatum $m.Groups[1].Value
+      if (-not $faellig -or $faellig -gt $bisWann) { continue }
+      $kurz = ($text -replace '\s*·\s*via John-Bubble.*$', '').Trim(); if ($kurz.Length -gt 110) { $kurz = $kurz.Substring(0, 110) }
+      $tage = [int](($faellig - $heute).TotalDays)
+      $wann = $(if ($tage -lt 0) { "überfällig seit $(-$tage) Tag(en)" } elseif ($tage -eq 0) { 'heute fällig' } else { "fällig in $tage Tag(en)" })
+      $out += , @{ key = 'task:' + (ConvertTo-StapelSlug $kurz); titel = $kurz; art = 'aufgabe'; warum = "$wann (john/TASKS.md)"
+                   faellig = $faellig.ToString('yyyy-MM-dd'); quelle = 'john/TASKS.md' }
+    }
+  }
+  $out
+}
+
+# Johns Antwort prüfen: nur Punkte mit key, titel, satz und einer bekannten Aktion; höchstens fünf.
+function Test-StapelPunkte($punkte) {
+  $ok = @()
+  foreach ($p in @($punkte)) {
+    if (-not $p -or -not [string]$p.key -or -not [string]$p.titel -or -not [string]$p.satz) { continue }
+    $a = $p.aktion
+    if (-not $a -or ($script:StapelArten -notcontains [string]$a.art)) { continue }
+    $ok += , $p
+    if ($ok.Count -ge 5) { break }
+  }
+  $ok
+}
+
+function John-Stapel($in) {
+  $apiKey = Get-ApiKey
+  if (-not $apiKey) { throw 'NO_KEY' }
+  $s = Read-Stapel
+  $jetzt = Get-Date
+  $kand = @()
+  foreach ($k in @($in.kandidaten)) { if ($k -and [string]$k.key) { $kand += , $k } }
+  $kand += @(Get-StapelKandidatenServer)
+  $hash = ((@($kand | ForEach-Object { [string]$_.key }) | Sort-Object) -join '|') + '#' + $jetzt.ToString('yyyy-MM-dd')
+  # Stand als Lagebild für John: was abgeräumt ist, was auf Wiedervorlage liegt (und ob die Frist schon um ist)
+  $lage = @()
+  foreach ($k in @($s.stand.Keys)) {
+    $st = $s.stand[$k]
+    if ($st.status -eq 'ok') { $lage += , @{ key = $k; status = 'ok'; titel = $st.titel; am = $st.ts } }
+    elseif ($st.status -eq 'wieder') {
+      $bis = $null; try { $bis = [datetime]::Parse($st.bis) } catch { $bis = $null }
+      $lage += , @{ key = $k; status = $(if ($bis -and $bis -le $jetzt) { 'wiedervorlage-faellig' } else { 'wiedervorlage-laeuft' })
+                    titel = $st.titel; aktion = $st.aktion; seit = $st.ts; bis = $st.bis }
+    }
+  }
+  $fresh = [bool]$in.fresh
+  $l = $s.letzte
+  if (-not $fresh -and $l -and [string]$l.hash -eq $hash) {
+    $alter = $null; try { $alter = ($jetzt - [datetime]::Parse([string]$l.stand)).TotalMinutes } catch { $alter = $null }
+    if ($alter -ne $null -and $alter -lt 240) {
+      return @{ ok = $true; punkte = @($l.punkte); stand = $s.stand; datum = [string]$l.datum; model = [string]$l.model; cache = $true; stand_um = [string]$l.stand }
+    }
+  }
+  $sys = Build-System
+  $system = @(@{ type = 'text'; text = $sys.text; cache_control = @{ type = 'ephemeral' } })
+  $kandJson = ($kand | ConvertTo-Json -Depth 6)
+  $lageJson = $(if ($lage.Count) { ($lage | ConvertTo-Json -Depth 4) } else { '[]' })
+  $kontext = [string]$in.kontext
+  $auftrag = @"
+Du füllst Johns Stapel im Compass — das Coach-Feld. Bene hat es so bestellt: „Im John-Feld brauche ich dich als meinen Coach, der mich an die wichtigsten Sachen erinnert, Entscheidungen herbeiführt und als mein Partner und digitales Ich agiert." Er will die drei wichtigsten Punkte sehen, der Reihe nach, mit je EINER Aktion. Sagt er OK, ist der Punkt weg und der nächste rückt nach.
+
+Heute ist $($jetzt.ToString('dddd, dd.MM.yyyy HH:mm')) Uhr.
+
+KANDIDATEN (vom Compass und vom Server; JSON):
+$kandJson
+
+STAND (was Bene schon abgeräumt hat oder auf Wiedervorlage liegt; JSON):
+$lageJson
+
+LAGEBILD aus dem Compass:
+$kontext
+
+Regeln:
+- Liefere 3 bis 5 Punkte, absteigend nach Wichtigkeit: zuerst, was heute eine Entscheidung braucht oder morgen kollidiert; dann Überfälliges; dann, was still etwas anderes blockiert. Nichts Erfundenes — jeder Punkt hat eine Quelle in den Kandidaten, im Stand, in der Pipeline, in TASKS.md oder in den Coaching-Notizen.
+- Nimm keinen Punkt, dessen Schlüssel im STAND als „ok" steht, und keinen mit „wiedervorlage-laeuft". Ein Punkt mit „wiedervorlage-faellig" kommt zurück — dann als Nachfrage formuliert (was gestern angestoßen wurde, ist es erledigt?) und mit derselben Aktion oder der nächsten kleineren.
+- Steht in den Coaching-Notizen (john/coaching/cockpit-notizen.md) bereits eine Entscheidung zu einem Kandidaten, dann frag sie nicht noch einmal: der Punkt wird zur Umsetzung („Antwort an Lilli schreiben", „Mail an Michelle senden") mit der passenden Aktion — oder er entfällt, wenn nichts mehr zu tun ist.
+- Fasse zusammen, was zusammengehört (drei Board-Zahlen sind EIN Punkt, nicht drei).
+- „titel": höchstens 60 Zeichen, konkret (Name, Ticket, Betrag). „satz": ein bis zwei Sätze in deiner Stimme — ruhiger Mentor, sanft im Ton, bestimmt in der Sache: warum jetzt, und was genau die Entscheidung ist. Zahlen und Daten nennen, keine Floskeln, kein Antreiben, keine Emojis.
+- Genau EINE Aktion je Punkt — der kleinste nächste Schritt, den Bene mit einem Klick auslösen kann. Wähle sie so:
+    · "entscheiden" — eine offene Rückfrage im Compass beantworten. Felder: frageId (die id aus dem Kandidaten mit art "rueckfrage").
+    · "karte" — etwas einplanen: Felder name, desc, ziel ("compass" | "jira" | "trello-privat" | "trello-arbeit").
+    · "mail" — eine Mail, die Bene selbst absendet: Felder an, betreff, text (fertiger Entwurf in Benes Ton, Du/Sie wie im Kontext, Deutsch — Englisch nur, wenn die Person Englisch spricht, z. B. Marwan).
+    · "termin" — einen Kalendereintrag vorschlagen: Felder titel, start ("YYYY-MM-DDTHH:MM"), minuten, notiz.
+    · "john" — es mit dir im Chat zu Ende denken: Feld frage (die Frage, mit der Bene das Gespräch beginnt).
+    · "claude" — einen Arbeitsauftrag an Claude Code übergeben: Feld auftrag (ein Satz, den eine Claude-Session ohne Rückfrage ausführen kann).
+    · "link" — eine Adresse öffnen: Felder url, label.
+    · "board" — zum Board springen (Karten verschieben, WIP abbauen): keine weiteren Felder.
+  Dazu immer ein kurzes "label" (2–4 Wörter, mit Verb, z. B. „Mail an Michelle entwerfen").
+- Der "key" ist der Schlüssel des Kandidaten. Eigene Punkte (aus Pipeline, TASKS, Notizen) bekommen "john:<kurzes-schlagwort>", stabil über Tage — derselbe Punkt heißt morgen genauso.
+
+Antworte NUR mit JSON, ohne Erklärung, ohne Code-Zaun:
+{"punkte":[{"key":"…","titel":"…","satz":"…","aktion":{"art":"…","label":"…", …felder}}]}
+"@
+  $body = @{ model = $Model; max_tokens = 2500; system = $system; messages = @(@{ role = 'user'; content = $auftrag })
+             output_config = @{ effort = 'medium' }; fallbacks = 'default' }
+  $r = Call-Claude $apiKey $body
+  if ($r.stop_reason -eq 'refusal') { return @{ ok = $false; error = 'REFUSAL'; hint = 'Sicherheitsfilter — später noch einmal.' } }
+  $text = (($r.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join "`n").Trim()
+  $a = $text.IndexOf('{'); $z = $text.LastIndexOf('}')
+  if ($a -lt 0 -or $z -le $a) { return @{ ok = $false; error = 'KEIN_JSON'; hint = 'John hat kein JSON geliefert.'; roh = $text } }
+  $o = $null
+  try { $o = $text.Substring($a, $z - $a + 1) | ConvertFrom-Json } catch { return @{ ok = $false; error = 'JSON_KAPUTT'; hint = $_.Exception.Message; roh = $text } }
+  $punkte = @(Test-StapelPunkte $o.punkte)
+  $s.letzte = @{ datum = $jetzt.ToString('yyyy-MM-dd'); stand = $jetzt.ToString('o'); hash = $hash; punkte = $punkte; model = [string]$r.model }
+  Save-Stapel
+  Write-Host ("[{0}] Stapel: {1} Punkte von John ({2} Kandidaten)" -f (Get-Date -Format 'HH:mm:ss'), $punkte.Count, $kand.Count) -ForegroundColor Green
+  return @{ ok = $true; punkte = $punkte; stand = $s.stand; datum = $jetzt.ToString('yyyy-MM-dd'); model = [string]$r.model; usage = $r.usage; cache = $false; stand_um = $jetzt.ToString('o') }
+}
+
+# Ein Punkt wird abgeräumt (ok), auf Wiedervorlage gelegt (wieder) oder wieder geöffnet (offen).
+# Jede Änderung geht als Zeile in john/coaching/cockpit-notizen.md — so weiß John im Chat, was Bene entschieden hat.
+function Set-StapelStand($in) {
+  $key = [string]$in.key
+  if (-not $key) { return @{ ok = $false; error = 'KEY_FEHLT' } }
+  $status = ([string]$in.status).ToLowerInvariant()
+  if (@('ok','wieder','offen') -notcontains $status) { return @{ ok = $false; error = 'STATUS_UNBEKANNT' } }
+  $s = Read-Stapel
+  $jetzt = Get-Date
+  $titel = [string]$in.titel; if ($titel.Length -gt 120) { $titel = $titel.Substring(0, 120) }
+  $aktion = [string]$in.aktion; if ($aktion.Length -gt 120) { $aktion = $aktion.Substring(0, 120) }
+  $notiz = ''
+  if ($status -eq 'offen') { $s.stand.Remove($key); $notiz = ('Stapel: „{0}“ wieder geöffnet.' -f $titel) }
+  else {
+    $stunden = 24.0; try { if ($in.stunden) { $stunden = [double]$in.stunden } } catch { $stunden = 24.0 }
+    if ($stunden -lt 1) { $stunden = 1 }; if ($stunden -gt 24 * 14) { $stunden = 24 * 14 }
+    $bis = $(if ($status -eq 'wieder') { $jetzt.AddHours($stunden).ToString('o') } else { '' })
+    $s.stand[$key] = @{ status = $status; bis = $bis; ts = $jetzt.ToString('o'); aktion = $aktion; titel = $titel }
+    if ($status -eq 'ok') { $notiz = ('Stapel: „{0}“ mit OK abgeräumt.' -f $titel) }
+    elseif ($aktion) { $notiz = ('Stapel: „{0}“ → Aktion „{1}“ ausgelöst, Wiedervorlage {2}.' -f $titel, $aktion, $jetzt.AddHours($stunden).ToString('dd.MM. HH:mm')) }
+    else { $notiz = ('Stapel: „{0}“ auf Wiedervorlage {1} gelegt.' -f $titel, $jetzt.AddHours($stunden).ToString('dd.MM. HH:mm')) }
+  }
+  # Arbeitsauftrag an Claude: append-only in checkins\<datum>-auftraege.md — jede Claude-Session liest den Ordner.
+  $auftrag = [string]$in.auftrag
+  if ($auftrag.Trim()) {
+    $dir = Join-Path $RootFull 'checkins'
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
+    $f = Join-Path $dir ($jetzt.ToString('yyyy-MM-dd') + '-auftraege.md')
+    $enc0 = New-Object Text.UTF8Encoding($false)
+    if (-not (Test-Path $f)) { [IO.File]::WriteAllText($f, ('# Aufträge aus Johns Stapel, {0}' -f $jetzt.ToString('dd.MM.yyyy')) + "`n`n" + '> Bene hat im Compass auf „An Claude“ geklickt — John hat den Auftrag formuliert. Geschrieben von john-server.ps1 (POST /api/john/stapel/stand). Abarbeiten, dann hier abhaken.' + "`n", $enc0) }
+    [IO.File]::AppendAllText($f, "`n- [ ] **$($jetzt.ToString('HH:mm'))** — $($auftrag.Trim())$(if ($titel) { " _(Punkt: $titel)_" })`n", $enc0)
+    $notiz += " Auftrag an Claude: $($auftrag.Trim())"
+  }
+  Save-Stapel
+  try { Invoke-Tool 'notiz_speichern' @{ text = $notiz } | Out-Null } catch { }
+  Write-Host ("[{0}] Stapel-Stand: {1} → {2}{3}" -f (Get-Date -Format 'HH:mm:ss'), $key, $status, $(if ($aktion) { " ($aktion)" } else { '' })) -ForegroundColor Green
+  return @{ ok = $true; stand = $s.stand; notiz = $notiz }
 }
 
 # Morgen-/Abendboard (02.09.2026): eigene Datei, nutzt die Funktionen von hier (Get-Kalender, Get-JiraKpi, Call-Claude …).
@@ -3633,6 +3892,31 @@ try {
         catch { $m = $_.Exception.Message
           if ($m -eq 'NO_KEY') { Send-Json $ctx @{ error = 'NO_KEY'; hint = 'ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann Server neu starten.' } 503 }
           else { Write-Host "  Summary-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ error = $m } 502 } }
+        continue
+      }
+      # Johns Stapel (06.09.2026): das Coach-Feld im Compass — John sortiert, formuliert, wählt die Aktion.
+      if ($path -eq '/api/john/stapel/stand' -and $req.HttpMethod -eq 'POST') {
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        try { Send-Json $ctx (Set-StapelStand $in) }
+        catch { Send-Json $ctx @{ ok = $false; error = $_.Exception.Message } 500 }
+        continue
+      }
+      if ($path -eq '/api/john/stapel') {
+        if ($req.HttpMethod -eq 'POST') {
+          $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+          $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+          Write-Host ("[{0}] Stapel angefragt ({1} Kandidaten{2})" -f (Get-Date -Format 'HH:mm:ss'), @($in.kandidaten).Count, $(if ($in.fresh) { ', frisch' } else { '' }))
+          try { Send-Json $ctx (John-Stapel $in) }
+          catch {
+            $m = $_.Exception.Message
+            if ($m -eq 'NO_KEY') { Send-Json $ctx @{ ok = $false; error = 'NO_KEY'; hint = 'ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann Server neu starten.' } 503 }
+            else { Write-Host "  Stapel-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 500 }
+          }
+          continue
+        }
+        $st = Read-Stapel
+        Send-Json $ctx @{ ok = $true; stand = $st.stand; letzte = $st.letzte; datei = $script:StapelDatei }
         continue
       }
       if ($path -eq '/api/john' -and $req.HttpMethod -eq 'POST') {
