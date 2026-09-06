@@ -18,16 +18,26 @@
      · Eine Leiste „Weitere Einstiege“ hält alles andere erreichbar — so
        entsteht das Signal, aus dem der Compass lernt.
 
+   DREI ANSICHTEN (ihren Zusatz vom 06.09.):
+     ◎ Einfach        die drei Standard-Einstiege (Mein Board · Heute im Blick · Coach)
+     ✨ Meine Ansicht  die drei gelernten Kacheln — erscheint als dritte Wahl erst,
+                      wenn etwas angepasst wurde (📌 angeheftet, eigenes Muster im
+                      Öffnen, verschobenes Layout im Editier-Modus)
+     ▦ Alles          die volle Ansicht
+   Ein kurzer ASSISTENT beim ersten Öffnen lässt jede Person wählen und zeigt,
+   wie leicht sich das umschalten lässt (Knopf im Kopf, Taste S). Wer länger
+   dabei ist, wird alle 4 Wochen einmal gefragt, ob es noch passt — oder setzt
+   es mit „Nicht mehr fragen“ ein für alle Mal.
+
    LERNEND: jeder Einstieg (Kacheln, Kopfknöpfe, Karten, Tasten) wird lokal
-   gezählt; jeder Klick klingt mit 14 Tagen Halbwertszeit ab. Die drei
+   gezählt; jeder Klick klingt mit 14 Tagen Halbwertszeit ab. Die gelernten
    Kacheln sind die drei höchsten Werte — mit Hysterese, damit sie nicht
    flackern: eine neue Kachel verdrängt eine sitzende nur, wenn sie deutlich
-   vorne liegt. Am Anfang gilt der Standard (Mein Board · Heute im Blick ·
-   Coach). Anheften (📌) übersteuert das Lernen für eine Kachel.
+   vorne liegt. Anheften (📌) übersteuert das Lernen für eine Kachel.
 
    Gespeichert wird in localStorage unter „compassFocus“:
-     { v:1, ansicht:'focus'|'voll'|null, nutzung:{id:[ts,…]}, pins:[id],
-       letzte:[id], buehne:id|null }
+     { v:2, ansicht:'focus'|'meine'|'voll'|null, gewaehlt:ts, gefragt:ts,
+       fuerImmer:bool, nutzung:{id:[ts,…]}, pins:[id], letzte:[id], buehne:id|null }
    Nichts davon verlässt den Rechner; der Schlüssel zieht mit dem Fortschritt
    um (EXPORT_KEYS).
 
@@ -37,7 +47,8 @@
    Wochen stabil sind (kanbanCard, lotusCard, kalenderCard, postfCard,
    slrCard, triCard, wocheCard) — fehlt eine, fehlt nur die Kachel.
 
-   Umschalten: Kopfknopf „◎ Einfach“ / „▦ Alles“, Taste S (E gehört dem Editier-Modus), ?ansicht=focus|voll.
+   Umschalten: Kopfknopf (Menü mit den 2–3 Ansichten), Taste S (E gehört dem
+   Editier-Modus), ?ansicht=focus|meine|voll. Assistent: compassFocus.assistent().
    Absprünge: ?go=board|heute|kalender|postfach|slack|trichter|woche|fragen|john
    öffnen in der Focus View direkt die passende Kachel.
    ========================================================================== */
@@ -46,8 +57,10 @@
 
 var KEY='compassFocus';
 var HALBWERT=14*864e5;          /* Halbwertszeit eines Klicks: 14 Tage */
+var NACHFRAGE=28*864e5;         /* alle 4 Wochen einmal nachfragen */
 var KACHELN=3;
 var STAGE_ID='focusStage';
+var STANDARD=['board','heute','john'];
 
 /* ---- sicherer Zugriff auf die Globalen des Compass ----------------------
    const/let auf oberster Ebene liegen im globalen Lexikal-Scope: von hier aus
@@ -55,9 +68,10 @@ var STAGE_ID='focusStage';
 function hol(fn,fb){ try{ var v=fn(); return v===undefined?fb:v; }catch(e){ return fb; } }
 function fnDa(fn){ return hol(fn,null)!==null; }
 var esc=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); };
+function sag(t){ try{ toast(t); }catch(e){} }
 
 /* ---- Zustand ------------------------------------------------------------- */
-function leer(){ return {v:1,ansicht:null,nutzung:{},pins:[],letzte:[],buehne:null}; }
+function leer(){ return {v:2,ansicht:null,gewaehlt:null,gefragt:null,fuerImmer:false,nutzung:{},pins:[],letzte:[],buehne:null}; }
 var F=(function(){ try{ var o=JSON.parse(localStorage.getItem(KEY)||'{}'); return Object.assign(leer(),o&&typeof o==='object'?o:{}); }catch(e){ return leer(); } })();
 if(!F.nutzung||typeof F.nutzung!=='object') F.nutzung={};
 if(!Array.isArray(F.pins)) F.pins=[]; if(!Array.isArray(F.letzte)) F.letzte=[];
@@ -84,7 +98,7 @@ var KATALOG=[
       return {t:m.wip+'/'+m.limit+' in Arbeit · '+m.bereit+' bereit · '+m.wartet+' wartet'+(m.over?' · '+m.over+' überfällig':''), live:true, warn:m.wip>m.limit||m.over>0};
     },
     sel:'#kanbanCard, #kanbanSeg [data-k="personal"]' },
-  { id:'heute', ic:'🪷', t:'Heute im Blick', s:'Deine drei Kennzahlen und Coach- Summary', prior:0.8, art:'buehne',
+  { id:'heute', ic:'🪷', t:'Heute im Blick', s:'Deine drei Kennzahlen und die Management-Summary', prior:0.8, art:'buehne',
     nur:function(){ return fnDa(function(){ return lotusCard; }); },
     karte:function(){ return lotusCard(); },
     nach:function(){ try{ lotusVerdrahten(); }catch(e){} },
@@ -194,6 +208,14 @@ function gewicht(id){
   for(var i=0;i<l.length;i++) s+=Math.pow(0.5,(now-l[i])/HALBWERT);
   return s;
 }
+/* Standard-Trio: Mein Board · Heute im Blick · Coach — fehlt eines, rückt das nächste aus dem Katalog nach */
+function standardTrio(){
+  var ok=function(id){ var e=KAT(id); return e&&verfuegbar(e); };
+  var s=STANDARD.filter(ok);
+  KATALOG.forEach(function(e){ if(s.length<KACHELN&&STANDARD.indexOf(e.id)<0&&verfuegbar(e)) s.push(e.id); });
+  return s.slice(0,KACHELN);
+}
+/* Gelerntes Trio: Pins zuerst, dann die höchsten Gewichte — mit Hysterese */
 function auswahl(){
   var verf=KATALOG.filter(verfuegbar);
   var ok=function(id){ return verf.some(function(e){ return e.id===id; }); };
@@ -211,35 +233,57 @@ function auswahl(){
   F.letzte=wahl.slice(); sichern();
   return pins.concat(wahl).slice(0,KACHELN);
 }
+/* „Angepasst“ heißt: etwas angeheftet, ein eigenes Muster im Öffnen, oder das Layout im Editier-Modus verschoben */
+function individuell(){
+  if(F.pins.length) return true;
+  if(auswahl().join()!==standardTrio().join()) return true;
+  try{ if(localStorage.getItem('compassLayout')) return true; }catch(e){}
+  return false;
+}
+function trio(){ return ansicht()==='meine'?auswahl():standardTrio(); }
 function pinToggle(id){
   var i=F.pins.indexOf(id);
   if(i>=0) F.pins.splice(i,1);
   else { if(F.pins.length>=KACHELN) F.pins.shift(); F.pins.push(id); }
-  sichern(); kachelnMalen();
+  /* Anheften ist eine Anpassung — in „Einfach“ wird daraus „Meine Ansicht“ */
+  if(F.pins.length&&ansicht()==='focus'){ F.ansicht='meine'; sag('📌 Angeheftet — das ist jetzt „✨ Meine Ansicht“. Zurück zum Standard: Knopf oben oder Taste S.'); }
+  sichern(); anwenden();
 }
 
-/* ---- Ansicht: focus | voll ----------------------------------------------- */
+/* ---- Ansichten: focus | meine | voll ------------------------------------- */
+var ANSICHTEN=[
+  { id:'focus', ic:'◎', t:'Einfach',       s:'Drei Einstiege, sonst nichts. Der Compass merkt sich, was du öffnest.' },
+  { id:'meine', ic:'✨', t:'Meine Ansicht', s:'Deine drei Kacheln — gelernt aus dem, was du öffnest; 📌 hält eine fest.', nur:individuell },
+  { id:'voll',  ic:'▦', t:'Alles',         s:'Die volle Ansicht mit allen Karten, Kontexten und Sektionen.' }
+];
+function ANS(id){ for(var i=0;i<ANSICHTEN.length;i++) if(ANSICHTEN[i].id===id) return ANSICHTEN[i]; return null; }
+function ansichtDa(id){ var a=ANS(id); if(!a) return false; try{ return !a.nur||!!a.nur(); }catch(e){ return false; } }
+function ansichten(){ return ANSICHTEN.filter(function(a){ return ansichtDa(a.id); }); }
 function neuHier(){
   return hol(function(){ return !S.xp && !S.lastMorgen && !Object.keys(S.hist||{}).length; },true);
 }
 function ansicht(){
+  if(F.ansicht==='meine') return ansichtDa('meine')?'meine':'focus';
   if(F.ansicht==='focus'||F.ansicht==='voll') return F.ansicht;
   return neuHier()?'focus':'voll';
 }
-function istFocus(){ return ansicht()==='focus'; }
+function istFocus(){ return ansicht()!=='voll'; }
 function ansichtSetzen(a,still){
-  F.ansicht=a==='focus'?'focus':'voll'; if(F.ansicht==='voll') F.buehne=null; sichern();
+  if(!ansichtDa(a)) a='voll';
+  F.ansicht=a; if(a==='voll') F.buehne=null; sichern();
   anwenden();
   try{ render(hol(function(){ return aktuell; },'va')); }catch(e){ nachRender(); }
-  if(!still){ try{ toast(F.ansicht==='focus'?'◎ Einfache Ansicht — drei Einstiege, der Rest wartet hinter „Alles“':'▦ Alles — die volle Ansicht (S schaltet zurück)'); }catch(e){} }
+  if(!still){ var x=ANS(a); sag(x.ic+' '+x.t+' — wechseln: Knopf oben im Kopf oder Taste S'); }
 }
+function ansichtWeiter(){ var l=ansichten().map(function(a){ return a.id; }); var i=l.indexOf(ansicht()); ansichtSetzen(l[(i+1)%l.length]); }
 function anwenden(){
-  var f=istFocus();
+  var a=ansicht(), f=a!=='voll', x=ANS(a);
   document.body.classList.toggle('ansicht-focus',f);
   var b=document.getElementById('btnAnsicht');
-  if(b){ b.innerHTML=f?'▦ Alles <span class="kbd">S</span>':'◎ Einfach <span class="kbd">S</span>'; b.title=f?'Alles zeigen — die volle Ansicht (Taste S)':'Einfache Ansicht: drei Einstiege, sonst nichts (Taste S)'; b.classList.toggle('p',f); }
+  if(b){ b.innerHTML=x.ic+' '+esc(x.t)+' <span class="kbd">S</span>'; b.title='Ansicht wählen — Einfach, Alles oder deine eigene (Taste S wechselt)'; b.classList.toggle('p',f); }
   var v=document.getElementById('focusview'); if(v) v.hidden=!f;
   if(f) kachelnMalen(); else buehneMalen();
+  menuMalen();
 }
 
 /* ---- Oberfläche ---------------------------------------------------------- */
@@ -281,7 +325,32 @@ function stil(){
     '#'+STAGE_ID+' .fv-stagebar{display:flex;align-items:center;gap:12px;margin:0 0 12px;flex-wrap:wrap}',
     '#'+STAGE_ID+' .fv-stagetitle{font-family:var(--serif);font-size:20px}',
     '#'+STAGE_ID+' .fv-grid .card{grid-column:1 / -1 !important}',
-    '@media(max-width:900px){#focusview .fv-kacheln{grid-template-columns:1fr}#focusview .fv-kachel{min-height:0}}',
+    /* Ansichts-Menü unter dem Kopfknopf */
+    '#ansichtMenu{position:fixed;z-index:95;display:none;width:min(340px,calc(100vw - 24px));background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:6px}',
+    '#ansichtMenu.on{display:block}',
+    '#ansichtMenu .dh1{font-size:10.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);padding:10px 8px 6px}',
+    '#ansichtMenu button{display:flex;width:100%;align-items:center;gap:10px;background:transparent;border:1px solid transparent;border-radius:11px;padding:8px 10px;text-align:left;cursor:pointer;color:var(--ink);font:inherit;font-size:12.5px}',
+    '#ansichtMenu button:hover{background:var(--panel2);border-color:var(--line)}',
+    '#ansichtMenu button.on{background:var(--bene-soft);border-color:var(--bene)}',
+    '#ansichtMenu .di{font-size:17px;flex:none;width:22px;text-align:center}',
+    '#ansichtMenu .dt{flex:1;min-width:0;font-weight:700}#ansichtMenu .dt small{display:block;font-weight:500;color:var(--sub);margin-top:1px}',
+    '#ansichtMenu .dfoot{font-size:11px;color:var(--dim);padding:8px 10px 6px;border-top:1px solid var(--line);margin-top:4px}',
+    '#ansichtMenu .dfoot a{color:var(--sub)}',
+    /* Assistent: Wahl der Ansicht */
+    '#ansichtWiz .fv-wahlen{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:6px 0 4px}',
+    '#ansichtWiz .fv-wahl{position:relative;display:flex;flex-direction:column;gap:6px;text-align:left;padding:16px 16px 14px;min-height:150px;background:var(--panel2);border:1px solid var(--line);border-radius:14px;color:var(--ink);cursor:pointer;font:inherit;transition:transform .15s,border-color .15s}',
+    '#ansichtWiz .fv-wahl:hover,#ansichtWiz .fv-wahl:focus-visible{transform:translateY(-2px);border-color:var(--bene);outline:none}',
+    '#ansichtWiz .fv-wahl.on{border-color:var(--bene);background:var(--bene-soft)}',
+    '#ansichtWiz .fv-wahl .wi{font-size:26px;line-height:1}',
+    '#ansichtWiz .fv-wahl b{font-family:var(--serif);font-size:20px;font-weight:400}',
+    '#ansichtWiz .fv-wahl span.ws{font-size:12px;color:var(--sub);line-height:1.35}',
+    '#ansichtWiz .fv-wahl em{position:absolute;right:10px;top:10px;font-style:normal;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--bene)}',
+    '#ansichtWiz .fv-wahl .wk{margin-top:auto;padding-top:8px;font-size:11px;color:var(--dim)}',
+    '#ansichtWiz .fv-so{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:14px 0 0;padding:12px 14px;background:var(--panel2);border:1px dashed var(--line2);border-radius:12px;font-size:12.5px;color:var(--sub)}',
+    '#ansichtWiz .fv-so .btn{pointer-events:none}',
+    '#ansichtWiz label.fv-immer{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--sub);cursor:pointer;margin:0}',
+    '#ansichtWiz label.fv-immer input{margin:0}',
+    '@media(max-width:760px){#focusview .fv-kacheln{grid-template-columns:1fr}#focusview .fv-kachel{min-height:0}}',
     '@media(max-width:720px){#focusview{padding:12px 16px 0}}'
   ].join('\n');
   document.head.appendChild(s);
@@ -295,7 +364,8 @@ function viewEl(){
   v.addEventListener('click',function(e){
     var pin=e.target.closest('.pin,.anh'); if(pin){ e.preventDefault(); e.stopPropagation(); pinToggle(pin.getAttribute('data-pin')); return; }
     var k=e.target.closest('[data-ep]'); if(k){ e.preventDefault(); oeffnen(k.getAttribute('data-ep')); return; }
-    var a=e.target.closest('[data-fv="alles"]'); if(a){ e.preventDefault(); ansichtSetzen('voll'); }
+    var a=e.target.closest('[data-fv="alles"]'); if(a){ e.preventDefault(); ansichtSetzen('voll'); return; }
+    var w=e.target.closest('[data-fv="wahl"]'); if(w){ e.preventDefault(); wizardZeigen(false); }
   });
   return v;
 }
@@ -323,9 +393,14 @@ function kachelHtml(id){
 }
 function kachelnMalen(){
   var v=viewEl(); if(!v||!istFocus()) return;
-  var drei=auswahl();
+  var a=ansicht(), drei=trio();
   var eine=hol(function(){ return dasEine(); },'');
   var rest=KATALOG.filter(function(e){ return verfuegbar(e)&&drei.indexOf(e.id)<0; });
+  var hint = a==='meine'
+    ? 'Deine drei Kacheln folgen dem, was du am häufigsten öffnest — 📌 hält eine fest. '
+    : (individuell()
+        ? 'Die drei Standard-Einstiege. Der Compass kennt inzwischen dein eigenes Muster — <a href="#" data-fv="wahl">✨ Meine Ansicht wählen</a>. '
+        : 'Die drei Standard-Einstiege. Der Compass merkt sich, was du öffnest, und bietet dir später deine eigene Ansicht an. ');
   v.innerHTML=
     '<div class="fv-eine"><span class="fl">Das Eine · heute</span>'
       +(eine?'<span class="ft">'+esc(eine)+'</span>':'<span class="ft leer">Noch nicht gesetzt — starte oben den Morgencheck</span>')+'</div>'
@@ -333,8 +408,7 @@ function kachelnMalen(){
     +'<div class="fv-mehr"><span class="lab">Weitere Einstiege</span>'
       +rest.map(function(e){ return '<span class="fv-chip" data-ep="'+esc(e.id)+'" role="button" tabindex="0" title="'+esc(e.s)+'">'+e.ic+' '+esc(e.t)
         +'<button class="anh" data-pin="'+esc(e.id)+'" title="Als Kachel anheften">⊕</button></span>'; }).join('')+'</div>'
-    +'<div class="fv-hint">Die drei Kacheln folgen dem, was du am häufigsten öffnest — ab Werk: Mein Board, Heute im Blick, Coach. 📌 hält eine Kachel fest. '
-      +'<a href="#" data-fv="alles">Alles zeigen (S)</a></div>';
+    +'<div class="fv-hint">'+hint+'<a href="#" data-fv="alles">Alles zeigen (S)</a></div>';
   zeilenMalen();
   buehneMalen();
 }
@@ -372,6 +446,113 @@ function oeffnen(id){
   return true;
 }
 
+/* ---- Kopfknopf + Menü ---------------------------------------------------- */
+function kopfKnopf(){
+  if(document.getElementById('btnAnsicht')) return;
+  var t=document.getElementById('btnTheme'); if(!t) return;
+  var b=document.createElement('button'); b.id='btnAnsicht'; b.className='btn'; b.setAttribute('data-nolang','');
+  b.addEventListener('click',function(e){ e.stopPropagation(); menuToggle(); });
+  t.parentNode.insertBefore(b,t);
+  var m=document.createElement('div'); m.id='ansichtMenu'; m.setAttribute('role','menu'); m.setAttribute('aria-label','Ansicht');
+  document.body.appendChild(m);
+  m.addEventListener('click',function(e){
+    var w=e.target.closest('[data-ans]'); if(w){ ansichtSetzen(w.getAttribute('data-ans')); menuToggle(false); return; }
+    var a=e.target.closest('[data-fv="wahl"]'); if(a){ e.preventDefault(); menuToggle(false); wizardZeigen(false); }
+  });
+  document.addEventListener('click',function(e){ if(!e.target.closest('#ansichtMenu,#btnAnsicht')) menuToggle(false); });
+  var keys=document.querySelector('#foot .keys'); if(keys&&keys.textContent.indexOf('S Ansicht')<0) keys.textContent+=' · S Ansicht (Einfach/Alles)';
+}
+function menuMalen(){
+  var m=document.getElementById('ansichtMenu'); if(!m) return;
+  var cur=ansicht();
+  m.innerHTML='<div class="dh1">Ansicht</div>'
+    +ansichten().map(function(a){ return '<button class="'+(a.id===cur?'on':'')+'" data-ans="'+a.id+'"><span class="di">'+a.ic+'</span><span class="dt">'+esc(a.t)+'<small>'+esc(a.s)+'</small></span></button>'; }).join('')
+    +'<div class="dfoot">Taste S wechselt · <a href="#" data-fv="wahl">Assistent noch einmal zeigen</a></div>';
+}
+function menuToggle(force){
+  var m=document.getElementById('ansichtMenu'), b=document.getElementById('btnAnsicht'); if(!m||!b) return;
+  var on=force==null?!m.classList.contains('on'):force;
+  if(on){ menuMalen(); var r=b.getBoundingClientRect(); var rtl=document.documentElement.dir==='rtl';
+    m.style.top=Math.round(r.bottom+8)+'px';
+    if(rtl){ m.style.left=Math.max(12,Math.round(r.left))+'px'; m.style.right='auto'; }
+    else { m.style.right=Math.max(12,Math.round(window.innerWidth-r.right))+'px'; m.style.left='auto'; } }
+  m.classList.toggle('on',on);
+}
+
+/* ---- Assistent: „Wie möchtest du deinen Compass sehen?“ ------------------
+   Beim ersten Öffnen, danach alle 4 Wochen (oder nie mehr, wenn „Nicht mehr
+   fragen“ gesetzt ist). Wartet, bis kein anderer Dialog offen ist — Zugangstür,
+   Ritual, Einrichtungs-Assistent und Coach gehen vor. */
+function wizardEl(){
+  var w=document.getElementById('ansichtWiz'); if(w) return w;
+  w=document.createElement('div'); w.id='ansichtWiz'; w.className='ov'; w.setAttribute('role','dialog'); w.setAttribute('aria-label','Ansicht wählen');
+  w.innerHTML='<div class="sheet"><button class="sx" data-wz="spaeter" title="Später (Esc)" aria-label="Schließen">✕</button>'
+    +'<div class="sh"><div class="step"><span>Deine Ansicht</span></div><h2 id="wizTitel"></h2><div class="hint" id="wizHint"></div></div>'
+    +'<div class="sbody" id="wizBody"></div>'
+    +'<div class="sfoot"><label class="fv-immer"><input type="checkbox" id="wizImmer"> Nicht mehr fragen — so bleibt es</label><span style="flex:1"></span><button class="btn" data-wz="spaeter">Später</button></div></div>';
+  document.body.appendChild(w);
+  w.addEventListener('click',function(e){
+    var k=e.target.closest('[data-wahl]'); if(k){ wizardWahl(k.getAttribute('data-wahl')); return; }
+    var s=e.target.closest('[data-wz="spaeter"]'); if(s){ wizardSpaeter(); return; }
+    if(e.target===w) wizardSpaeter();
+  });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&w.classList.contains('on')){ e.stopPropagation(); wizardSpaeter(); } },true);
+  return w;
+}
+function wizardZeigen(erneut){
+  var w=wizardEl(); if(!w) return;
+  var cur=ansicht(), meine=ansichtDa('meine');
+  var namen=function(ids){ return ids.map(function(id){ var e=KAT(id); return e?e.ic+' '+e.t:id; }).join(' · '); };
+  document.getElementById('wizTitel').textContent = erneut ? 'Passt deine Ansicht noch?' : 'Wie möchtest du deinen Compass sehen?';
+  document.getElementById('wizHint').textContent = erneut
+    ? 'Vier Wochen sind um — ein Klick, und es bleibt so oder wird anders. Beide Ansichten zeigen dieselben Daten.'
+    : 'Ein Klick genügt, und du kannst jederzeit wechseln. Beide Ansichten zeigen dieselben Daten — nur die Menge ist anders.';
+  var karten=ansichten().map(function(a){
+    var extra = a.id==='meine' ? '<span class="wk">'+esc(namen(auswahl()))+'</span>'
+              : a.id==='focus' ? '<span class="wk">'+esc(namen(standardTrio()))+'</span>'
+              : '<span class="wk">Kontexte, Sektionen, alle Karten, Editier-Modus</span>';
+    return '<button class="fv-wahl '+(a.id===cur?'on':'')+'" data-wahl="'+a.id+'"><span class="wi">'+a.ic+'</span><b>'+esc(a.t)+'</b><span class="ws">'+esc(a.s)+'</span>'+extra+(a.id===cur?'<em>aktuell</em>':'')+'</button>';
+  }).join('');
+  document.getElementById('wizBody').innerHTML='<div class="fv-wahlen">'+karten+'</div>'
+    +'<div class="fv-so"><span>So wechselst du später:</span><span class="btn p">◎ Einfach <span class="kbd">S</span></span><span>→ Knopf oben im Kopf, oder einfach die Taste <b>S</b>.</span>'
+    +(meine?'':'<span>Sobald du etwas anheftest (📌) oder dein eigenes Muster entsteht, kommt „✨ Meine Ansicht“ als dritte Wahl dazu.</span>')+'</div>';
+  document.getElementById('wizImmer').checked=!!F.fuerImmer;
+  w.classList.add('on');
+}
+function wizardWahl(id){
+  var w=document.getElementById('ansichtWiz'); var immer=!!(document.getElementById('wizImmer')||{}).checked;
+  F.gewaehlt=Date.now(); F.gefragt=Date.now(); F.fuerImmer=immer; sichern();
+  if(w) w.classList.remove('on');
+  ansichtSetzen(id,true);
+  var x=ANS(ansicht());
+  sag('Gemerkt: '+x.ic+' '+x.t+' · wechseln: Knopf oben oder Taste S'+(immer?'':' · in 4 Wochen frage ich einmal nach, ob es noch passt'));
+}
+function wizardSpaeter(){
+  var w=document.getElementById('ansichtWiz'); if(w) w.classList.remove('on');
+  /* „Später“ heißt morgen wieder, nicht in vier Wochen — und nie mehr, wenn das Häkchen gesetzt ist */
+  var immer=!!(document.getElementById('wizImmer')||{}).checked;
+  if(immer){ F.gewaehlt=F.gewaehlt||Date.now(); F.fuerImmer=true; F.gefragt=Date.now(); }
+  else F.gefragt=Date.now()-NACHFRAGE+864e5;
+  sichern();
+}
+function dialogOffen(){
+  if(document.querySelector('.ov.on:not(#ansichtWiz)')) return true;
+  var g=document.getElementById('gate'); if(g&&g.offsetParent!==null&&getComputedStyle(g).display!=='none') return true;
+  var j=document.getElementById('john'); if(j&&j.classList.contains('on')) return true;
+  return false;
+}
+function wizardPruefen(){
+  var now=Date.now();
+  var faellig = !F.gewaehlt || (!F.fuerImmer && now-(F.gefragt||0)>NACHFRAGE);
+  if(!faellig) return;
+  var erneut=!!F.gewaehlt, versuche=0;
+  var warte=function(){
+    if(!dialogOffen()){ wizardZeigen(erneut); return; }
+    if(++versuche<90) setTimeout(warte,2000);          /* höchstens 3 Minuten warten, dann beim nächsten Öffnen */
+  };
+  setTimeout(warte,1800);
+}
+
 /* ---- Anschluss an den Compass -------------------------------------------- */
 /* render() baut #grid komplett neu. In der Focus View bleibt das Raster leer —
    die Bühne (eine Karte) lebt in #focusStage, damit jede Karten-ID genau einmal
@@ -402,27 +583,36 @@ function anschliessen(){
   },true);
   document.addEventListener('keydown',function(e){
     if(e.target.matches('input,textarea')||e.ctrlKey||e.metaKey||e.altKey) return;
+    if(document.querySelector('.ov.on')) return;
     var k=e.key.toLowerCase();
-    if(k==='s'){ ansichtSetzen(istFocus()?'voll':'focus'); return; }
+    if(k==='s'){ ansichtWeiter(); return; }
     if(k==='k') zaehlen('kennzahlen'); if(k==='j') zaehlen('john'); if(k==='b') zaehlen(hol(function(){ return KAN.mode; },'personal')==='vishnu'?'board':'cockpit');
   });
-}
-function kopfKnopf(){
-  if(document.getElementById('btnAnsicht')) return;
-  var t=document.getElementById('btnTheme'); if(!t) return;
-  var b=document.createElement('button'); b.id='btnAnsicht'; b.className='btn'; b.setAttribute('data-nolang','');
-  b.addEventListener('click',function(){ ansichtSetzen(istFocus()?'voll':'focus'); });
-  t.parentNode.insertBefore(b,t);
-  var keys=document.querySelector('#foot .keys'); if(keys&&keys.textContent.indexOf('S Einfach')<0) keys.textContent+=' · S Einfach/Alles';
 }
 /* ---- Sprachen: Einträge fürs Overlay (compass-i18n.js), Schlüssel = deutscher Text */
 function woerter(){
   var W=hol(function(){ return compassSprache.woerter; },null); if(!W) return;
   var N={
-    'Einfach':['Simple','مبسّط'], 'Alles':['Everything','الكل'],
-    'Alles zeigen — die volle Ansicht (Taste S)':['Show everything — the full view (key S)','عرض الكل — العرض الكامل (المفتاح S)'],
-    'Einfache Ansicht: drei Einstiege, sonst nichts (Taste S)':['Simple view: three entry points, nothing else (key S)','عرض مبسّط: ثلاث نقاط دخول لا غير (المفتاح S)'],
+    'Einfach':['Simple','مبسّط'], 'Alles':['Everything','الكل'], 'Meine Ansicht':['My view','عرضي'], 'Ansicht':['View','العرض'], 'Deine Ansicht':['Your view','عرضك'],
+    'Ansicht wählen — Einfach, Alles oder deine eigene (Taste S wechselt)':['Choose a view — simple, everything or your own (key S switches)','اختر العرض — مبسّط أو الكل أو عرضك (المفتاح S يبدّل)'],
+    'Ansicht wählen':['Choose a view','اختر العرض'],
     'Einfache Ansicht: drei Einstiege':['Simple view: three entry points','عرض مبسّط: ثلاث نقاط دخول'],
+    'Drei Einstiege, sonst nichts. Der Compass merkt sich, was du öffnest.':['Three entry points, nothing else. The Compass remembers what you open.','ثلاث نقاط دخول لا غير. تتذكّر البوصلة ما تفتحه.'],
+    'Deine drei Kacheln — gelernt aus dem, was du öffnest; 📌 hält eine fest.':['Your three tiles — learned from what you open; 📌 keeps one in place.','بلاطاتك الثلاث — متعلَّمة مما تفتحه؛ 📌 يثبّت واحدة.'],
+    'Die volle Ansicht mit allen Karten, Kontexten und Sektionen.':['The full view with all cards, contexts and sections.','العرض الكامل بكل البطاقات والسياقات والأقسام.'],
+    'Wie möchtest du deinen Compass sehen?':['How would you like to see your Compass?','كيف تودّ رؤية بوصلتك؟'],
+    'Passt deine Ansicht noch?':['Does your view still fit?','هل ما زال عرضك مناسبًا؟'],
+    'Ein Klick genügt, und du kannst jederzeit wechseln. Beide Ansichten zeigen dieselben Daten — nur die Menge ist anders.':
+      ['One click is enough, and you can switch any time. Both views show the same data — only the amount differs.','نقرة واحدة تكفي، ويمكنك التبديل في أي وقت. كلا العرضين يُظهران البيانات نفسها — الكمية فقط تختلف.'],
+    'Vier Wochen sind um — ein Klick, und es bleibt so oder wird anders. Beide Ansichten zeigen dieselben Daten.':
+      ['Four weeks have passed — one click, and it stays or changes. Both views show the same data.','مرّت أربعة أسابيع — نقرة واحدة، فيبقى كما هو أو يتغيّر. كلا العرضين يُظهران البيانات نفسها.'],
+    'So wechselst du später:':['How to switch later:','هكذا تبدّل لاحقًا:'],
+    'Nicht mehr fragen — so bleibt es':['Don\'t ask again — keep it this way','لا تسأل مجددًا — ليبقَ هكذا'],
+    'Später':['Later','لاحقًا'], 'aktuell':['current','الحالي'],
+    'Kontexte, Sektionen, alle Karten, Editier-Modus':['Contexts, sections, all cards, edit mode','السياقات والأقسام وكل البطاقات ووضع التحرير'],
+    'Sobald du etwas anheftest (📌) oder dein eigenes Muster entsteht, kommt „✨ Meine Ansicht“ als dritte Wahl dazu.':
+      ['As soon as you pin something (📌) or your own pattern emerges, "✨ My view" appears as a third choice.','ما إن تثبّت شيئًا (📌) أو يظهر نمطك الخاص، يظهر «✨ عرضي» خيارًا ثالثًا.'],
+    'Taste S wechselt':['Key S switches','المفتاح S يبدّل'], 'Assistent noch einmal zeigen':['Show the assistant again','عرض المساعد مجددًا'],
     'Noch nicht gesetzt — starte oben den Morgencheck':['Not set yet — start the morning check above','لم يُحدَّد بعد — ابدأ فحص الصباح في الأعلى'],
     'Weitere Einstiege':['More entry points','مداخل أخرى'],
     'Als Kachel anheften':['Pin as a tile','تثبيت كبلاطة'],
@@ -430,10 +620,12 @@ function woerter(){
     'Anheften: bleibt als Kachel, egal was du sonst öffnest':['Pin: stays as a tile whatever else you open','تثبيت: تبقى كبلاطة مهما فتحت غيرها'],
     'Alles zeigen (S)':['Show everything (S)','عرض الكل (S)'], 'Alles zeigen':['Show everything','عرض الكل'],
     'Zurück zu den Einstiegen':['Back to the entry points','العودة إلى المداخل'],
-    'Die drei Kacheln folgen dem, was du am häufigsten öffnest — ab Werk: Mein Board, Heute im Blick, Coach. 📌 hält eine Kachel fest.':
-      ['The three tiles follow what you open most often — by default: My Board, Today in Focus, Coach. 📌 keeps a tile in place.','تتبع البلاطات الثلاث ما تفتحه أكثر — افتراضيًا: لوحتي، اليوم في البؤرة، جون. 📌 يثبّت بلاطة.'],
+    'Deine drei Kacheln folgen dem, was du am häufigsten öffnest — 📌 hält eine fest.':['Your three tiles follow what you open most often — 📌 keeps one in place.','تتبع بلاطاتك الثلاث ما تفتحه أكثر — 📌 يثبّت واحدة.'],
+    'Die drei Standard-Einstiege. Der Compass merkt sich, was du öffnest, und bietet dir später deine eigene Ansicht an.':['The three standard entry points. The Compass remembers what you open and will offer you your own view later.','نقاط الدخول القياسية الثلاث. تتذكّر البوصلة ما تفتحه وستعرض عليك عرضك الخاص لاحقًا.'],
+    'Die drei Standard-Einstiege. Der Compass kennt inzwischen dein eigenes Muster —':['The three standard entry points. The Compass now knows your own pattern —','نقاط الدخول القياسية الثلاث. باتت البوصلة تعرف نمطك الخاص —'],
+    '✨ Meine Ansicht wählen':['✨ Choose my view','✨ اختيار عرضي'],
     'Mein Board':['My Board','لوحتي'], 'Deine Arbeit auf einen Blick':['Your work at a glance','عملك بنظرة واحدة'],
-    'Heute im Blick':['Today in Focus','اليوم في البؤرة'], 'Deine drei Kennzahlen und Coach- Summary':['Your three key figures and Coach\'s summary','مؤشراتك الثلاثة وملخّص جون'],
+    'Heute im Blick':['Today in Focus','اليوم في البؤرة'], 'Deine drei Kennzahlen und die Management-Summary':['Your three key figures and the management summary','مؤشراتك الثلاثة وملخّص الإدارة'],
     'Coach und Sparringspartner — frag ihn, was heute zählt':['Coach and sparring partner — ask him what matters today','مدرّب وشريك نقاش — اسأله ما يهمّ اليوم'],
     'Kalender':['Calendar','التقويم'], 'Termine heute, freie Blöcke, nächster Termin':['Today\'s events, free blocks, next appointment','مواعيد اليوم، الفترات الحرة، الموعد التالي'],
     'Rückfragen':['Questions','استفسارات'], 'Entscheidungen, die auf dich warten':['Decisions waiting for you','قرارات بانتظارك'],
@@ -467,10 +659,13 @@ function start(){
   stil(); woerter(); kopfKnopf(); viewEl(); stageEl(); anschliessen();
   var p=new URLSearchParams(location.search).get('ansicht');
   if(p==='focus'||p==='einfach'){ F.ansicht='focus'; sichern(); }
+  if(p==='meine'){ F.ansicht='meine'; sichern(); }
   if(p==='voll'||p==='alles'){ F.ansicht='voll'; sichern(); }
   anwenden(); nachRender();
   setInterval(zeilenMalen,15000);
-  window.compassFocus={ ansicht:ansichtSetzen, oeffnen:oeffnen, gewichte:function(){ var o={}; KATALOG.forEach(function(e){ o[e.id]=Math.round(gewicht(e.id)*100)/100; }); return o; }, zustand:function(){ return F; } };
+  wizardPruefen();
+  window.compassFocus={ ansicht:ansichtSetzen, oeffnen:oeffnen, assistent:function(){ wizardZeigen(!!F.gewaehlt); },
+    gewichte:function(){ var o={}; KATALOG.forEach(function(e){ o[e.id]=Math.round(gewicht(e.id)*100)/100; }); return o; }, zustand:function(){ return F; } };
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
 })();
