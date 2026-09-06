@@ -290,8 +290,11 @@ const PROJEKTE=D.projekteListe||[];
 Rep '<h3>🎫 Jira (Vishnu) <span class="cnt">' `
     '<h3>🎫 Meine Vorgänge <span class="cnt">' 'Ticket-Karte Titel'
 
-Rep '<div class="mini">Live-Quelle: vishnuartists.atlassian.net · Stand: ${esc(D.stand||''?'')}</div></div>`;' `
-    '<div class="mini">Quelle: dein Vorgangssystem · Stand: ${esc(D.stand||''?'')}</div></div>`;' 'Ticket-Karte Fussnote'
+# Seit 06.09.2026 hat die Karte zwei Fussnoten: live (Instanz mit Server) und Handliste (ohne).
+# Die Live-Fassung nennt nur die Site aus der Serverantwort und bleibt; die Handlisten-Fassung
+# soll in der Demo nicht von dashboard-data.js und einem John-Server reden.
+Rep ':`Handliste aus dashboard-data.js · Stand: ${esc(D.stand||''?'')} — ${esc(PK.jiraHint||(PK.geladen?''John-Server offline, Live-Liste fehlt'':''Live-Liste lädt …''))}`;' `
+    ':`Quelle: dein Vorgangssystem · Stand: ${esc(D.stand||''?'')}`;' 'Ticket-Karte Fussnote'
 
 Rep ":'<div class=""empty"">Nichts offen — die Feedback-Kette läuft. Zuletzt erledigt: VA-13397 + VA-13396 (Dark-Mode-Kontraste, 18.08.).</div>'}" `
     ":'<div class=""empty"">Nichts offen — alles abgearbeitet.</div>'}" 'Meldungs-Karte leer'
@@ -771,6 +774,17 @@ $focus = [Text.RegularExpressions.Regex]::Replace($focus, '\bVishnu\b', 'Team')
 $focus = [Text.RegularExpressions.Regex]::Replace($focus, '\bBenes\b', 'ihren')
 $focus = [Text.RegularExpressions.Regex]::Replace($focus, '\bBene\b',  'die Nutzerin')
 Write-Lf (Join-Path $Ziel 'compass-focus.js') $focus
+
+# Live-Schicht (06.09.2026): compass-live.js — Reaktionsknoepfe an Postfach/Slack, Nachladen,
+# Finanz-Verlauf. Haengt sich wie compass-edit.js von aussen an; ohne john-server tut sie nichts.
+# Dieselben Wortregeln, damit die Wortpruefung unten sauber bleibt.
+$live = (Read-Utf8 (Join-Path $Quelle 'compass-live.js')).Replace("`r`n","`n")
+$live = [Text.RegularExpressions.Regex]::Replace($live, '\bJohns\b', 'Coach-')
+$live = [Text.RegularExpressions.Regex]::Replace($live, '(?<![a-zA-Z])John(?![a-zA-Z])', 'Coach')
+$live = [Text.RegularExpressions.Regex]::Replace($live, '\bVishnu\b', 'Team')
+$live = [Text.RegularExpressions.Regex]::Replace($live, '\bBenes\b', 'ihren')
+$live = [Text.RegularExpressions.Regex]::Replace($live, '\bBene\b',  'die Nutzerin')
+Write-Lf (Join-Path $Ziel 'compass-live.js') $live
 
 # Sprachen (28.08.2026): compass-i18n.js uebersetzt die fertig gerenderte Oberflaeche
 # (Deutsch/English/Arabisch inkl. RTL). dashboard.html laedt sie im Kopf — fehlt sie,

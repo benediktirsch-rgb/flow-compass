@@ -2488,15 +2488,41 @@ function itemsHtml(arr,herkunft,opt){return kurzListe(arr.map(r=>{const {row:x,q
   <div class="t">${esc(x[1])}${x[3]?`<span class="tag ${x[3]}">${x[3]==='red'?'dringend':x[3]==='amb'?'bald':x[3]==='grn'?'in Arbeit':x[3]==='blu'?'geplant':'offen'}</span>`:''}</div>
   ${x[2]?`<div class="m">${esc(x[2])}</div>`:''}</div></div>`;}))}
 
-function jiraCard(mode,kompakt){
-  let rows=JIRA_VA;
-  if(mode==='va-fin') rows=JIRA_VA.filter(r=>/Rechnung|Gehalt|Gerichts|Arbeitsamt|SPC|Invoice/i.test(r[2]));
-  return `<div class="card s6 tone-va${kompakt?' kompakt':''}"><h3>🎫 Jira (Vishnu) <span class="cnt">${esc((K.durchsatz||{}).offen||D.jiraOpenCount||'?')} offen · Top ${rows.length}</span></h3>
-    ${kurzListe(rows.map(r=>{const m=qmark(r[0]+' '+r[2],r[4]+' · Status: '+r[1],'dashboard-data.js › jira');return `<div class="item ${m.c}"${m.a}><div class="ic">🎫</div><div class="body">
-      <div class="t"><a href="${JIRA_VA_URL}${r[0]}" target="_blank" rel="noopener">${r[0]}</a> ${esc(r[2])}
-      <span class="tag ${r[3]}">${esc(r[1])}</span></div><div class="m">${esc(r[4])}</div></div></div>`;}))}
-    <div class="mini">Live-Quelle: vishnuartists.atlassian.net · Stand: ${esc(D.stand||'?')}</div></div>`;
+/* Jira-Karte (06.09.): liest die Live-Liste aus /api/jira/meine (John-Server, alle meine offenen
+   Vorgänge) und sortiert nach Arbeitsnähe — erst In Arbeit, dann Checking, dann Bereit, dann
+   Refinement/Backlog, Pool of Ideas zuletzt; innerhalb einer Stufe zählt das Fälligkeitsdatum,
+   dann die letzte Änderung. Die Handliste dashboard-data.js › jira ist nur noch das Netz, wenn der
+   John-Server fehlt oder kein Token da ist — und dann steht das auch so unter der Karte statt
+   „Live-Quelle“. Anlass: VA-13307 war seit 17.08. Done und stand am 06.09. noch als „Ready to work“
+   auf der Karte, weil niemand die Handliste nachgezogen hatte. */
+function jiraRang(st){ const s=String(st||'').toLowerCase(); if(/progress|flight|arbeit/.test(s)) return 0; if(/check|review|waiting|blocked/.test(s)) return 1; if(/ready|to do|selected/.test(s)) return 2; if(/refine/.test(s)) return 3; if(/pool|idea/.test(s)) return 5; return 4; }
+function jiraTagCls(i,h){ if(i.due&&i.due<h) return 'red'; const c=pkJiraCol(i.status); return c==='doing'?'amb':c==='wartet'?'grn':c==='bereit'?'blu':'gry'; }
+function jiraZeilen(mode){
+  const h=heute(); const fin=/Rechnung|Gehalt|Gerichts|Arbeitsamt|SPC|Invoice|salary|court|payment|Steuer|tax/i;
+  if(PK.jira&&PK.jira.issues){
+    let l=PK.jira.issues.slice();
+    if(mode==='va-fin') l=l.filter(i=>fin.test(i.titel||''));
+    l.sort((a,b)=>(jiraRang(a.status)-jiraRang(b.status))||String(a.due||'9').localeCompare(String(b.due||'9'))||String(b.aktiv||'').localeCompare(String(a.aktiv||'')));
+    return {live:true,anzahl:PK.jira.anzahl,rows:l.slice(0,10).map(i=>[i.key,i.status,i.titel,jiraTagCls(i,h),
+      [i.projekt,i.typ,i.prio,i.due?(i.due<h?'überfällig seit '+i.due:'fällig '+i.due):null].filter(Boolean).join(' · ')])};
+  }
+  let rows=JIRA_VA; if(mode==='va-fin') rows=rows.filter(r=>fin.test(r[2]));
+  return {live:false,anzahl:(K.durchsatz||{}).offen||D.jiraOpenCount||'?',rows};
 }
+function jiraCard(mode,kompakt){
+  const z=jiraZeilen(mode); const rows=z.rows;
+  const stand=z.live?new Date(PK.jira.stand).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'';
+  const fuss=z.live?`Live: ${esc(PK.jira.site||'Jira')} · Stand: ${esc(stand)}`
+    :`Handliste aus dashboard-data.js · Stand: ${esc(D.stand||'?')} — ${esc(PK.jiraHint||(PK.geladen?'John-Server offline, Live-Liste fehlt':'Live-Liste lädt …'))}`;
+  return `<div class="card s6 tone-va${kompakt?' kompakt':''}" data-jira="${esc(mode||'')}"><h3>🎫 Jira (Vishnu) <span class="cnt">${esc(z.anzahl)} offen · Top ${rows.length}</span></h3>
+    ${kurzListe(rows.map(r=>{const m=qmark(r[0]+' '+r[2],r[4]+' · Status: '+r[1],z.live?'John-Server › /api/jira/meine':'dashboard-data.js › jira');return `<div class="item ${m.c}"${m.a}><div class="ic">🎫</div><div class="body">
+      <div class="t"><a href="${JIRA_VA_URL}${r[0]}" target="_blank" rel="noopener">${r[0]}</a> ${esc(r[2])}
+      <span class="tag ${r[3]}">${esc(r[1])}</span></div><div class="m">${esc(r[4])}</div></div></div>`;}),undefined,'<div class="empty">Nichts offen.</div>')}
+    <div class="mini">${fuss}</div></div>`;
+}
+/* Die Karte rendert vor dem Laden mit der Handliste; sobald pkLaden() die Live-Liste hat, wird sie an
+   Ort und Stelle ersetzt (gleiches Muster wie postfRefresh & Co.). */
+function jiraRefresh(){ document.querySelectorAll('.card[data-jira]').forEach(el=>{ const t=document.createElement('div'); t.innerHTML=jiraCard(el.dataset.jira||undefined,el.classList.contains('kompakt')); el.replaceWith(t.firstElementChild); }); }
 function bugCard(){
   const b=K.bugs||{}; const off=(b.liste||[]).filter(r=>r[1]!=='Done');
   return `<div class="card s6 tone-va"><h3>🐞 Web-Meldungen <span class="cnt">${esc(b.offen||0)} offen · ${esc(b.erledigt||0)} erledigt</span></h3>
@@ -3053,7 +3079,7 @@ function pkDnD(){
 }
 let pkLauf=0;
 async function pkLaden(fresh){
-  const lauf=++pkLauf;
+  const lauf=++pkLauf; PK.laedt=true;
   await Promise.all([...Object.keys(TRELLO).map(async k=>{
     try{ const r=await fetch(JOHN_API+'/api/trello?board='+k+(fresh?'&fresh=1':''),{cache:'no-store'}); const d=await r.json();
       if(d&&d.ok){ PK.trello[k]=d; PK.stand[k]=''; } else { PK.trello[k]=null; PK.stand[k]=(TRELLO[k].label+': '+(d&&d.error==='NO_KEY'?'kein Trello-Schlüssel':(d&&d.error)||'Fehler')); }
@@ -3063,7 +3089,7 @@ async function pkLaden(fresh){
       if(d&&d.ok){ PK.jira=d; PK.jiraHint=''; } else { PK.jira=null; PK.jiraHint=d&&d.error==='NO_KEY'?'Jira: Top-Tickets aus dashboard-data.js (live mit JIRA_TOKEN)':'Jira: '+((d&&d.error)||'Fehler'); }
     }catch(e){ PK.jira=null; PK.jiraHint=''; } })()]);
   if(lauf!==pkLauf) return;
-  PK.geladen=true; pkRender();
+  PK.laedt=false; PK.geladen=true; pkRender(); jiraRefresh();
 }
 function pkZeilen(){ /* für die Rückschau (Schritt „Fluss der Woche“) und Johns Kontext */
   const m=pkMetrik(pkQuellen());
@@ -6395,6 +6421,8 @@ function render(c){
      werden aus dem geladenen Zustand gefüllt — nach jedem erneuten render() (Kontextwechsel!)
      standen sie darum dauerhaft auf „lädt …“, obwohl die Daten längst da waren. */
   postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh(); ausRefresh();
+  jiraRefresh();               /* Jira-Karte: Live-Liste, sobald pkLaden() sie hat (06.09.) */
+  if(!PK.geladen&&!PK.laedt) pkLaden(false);   /* die Live-Liste braucht die Jira-Karte auch ohne Mein Board */
   if(KAN.mode==='personal'){ if(KAN.view==='board'){ pkDnD(); if(!PK.geladen) pkLaden(false); } else trelloLive(); }
   else { if(VA.tickets.length) vaPaint(); else vaLaden(false); }
 }
