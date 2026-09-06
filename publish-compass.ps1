@@ -130,11 +130,16 @@ if ($NurBauen) { Log 'NurBauen: fertig, nichts hochgeladen, nichts committet.'; 
 #    hätte sich mit den anderen den Speicher geteilt. Ein Ursprung je Instanz — nichts wird geteilt.
 #    Der Hash-Stand liegt je Ziel in site\.publish-state\<sub>.json (gitignored), NICHT mehr im Ordner
 #    selbst: dort würde er in der Demo mit committet. Neues Ziel = leerer Stand = einmal alles hochladen.
+#    compass = $false (06.09.2026): nur das Portal an der Wurzel, kein Compass-Build — fuer Menschen,
+#    die Raumschiff, Backstage und Verein brauchen, aber keine Boards (Martin). portal.js und
+#    gate-config.php liegen dann von Hand in instanzen\<slug>\, weil keine instanz.js sie fuellt.
 $INSTANZEN = @(
   @{ name = 'Philipp Heitz'; sub = 'philipp' }
   @{ name = 'Jan';           sub = 'jan' }
   @{ name = 'Marwan';        sub = 'marwan' }
   @{ name = 'Florian';       sub = 'florian' }
+  @{ name = 'Domingo';       sub = 'domingo' }
+  @{ name = 'Martin';        sub = 'martin'; compass = $false }
 )
 $stateDir = Join-Path $repo 'site\.publish-state'
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Force $stateDir | Out-Null }
@@ -214,8 +219,13 @@ if (-not $zugang) {
     try {
       # Compass zuerst: der Build holt in der ersten Runde das alte flache Layout nach
       # compass\ (build-portal.ps1 -NurMigrieren) und baut dann dorthin.
-      $pi = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass-produkt.ps1') -Instanz $inst.name 2>&1
-      if ($LASTEXITCODE -ne 0) { throw (($pi | Select-Object -Last 4) -join ' / ') }
+      if ($inst.ContainsKey('compass') -and -not $inst.compass) {
+        # Portal ohne Compass: gate-config.php muss von Hand da sein, sonst bleibt die Tuer zu.
+        if (-not (Test-Path (Join-Path $ordner 'gate-config.php'))) { throw "instanzen\$slug\gate-config.php fehlt (Instanz ohne Compass wird von Hand gefuellt)" }
+      } else {
+        $pi = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass-produkt.ps1') -Instanz $inst.name 2>&1
+        if ($LASTEXITCODE -ne 0) { throw (($pi | Select-Object -Last 4) -join ' / ') }
+      }
       # Portal an die Wurzel der Subdomain (04.09.2026): Kacheln zu Backstage, Team-Cockpit,
       # Vaikuntha und dem Compass daneben. portal.js bleibt dabei unangetastet.
       $pp = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-portal.ps1') -Ziel $ordner 2>&1

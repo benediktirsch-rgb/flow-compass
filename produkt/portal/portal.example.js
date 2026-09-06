@@ -25,6 +25,13 @@ window.PORTAL = {
   /* Eigener Satz unter der Begrüßung; leer = Standardsatz der Sprache. */
   lead: '',
 
+  /* true = alles eine Schriftstufe größer (für Menschen, die das brauchen). */
+  gross: false,
+
+  /* Welche Kachel zuerst steht und hervorgehoben ist: '' = der Compass,
+     sonst eine Kachel-Kennung (compass · cockpit · backstage · vaikuntha · raumschiff). */
+  haupt: '',
+
   /* Die Kacheln. Was hier nicht steht, steht auf Standard:
        compass    ./compass/                                (immer hier auf der Subdomain)
        cockpit    https://va.vishnuartists.com/
