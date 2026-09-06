@@ -237,7 +237,10 @@ function auswahl(){
 function individuell(){
   if(F.pins.length) return true;
   if(auswahl().join()!==standardTrio().join()) return true;
-  try{ if(localStorage.getItem('compassLayout')) return true; }catch(e){}
+  /* compass-edit.js legt „compassLayout“ schon beim allerersten Start an (Standard-Dock) —
+     angepasst ist erst, wer etwas umsortiert, verbreitert oder ausgeblendet hat */
+  try{ var L=JSON.parse(localStorage.getItem('compassLayout')||'null');
+       if(L&&(Object.keys(L.ord||{}).length||Object.keys(L.span||{}).length||(L.aus||[]).length)) return true; }catch(e){}
   return false;
 }
 function trio(){ return ansicht()==='meine'?auswahl():standardTrio(); }
