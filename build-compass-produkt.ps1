@@ -760,6 +760,18 @@ $edit = [Text.RegularExpressions.Regex]::Replace($edit, '\bBenes\b', 'ihren')
 $edit = [Text.RegularExpressions.Regex]::Replace($edit, '\bBene\b',  'die Nutzerin')
 Write-Lf (Join-Path $Ziel 'compass-edit.js') $edit
 
+# Focus View (06.09.2026): compass-focus.js ist das zweite, schlanke Frontend — drei lernende
+# Einstiegskacheln statt des vollen Rasters, fuer Leute, die keine Analytics-Menschen sind.
+# Haengt sich wie compass-edit.js von aussen an; dieselben Wortregeln (John->Coach, Vishnu->Team),
+# damit Kacheltitel und Woerterbuch-Schluessel zum Ergebnis der Seite passen. Wortpruefung unten.
+$focus = (Read-Utf8 (Join-Path $Quelle 'compass-focus.js')).Replace("`r`n","`n")
+$focus = [Text.RegularExpressions.Regex]::Replace($focus, '\bJohns\b', 'Coach-')
+$focus = [Text.RegularExpressions.Regex]::Replace($focus, '(?<![a-zA-Z])John(?![a-zA-Z])', 'Coach')
+$focus = [Text.RegularExpressions.Regex]::Replace($focus, '\bVishnu\b', 'Team')
+$focus = [Text.RegularExpressions.Regex]::Replace($focus, '\bBenes\b', 'ihren')
+$focus = [Text.RegularExpressions.Regex]::Replace($focus, '\bBene\b',  'die Nutzerin')
+Write-Lf (Join-Path $Ziel 'compass-focus.js') $focus
+
 # Sprachen (28.08.2026): compass-i18n.js uebersetzt die fertig gerenderte Oberflaeche
 # (Deutsch/English/Arabisch inkl. RTL). dashboard.html laedt sie im Kopf — fehlt sie,
 # gibt es einen 404 und die Seite bleibt einsprachig. Die Woerterbuch-SCHLUESSEL sind

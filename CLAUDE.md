@@ -12,6 +12,11 @@ Betreibers liegen in `CLAUDE.local.md` (nicht im Repo).
 - `compass-i18n.js` — Sprach-Overlay (Deutsch/English/العربية) auf dem gerenderten Text; Schlüssel ist
   der deutsche Quelltext. Jeder Teil einer zusammengesetzten Zeile muss auflösbar sein, sonst bleibt
   die Zeile deutsch. `compass-edit.js` — Bearbeiten im Browser.
+- `compass-focus.js` — Focus View (seit 06.09.2026): zweites, schlankes Frontend für Leute, die keine
+  Analytics-Menschen sind. Kopf und Checkin-Leiste bleiben, darunter drei lernende Einstiegskacheln
+  (Klicks mit 14 Tagen Halbwertszeit, Hysterese, 📌 anheften) und eine Bühne für genau eine Karte.
+  Umschalter „◎ Einfach / ▦ Alles“, Taste S (E gehört dem Editier-Modus), `?ansicht=focus|voll`,
+  `?go=<kachel>`; neue Nutzer ohne Verlauf starten dort. Zustand lokal unter `compassFocus`.
 - `john-server.ps1` (Port 8787) — liefert den Compass aus und bündelt alle Quellen unter `/api/…`:
   Kalender (ICS, Serientermine, Titel-Wörterbuch für Frei/Gebucht-Feeds), Jira, Trello, Postfach
   (`postfach.json`), Slack (`slack.json`), Seiten-Wächter, Sicherungen, Routinen, Wetter, Vereins-Puls,
