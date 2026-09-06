@@ -183,8 +183,13 @@ function Get-BoardDaten([string]$art, [string]$datum) {
   $wetter = $null
   if ($wet -and $wet.ok) { $wetter = @($wet.tage | Where-Object { $_.datum -eq $kalTag.ToString('yyyy-MM-dd') }) | Select-Object -First 1 }
 
+  # Wochenende (06.09., Bene: „Sonntags eher Fokus auf Familie, Sport, Erholung"): Sa/So haben kein
+  # Arbeitsfenster, die Zahlen ruhen bis Montag, der Kommentar treibt nicht an. Maßgeblich ist der Tag,
+  # den das Board beschreibt — beim Abendboard vom Freitag also der Samstag.
+  $wochenende = ($kalTag.DayOfWeek -eq [DayOfWeek]::Saturday -or $kalTag.DayOfWeek -eq [DayOfWeek]::Sunday)
+
   return @{
-    art = $art; datum = $datum; tag = $tag; kalTag = $kalTag
+    art = $art; datum = $datum; tag = $tag; kalTag = $kalTag; wochenende = $wochenende
     checkin = $checkin; gegen = $gegen; gegenTag = $gegenTag; rueckfragen = $rueckfragen
     kalender = $kalHeute; kalWeiter = $kalWeiter; kalQuellen = $(if ($kal -and $kal.ok) { @($kal.kalender) } else { @() })
     jira = $jira; inArbeit = $inArbeit; ladenhueter = $laden; faellig = $faellig
@@ -202,6 +207,8 @@ function Get-BoardErzaehlung($d) {
   # Nur das Nötige in den Datenblock — keine Rohtexte der Mails, keine Adressen.
   $kurz = @{
     art = $d.art; datum = $d.datum; wochentag = $script:BoardWt[[int]$d.tag.DayOfWeek]
+    beschriebenerTag = $script:BoardWt[[int]$d.kalTag.DayOfWeek]; wochenende = [bool]$d.wochenende
+    abendWahl = $(if ($d.gegen -and $d.gegen.wahl) { @{ erholung = [string]$d.gegen.wahl.erholung; projekt = [string]$d.gegen.wahl.projekt } } else { $null })
     checkin = $(if ($d.checkin) { @{ fokus = $d.checkin.fokus; auftrag = $d.checkin.auftrag; wahl = $d.checkin.wahl; antworten = $d.checkin.antworten; entschieden = $d.checkin.entschieden } } else { $null })
     voriger = $(if ($d.gegen) { @{ datum = $d.gegen.datum; art = $d.gegen.art; fokus = $d.gegen.fokus; wahl = $d.gegen.wahl; antworten = $d.gegen.antworten } } else { $null })
     termine = $(if ($d.kalender) { @($d.kalender.termine | ForEach-Object { @{ zeit = $_.zeit; titel = $_.titel; kal = $_.kal; vorlaeufig = $_.vorlaeufig } }) } else { $null })
@@ -221,6 +228,12 @@ function Get-BoardErzaehlung($d) {
   }
   $daten = ($kurz | ConvertTo-Json -Depth 8)
   $wann = $(if ($d.art -eq 'morgen') { 'heute' } else { 'morgen' })
+  # Wochenend-Regel (06.09.): eigener Block, NICHT als verschachtelter Here-String im Auftrag — ein
+  # „@ am Zeilenanfang würde den äußeren Here-String beenden.
+  $weRegel = ''
+  if ($d.wochenende) { $weRegel = @"
+WOCHENENDE: Der beschriebene Tag ist ein $($script:BoardWt[[int]$d.kalTag.DayOfWeek]). Er gehört Familie, Sport und Erholung — es gibt kein Arbeitsfenster; „freiStunden" und „luecken" sind an diesem Tag bedeutungslos, nenne sie nicht. Für „schritt": Ist das Eine etwas Privates, gib ihm einen ruhigen Anfang; ist es Arbeit, schlag EIN kompaktes Fenster von höchstens 90 Minuten vor und lass den Rest des Tages ausdrücklich frei. „lage": ein Satz über den freien Tag — Wetter, die gestern Abend gewählte Erholung (abendWahl), was draußen möglich ist; keine Ticketzahlen. „auffall": höchstens EIN Absatz, und nur zu dem, was nicht bis Montag warten kann — gibt es nichts davon, liefere ein leeres Array. Die Zitate handeln von Ruhe, Familie, Körper, Muße — nicht vom Tun.
+"@ }
   $auftrag = @"
 Du schreibst die erzählenden Teile für Benedikts $(if ($d.art -eq 'morgen') { 'Morgenboard' } else { 'Abendboard' }) — eine ruhige Seite, die er $(if ($d.art -eq 'morgen') { 'jetzt am Morgen' } else { 'heute Abend und morgen früh' }) liest. Johns Stimme: ein ruhiger Mentor, sanft im Ton, bestimmt in der Sache; er stellt fest, statt anzutreiben, wertet nicht, beschönigt nichts.
 
@@ -235,6 +248,7 @@ Antworte AUSSCHLIESSLICH mit einem JSON-Objekt dieser Form (keine Einleitung, ke
   ]
 }
 Regeln: Deutsch, Du-Form, keine Anrede, keine Emojis. Zahlen nennen statt umschreiben; fehlt eine Zahl (null) oder ist eine Quelle ausgefallen, sag das ruhig, statt etwas zu erfinden. Keine Esoterik-Floskeln („Energie", „Universum", „loslassen"), keine Kalenderweisheiten — die Zitate müssen echt sein und die Stelle stimmen; bist du dir beim Wortlaut nicht sicher, gib den Sinn wieder und schreibe „(sinngemäß)" hinter die Quelle. Insgesamt höchstens 260 Wörter.
+$weRegel
 
 Datenblock (JSON, vom john-server erzeugt):
 $daten
@@ -323,6 +337,14 @@ $script:BoardCss = @'
   .opt b{color:var(--text);font-weight:500}
   footer{padding:34px 0 0;font-family:var(--mono);font-size:11px;color:var(--text-3);letter-spacing:.05em;line-height:1.8}
   .nav{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px;font-family:var(--mono);font-size:12px}
+  .frei{background:var(--ink-2);border-left:3px solid var(--good);padding:28px 28px 30px;margin-top:22px;border-bottom:0}
+  .frei h2{color:var(--good)}
+  .ruhe summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:10px}
+  .ruhe summary::-webkit-details-marker{display:none}
+  .ruhe summary::before{content:"▸";font-family:var(--mono);font-size:11px;color:var(--text-3)}
+  .ruhe details[open] summary::before{content:"▾"}
+  .ruhe summary h2{margin:0}
+  .ruhe details[open] summary{margin-bottom:20px}
 '@
 
 function Add-BoardZahl($sb, [string]$name, $wert, [string]$delta, [string]$klasse) {
@@ -343,6 +365,9 @@ function ConvertTo-BoardHtml($d, $erz, [string]$erzFehler) {
   # Schleifen unten heißen $e und $t; die hätten die Blöcke überschrieben (02.09., erster Bau).
   $esc = { param($s) ConvertTo-BoardEsc $s }
   $txt = { param($s) ConvertTo-BoardText $s }
+  # Optionstext ohne führendes Emoji („🚶 Draußen" wird „Draußen"); steht hier oben, weil der
+  # Wochenend-Abschnitt ihn vor der Übergabe braucht (06.09., erster Bau: „Ausdruck nach & ungültig").
+  $optText = { param($v) $s = [string]$v; if (-not $s) { return '' }; return ($s -replace '^[^\p{L}\p{N}]+', '').Trim() }
   $sb = New-Object Text.StringBuilder
   $titel = $(if ($morgens) { 'Morgenboard' } else { 'Abendboard' })
   $jetzt = Get-Date
@@ -354,7 +379,10 @@ function ConvertTo-BoardHtml($d, $erz, [string]$erzFehler) {
 
   # Kopf
   $entst = $(if ($morgens) { 'nach dem Morgencheck' } else { 'nach dem Abendcheck' })
-  [void]$sb.AppendLine(('<header><p class="kicker">{0}</p><h1>{1}</h1><p class="datum">KW {2} · erstellt {3} {4} {5}</p></header>' -f $titel, (Get-BoardDatumLang $tag), (Get-BoardKw $tag), (Get-BoardDatumKurz $jetzt), $jetzt.ToString('HH:mm'), $entst))
+  $we = [bool]$d.wochenende
+  $kicker = $titel + $(if ($we) { ' · Wochenende' } else { '' })
+  [void]$sb.AppendLine(('<header><p class="kicker">{0}</p><h1>{1}</h1><p class="datum">KW {2} · erstellt {3} {4} {5}</p></header>' -f $kicker, (Get-BoardDatumLang $tag), (Get-BoardKw $tag), (Get-BoardDatumKurz $jetzt), $jetzt.ToString('HH:mm'), $entst))
+  $wetterText = $(if ($d.wetter) { (Get-BoardWetterText $d.wetter.code) + (', {0}–{1} °C' -f [Math]::Round($d.wetter.tmin), [Math]::Round($d.wetter.tmax)) + $(if ($null -ne $d.wetter.regenProz -and $d.wetter.regenProz -ge 30) { ', Regen ' + $d.wetter.regenProz + ' %' } else { '' }) + $(if ($null -ne $d.wetter.windKmh -and [double]$d.wetter.windKmh -ge 30) { ', Wind bis ' + [Math]::Round($d.wetter.windKmh) + ' km/h' } else { '' }) } else { '' })
 
   # Das Eine
   $eine = ''; $eineQuelle = ''
@@ -380,8 +408,20 @@ function ConvertTo-BoardHtml($d, $erz, [string]$erzFehler) {
   if ($erz -and $erz.lage) { [void]$sb.AppendLine(('<p class="warum" style="margin-top:14px">{0}</p>' -f (& $txt $erz.lage))) }
   [void]$sb.AppendLine('</div>')
 
+  # Wochenende (06.09.): direkt nach dem Einen steht, wem der Tag gehört — nur Belegtes: Wetter,
+  # die abends gewählte Erholung, der Hinweis, dass die Zahlen ruhen. Nichts Erfundenes, kein Programm.
+  if ($we) {
+    [void]$sb.AppendLine('<section class="frei"><h2>Der Tag gehört dir</h2><div class="uebergabe">')
+    [void]$sb.AppendLine('<div class="u-zeile"><div class="u-label">Wofür</div><div>Familie, Sport, Erholung — kein Arbeitsfenster, keine Lücken, die gefüllt werden wollen.</div></div>')
+    if ($wetterText) { [void]$sb.AppendLine(('<div class="u-zeile"><div class="u-label">Draußen</div><div>{0}</div></div>' -f (& $esc $wetterText))) }
+    $gw = $(if ($g -and $g.wahl) { $g.wahl } else { $null })
+    $abends = @(); if ($gw -and $gw.erholung) { $abends += (& $optText $gw.erholung) }; if ($gw -and $gw.projekt -and ((& $optText $gw.projekt) -notmatch '^Heute nicht')) { $abends += (& $optText $gw.projekt) }
+    if ($abends.Count) { [void]$sb.AppendLine(('<div class="u-zeile"><div class="u-label">Zuletzt gewählt</div><div>{0} <span class="muted small">— aus dem Abendcheck{1}</span></div></div>' -f (& $esc ($abends -join ' · ')), $(if ($d.gegenTag) { ' vom ' + (& $esc (Get-BoardDatumKurz ([datetime]$d.gegenTag))) } else { '' }))) }
+    [void]$sb.AppendLine('<div class="u-zeile"><div class="u-label">Die Zahlen</div><div class="muted">ruhen bis Montag — sie stehen weiter unten, eingeklappt.</div></div>')
+    [void]$sb.AppendLine('</div></section>')
+  }
+
   # Übergabe / Tagesschluss
-  $optText = { param($v) $s = [string]$v; if (-not $s) { return '' }; return ($s -replace '^[^\p{L}\p{N}]+', '').Trim() }
   if ($morgens) {
     [void]$sb.AppendLine('<section><h2>Übergabe aus dem Abendcheck' + $(if ($d.gegenTag) { ' · ' + (& $esc (Get-BoardDatumKurz ([datetime]$d.gegenTag))) } else { '' }) + '</h2><div class="uebergabe">')
     if ($g) {
@@ -436,9 +476,14 @@ function ConvertTo-BoardHtml($d, $erz, [string]$erzFehler) {
         [void]$sb.AppendLine(('<div class="job {3}"><div class="job-zeit">{0}</div><div>{1}{2}</div></div>' -f (& $esc $z), (& $txt ([string]$t.titel)), $(if ($tags.Count) { ' <span class="tag">' + (& $esc ($tags -join ' · ')) + '</span>' } else { '' }), $(if ($t.frei -or $t.ganztags) { 'spaeter' } else { 'heute' })))
       }
       [void]$sb.AppendLine('</div>')
-    } else { [void]$sb.AppendLine('<p class="muted">Nichts im Kalender — der Tag gehört dem Einen.</p>') }
+    } else { [void]$sb.AppendLine(('<p class="muted">{0}</p>' -f $(if ($we) { 'Nichts im Kalender — der Tag gehört dir.' } else { 'Nichts im Kalender — der Tag gehört dem Einen.' }))) }
     $lk = @(@($k.luecken) | ForEach-Object { '{0}–{1}' -f $_.von, $_.bis })
-    [void]$sb.AppendLine(('<p class="muted small" style="margin-top:16px">{0} h frei im Arbeitsfenster{1}.{2}</p>' -f (& $esc ([string]$k.freiStunden)), $(if ($lk.Count) { ' · freie Blöcke ' + (& $esc ($lk -join ', ')) } else { '' }), $(if ($d.wetter) { ' Wetter: ' + (& $esc (Get-BoardWetterText $d.wetter.code)) + (', {0}–{1} °C' -f [Math]::Round($d.wetter.tmin), [Math]::Round($d.wetter.tmax)) + $(if ($null -ne $d.wetter.regenProz -and $d.wetter.regenProz -ge 30) { ', Regen ' + $d.wetter.regenProz + ' %' } else { '' }) + '.' } else { '' })))
+    if ($we) {
+      # Kein Arbeitsfenster am Wochenende — „9 h frei" wäre eine Einladung, es zu füllen.
+      [void]$sb.AppendLine(('<p class="muted small" style="margin-top:16px">Wochenende — kein Arbeitsfenster.{0}</p>' -f $(if ($wetterText) { ' Wetter: ' + (& $esc $wetterText) + '.' } else { '' })))
+    } else {
+      [void]$sb.AppendLine(('<p class="muted small" style="margin-top:16px">{0} h frei im Arbeitsfenster{1}.{2}</p>' -f (& $esc ([string]$k.freiStunden)), $(if ($lk.Count) { ' · freie Blöcke ' + (& $esc ($lk -join ', ')) } else { '' }), $(if ($wetterText) { ' Wetter: ' + (& $esc $wetterText) + '.' } else { '' })))
+    }
     if ($d.kalWeiter.Count) {
       $wk = @($d.kalWeiter | ForEach-Object { '{0} {1} T · {2} h frei' -f (Get-BoardDatumKurz ([datetime]::ParseExact($_.datum, 'yyyy-MM-dd', $null))), $_.n, $_.freiStunden })
       [void]$sb.AppendLine(('<p class="muted small">Danach: {0}.</p>' -f (& $esc ($wk -join ' · '))))
@@ -447,7 +492,10 @@ function ConvertTo-BoardHtml($d, $erz, [string]$erzFehler) {
   [void]$sb.AppendLine('</section>')
 
   # Zahlen
-  [void]$sb.AppendLine(('<section><h2>{0}</h2><div class="zahlen">' -f $(if ($morgens) { 'Zahlen über Nacht' } else { 'Zahlen des Tages' })))
+  # Wochenende: dieselben Zahlen, aber eingeklappt — wer will, klappt auf; niemand wird angesprungen.
+  if ($we) { [void]$sb.AppendLine(('<section class="ruhe"><details><summary><h2>{0} — ruhen bis Montag</h2></summary>' -f $(if ($morgens) { 'Zahlen über Nacht' } else { 'Zahlen des Tages' }))) }
+  else { [void]$sb.AppendLine(('<section><h2>{0}</h2>' -f $(if ($morgens) { 'Zahlen über Nacht' } else { 'Zahlen des Tages' }))) }
+  [void]$sb.AppendLine('<div class="zahlen">')
   $j = $d.jira
   if ($j -and $j.ok) {
     Add-BoardZahl $sb 'Offene Tickets (dir zugewiesen)' $j.offen ('erledigt 7 T: ' + $j.done7) ''
@@ -487,8 +535,8 @@ function ConvertTo-BoardHtml($d, $erz, [string]$erzFehler) {
   }
   [void]$sb.AppendLine('<div class="auffall"><h4>Das fällt mir auf</h4>')
   if ($erz -and $erz.auffall.Count) { foreach ($p in $erz.auffall) { [void]$sb.AppendLine(('<p>{0}</p>' -f (& $txt $p))) } }
-  else { [void]$sb.AppendLine(('<p class="offen">{0}</p>' -f (& $esc $(if ($erzFehler) { "Kein Kommentar in diesem Lauf: $erzFehler" } else { 'Kein Kommentar in diesem Lauf.' })))) }
-  [void]$sb.AppendLine('</div></section>')
+  else { [void]$sb.AppendLine(('<p class="offen">{0}</p>' -f (& $esc $(if ($erzFehler) { "Kein Kommentar in diesem Lauf: $erzFehler" } elseif ($we -and $erz) { 'Nichts, was nicht bis Montag warten kann.' } else { 'Kein Kommentar in diesem Lauf.' })))) }
+  [void]$sb.AppendLine($(if ($we) { '</div></details></section>' } else { '</div></section>' }))
 
   # Weisheit
   if ($erz -and $erz.weisheit.Count) {
