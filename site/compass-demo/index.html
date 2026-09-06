@@ -414,11 +414,27 @@ em.acc{font-style:italic;color:var(--vk-d)}
 #johnFab:hover{transform:translateY(-2px) scale(1.03)}
 #johnFab .in{width:100%;height:100%;border-radius:50%;background:var(--panel);display:flex;align-items:center;justify-content:center;
   font-family:var(--serif);font-size:28px;color:var(--ink);font-style:italic;position:relative}
-#johnFab .st{position:absolute;right:2px;bottom:2px;width:12px;height:12px;border-radius:50%;background:var(--dim);border:2px solid var(--panel)}
+/* Status-Punkt = kleine Uhr: Ring als Zifferblatt, zwei Zeiger mit echter Zeit (johnUhr) */
+#johnFab .st{position:absolute;right:2px;bottom:2px;width:14px;height:14px;border-radius:50%;background:var(--dim);border:2px solid var(--panel);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)}
+#johnFab .st::before,#johnFab .st::after{content:"";position:absolute;left:50%;bottom:50%;width:1px;margin-left:-.5px;border-radius:1px;
+  background:rgba(0,0,0,.55);transform-origin:50% 100%}
+#johnFab .st::before{height:3px;transform:rotate(var(--uh,300deg))}
+#johnFab .st::after{height:4px;transform:rotate(var(--um,60deg))}
 #johnFab.on .st{background:var(--ok)}#johnFab.warn .st{background:var(--bene)}
 #johnFab .tip{position:absolute;right:68px;top:50%;transform:translateY(-50%);background:var(--panel);border:1px solid var(--line);color:var(--sub);
   font-size:12px;font-weight:700;padding:6px 10px;border-radius:10px;white-space:nowrap;opacity:0;pointer-events:none;transition:.2s}
-#johnFab:hover .tip{opacity:1}
+#johnFab .tip{display:none} /* seit 06.09.2026 ersetzt durch #johnUhrTip (Zeit, Datum, Kalender) */
+/* Mouseover am Coach-Button: genaue Zeit, Datum, Absprung in den Kalender von Outlook (klassisch: outlook:calendar).
+   Sichtbar beim Hover auf Button oder Kasten; die kurze Verzögerung beim Ausblenden lässt die Maus rüberwandern. */
+#johnUhrTip{position:fixed;right:88px;bottom:22px;z-index:70;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 12px;
+  display:flex;flex-direction:column;gap:2px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s .35s;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+#johnFab:hover ~ #johnUhrTip,#johnUhrTip:hover{opacity:1;pointer-events:auto;transition-delay:0s}
+#johnUhrTip b{font-size:12px;color:var(--sub);font-weight:700}
+#johnUhrTip .z{font-family:var(--serif);font-size:22px;color:var(--ink);line-height:1.1;font-variant-numeric:tabular-nums}
+#johnUhrTip .d{font-size:12px;color:var(--sub)}
+#johnUhrTip a{font-size:12px;color:var(--va);text-decoration:none;margin-top:4px}
+#johnUhrTip a:hover{text-decoration:underline}
 #john{position:fixed;right:22px;bottom:92px;z-index:71;width:min(400px,calc(100vw - 32px));height:min(600px,calc(100vh - 120px));
   background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 60px rgba(0,0,0,.5);display:none;flex-direction:column;overflow:hidden}
 #john.on{display:flex}
@@ -828,6 +844,21 @@ em.acc{font-style:italic;color:var(--vk-d)}
   border:1px solid var(--line2);background:var(--panel2);color:var(--sub);transition:.15s}
 .jk .jm2:hover{border-color:var(--va-l);color:var(--va-l);transform:translateY(-1px)}
 .jk .jm2.on{background:var(--va-soft);border-color:var(--va-l);color:var(--va-l)}
+/* ---- Coach- Stapel (06.09.2026): drei Punkte, je eine Aktion, OK, 24 h ---- */
+.jk .stapel{display:flex;flex-direction:column;gap:8px}
+.jk .sp{display:flex;gap:10px;padding:10px 10px 8px;border:1px solid var(--line2);border-radius:12px;background:var(--panel2);animation:spRein .35s ease-out}
+@keyframes spRein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.jk .sp.weg{opacity:0;transform:translateX(24px);transition:.3s}
+.jk .spn{width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:800;background:var(--va-soft);color:var(--va-l);border:1px solid var(--line2)}
+.jk .spb{flex:1;min-width:0}
+.jk .spt{font-size:13.5px;font-weight:800;line-height:1.35}
+.jk .spt .tag{font-weight:700;vertical-align:middle}
+.jk .sps{font-size:12.5px;color:var(--sub);line-height:1.5;margin-top:3px}
+.jk .spa{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.jk .spa .btn{padding:5px 10px;font-size:11.5px}
+.jk .spfuss{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;color:var(--dim);margin-top:2px}
+.jk .hint.think{color:var(--sub);animation:taktPuls 1.6s ease-in-out infinite}
+.jk .hint.warn{color:var(--bene)}
 
 /* ---- Kompass-Kino (Karussell) ---- */
 .kino{position:relative;overflow:hidden;min-height:212px}
@@ -928,6 +959,7 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
 [dir="rtl"] #johnFab{right:auto;left:22px}
 [dir="rtl"] #johnFab .st{right:auto;left:2px}
 [dir="rtl"] #johnFab .tip{right:auto;left:68px}
+[dir="rtl"] #johnUhrTip{right:auto;left:88px}
 [dir="rtl"] #john{right:auto;left:22px}
 [dir="rtl"] .pk .kc .go{right:auto;left:6px}
 [dir="rtl"] .pk .kc .kt{padding-right:0;padding-left:22px}
@@ -1088,12 +1120,14 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
 
 <!-- Coach — verbunden mit Claude über den Compass-Server -->
 <button id="johnFab" title="Coach — dein Sparringspartner"><span class="in">C<span class="st" id="johnSt"></span></span><span class="tip" id="johnTip">Coach</span></button>
+<div id="johnUhrTip" role="tooltip"><b id="johnUhrName"></b><span class="z" id="johnUhrZeit">–</span><span class="d" id="johnUhrDatum"></span><a href="outlook:calendar" id="johnUhrKal" title="Kalender in Outlook (klassisch) öffnen">📅 Kalender in Outlook öffnen</a></div>
 <div id="john" role="dialog" aria-label="Coach">
   <div class="jh"><div class="jav">C</div><div class="jt"><b>Coach</b><span id="johnSub">Dein Flow-Coach · Claude</span></div><button class="jx" id="johnClose" title="Schließen">✕</button></div>
   <div class="jstat" id="johnStat">Verbinde …</div>
   <div class="jmsgs" id="johnMsgs"></div>
   <div class="jquick" id="johnQuick">
     <button data-q="Was steht heute für mich an? Kurz und priorisiert.">Heute?</button>
+    <button data-q="Geh meinen Stapel mit mir durch — Punkt für Punkt, und führ die Entscheidung herbei.">Stapel</button>
     <button data-q="Pipeline-Check: Wo bin ich überfällig, was ist der nächste Schritt?">Pipeline</button>
     <button data-q="Sparring: Ich will die Entscheidung von heute mit dir durchdenken.">Sparring</button>
     <button data-q="Gib mir eine ehrliche Einschätzung: Was verschleppe ich gerade?">Ehrlich?</button>
@@ -5466,6 +5500,9 @@ async function lotusLaden(){
   lotusRender(false);
   fortschrittRefresh();
   if(SUMMARY_NEU||!(S.summary&&S.summary.datum===heute())){ const f=SUMMARY_NEU; SUMMARY_NEU=false; summaryHolen(f); }
+  /* Coach- Stapel (06.09.): jetzt stehen die Kandidaten (Rückfragen, Board, Trichter, Kalender) — Coach sortiert
+     nur, wenn sich etwas geändert hat (Hash aus Schlüsseln + Datum), sonst bleibt der Stand von vorhin. */
+  setTimeout(()=>{ try{ stapelLaden(false); }catch(e){} },1500);
 }
 /* ---------- Praktische Arbeit → XP („Score“): je angefangene 15 aktive Minuten 1 XP, max. 20/Tag, rückwirkend 14 Tage, nie doppelt ---------- */
 function arbeitXpVerbuchen(a){
@@ -5610,9 +5647,10 @@ let aktuell='va', fokusModus=(localStorage.getItem('beneFokus')==='1');
    1) TUGENDEN  — die preußischen Tugenden als Messung am eigenen Board.
                   Jede Tugend hat einen echten Test gegen pkMetrik(), keine
                   getippten Werte (Regel: keine erfundenen Kacheln).
-   2) johnKachel() — Coach- kleine Kachel: er will spielen, fordern, warnen,
-                  briefen oder die Zusammenarbeit verbessern. Er ruft von sich
-                  aus, aber selten (johnRuf: höchstens 2x am Tag, >=3 h Abstand).
+   2) johnKachel() — seit 06.09. Coach- Stapel (Coach-Feld): die drei wichtigsten
+                  Punkte mit je einer Aktion, OK räumt ab, 24-h-Wiedervorlage. Die fünf
+                  Chips (spielen, fordern, warnen, briefen, Zusammenarbeit) bleiben klein
+                  darunter. Er ruft von sich aus, aber selten (johnRuf: 2x am Tag).
    3) kompassKino() — Karussell: Tugend des Tages · Nietzsche · psychedelische
                   Kunst (im Browser gezeichnet) · Code-Ansicht deines Tages ·
                   Anerkennung. Ersetzt die reine Text-Kachel-Wand.
@@ -5744,35 +5782,161 @@ function johnRufMerken(){
   return true;
 }
 let JK_MODUS=null;
+/* ---- 2b · Coach- Stapel (06.09.2026) — das Coach-Feld ----------------------------
+   die Nutzerin: „Im Coach-Feld brauche ich dich als meinen Coach, der mich an die wichtigsten
+   Sachen erinnert, Entscheidungen herbeiführt und als mein Partner und digitales Ich
+   agiert." Und: „Wenn ich sage OK: weg, nächste nachrücken. Anderer Call-to-Action —
+   du entscheidest (Claude / Jira / Mail …) + Wiedervorlage in 24 Stunden."
+   Die Kachel zeigt darum Coach- Stapel statt eines Spielvorschlags: die drei wichtigsten
+   Punkte, der Reihe nach, jeder mit GENAU EINER Aktion, die Coach gewählt hat.
+     ✓ OK      räumt ab — der Punkt bleibt weg, der nächste rückt nach (Reserve: Coach
+               liefert bis zu fünf, gezeigt werden drei).
+     Aktion    tut das, was Coach vorschlägt (Rückfrage beantworten, Karte, Mail-Entwurf,
+               Termin, an Claude, mit Coach klären, Link, Board) und legt den Punkt auf
+               Wiedervorlage in 24 h — morgen fragt Coach nach, ob es erledigt ist.
+     ⏰ 24 h   nur vertagen.
+   Kandidaten kommen aus dem Compass (offene Rückfragen, Board, Trichter), der Server legt
+   Pipeline- und TASKS-Fälligkeiten dazu, Coach sortiert und formuliert (POST /api/john/stapel).
+   Der Stand (ok / Wiedervorlage) liegt auf dem john-server — ein Punkt, der hier abgeräumt
+   ist, taucht auf dem Handy nicht wieder auf. localStorage hält nur eine Kopie für den
+   ersten Aufbau, solange der Server noch antwortet.                                        */
+const STAPEL={ punkte:[], stand:{}, geladen:false, laeuft:false, fehler:null, hash:'', datum:null, model:'', standUm:'', offline:false };
+(function(){ try{ const c=JSON.parse(localStorage.getItem('compassStapel')||'null'); if(c&&Array.isArray(c.punkte)){ STAPEL.punkte=c.punkte; STAPEL.stand=c.stand||{}; STAPEL.hash=c.hash||''; STAPEL.datum=c.datum||null; STAPEL.standUm=c.standUm||''; } }catch(e){} })();
+function stapelMerken(){ try{ localStorage.setItem('compassStapel',JSON.stringify({punkte:STAPEL.punkte,stand:STAPEL.stand,hash:STAPEL.hash,datum:STAPEL.datum,standUm:STAPEL.standUm})); }catch(e){} }
+const STAPEL_ART={entscheiden:['💬','Jetzt entscheiden'],karte:['🎫','Karte anlegen'],mail:['✉️','Mail entwerfen'],termin:['📅','Termin vorschlagen'],
+  john:['🧠','Mit Coach klären'],claude:['🤖','An Claude'],link:['↗','Öffnen'],board:['🧭','Zum Board']};
+/* Was der Compass selbst weiß — knapp, Coach bekommt das Lagebild dazu (johnKontext). */
+function stapelKandidaten(){
+  const k=[];
+  try{ offeneFragen().slice(0,12).forEach(q=>k.push({key:'frage:'+q.id,id:q.id,art:'rueckfrage',titel:String(q.frage||'').slice(0,120),
+       warum:String(q.warum||'').slice(0,400),projekt:q.projekt||'',optionen:(q.optionen||[]).slice(0,4)})); }catch(e){}
+  try{ const m=pkMetrik(pkQuellen()); const doing=(PK.karten||[]).filter(c=>c.col==='doing').map(c=>c.name).slice(0,6);
+    if(m.wip>m.limit) k.push({key:'board:wip',art:'board',titel:`WIP ${m.wip}/${m.limit} — über dem eigenen Limit`,warum:'In Arbeit: '+doing.join(' | ')});
+    if(m.over>0){ const today=trelloDatumLokal(new Date()); const ov=(PK.karten||[]).filter(c=>c.due&&!c.dueComplete&&c.col!=='done'&&trelloDatumLokal(c.due)<today).map(c=>c.name).slice(0,5);
+      k.push({key:'board:over',art:'board',titel:`${m.over} Karte${m.over===1?'':'n'} über der Frist`,warum:ov.join(' | ')}); }
+    if(m.aeltest&&m.maxAlter>=7) k.push({key:'board:alt:'+String(m.aeltest.id||'').slice(0,40),art:'board',titel:`„${String(m.aeltest.name||'').slice(0,50)}“ hängt seit ${m.maxAlter} Tagen`,warum:'Älteste Karte in Arbeit — zerlegen, abgeben oder bewusst zurücklegen.'});
+  }catch(e){}
+  try{ triOffen().slice(0,6).forEach(w=>k.push({key:'trichter:'+String(w.schluessel||w.name||'').slice(0,60),art:'trichter',titel:(w.name||'ohne Namen')+' — '+((TRI_BAHN[w.bahn]||{}).t||w.bahn),
+       warum:[w.was,w.rolle,w.kunde,w.tage!=null?('wartet seit '+w.tage+' Tagen'):''].filter(Boolean).join(' · ').slice(0,300),url:triLink(w)||''})); }catch(e){}
+  return k;
+}
+function stapelHash(k){ return k.map(x=>x.key).sort().join('|')+'#'+heute(); }
+/* Lagebild für Coach: johnKontext() plus der Kalender von morgen — Kollisionen (Termin fällig am Tag, an dem
+   die Nutzerin unterwegs ist) sieht nur, wer beide Tage kennt. */
+function stapelKontext(){
+  const L=[]; try{ L.push(johnKontext()); }catch(e){}
+  try{ const w=(KAL.data&&KAL.data.woche)||[]; w.slice(1,3).forEach(t=>{ const ts=(t.ganztags||[]).concat(t.termine||[]);
+    L.push(`Kalender ${t.wochentag} ${t.datum.slice(8,10)}.${t.datum.slice(5,7)}.: ${t.n} Termin${t.n===1?'':'e'}${ts.length?' — '+ts.map(x=>`${x.zeit||''} ${x.titel}`).slice(0,6).join(' | '):''}`); }); }catch(e){}
+  return L.join('\n');
+}
+/* Stand des Servers gewinnt; was lokal jünger ist (Server war gerade weg), bleibt stehen. */
+function stapelStandMischen(srv){
+  const s=Object.assign({},STAPEL.stand);
+  Object.keys(srv||{}).forEach(k=>{ const a=srv[k], b=s[k]; if(!b||String(a.ts||'')>=String(b.ts||'')) s[k]=a; });
+  STAPEL.stand=s;
+}
+async function stapelLaden(force){
+  if(STAPEL.laeuft) return;
+  const kand=stapelKandidaten(), hash=stapelHash(kand);
+  if(!force&&STAPEL.geladen&&STAPEL.hash===hash) return;
+  STAPEL.laeuft=true; STAPEL.fehler=null; stapelMalen();
+  try{
+    const r=await fetch(JOHN_API+'/api/john/stapel',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kandidaten:kand,kontext:stapelKontext(),fresh:!!force}),signal:AbortSignal.timeout(180000)});
+    const j=await r.json();
+    if(!r.ok||!j.ok){ STAPEL.fehler=j.error==='NO_KEY'?(j.hint||'API-Schlüssel fehlt.'):('Der Coach antwortet nicht: '+(j.error||r.status)); }
+    else { STAPEL.punkte=j.punkte||[]; stapelStandMischen(j.stand); STAPEL.hash=hash; STAPEL.datum=j.datum||heute(); STAPEL.model=j.model||''; STAPEL.standUm=j.stand_um||''; STAPEL.offline=false; stapelMerken(); }
+  }catch(e){ STAPEL.offline=true; STAPEL.fehler=null; }
+  STAPEL.geladen=true; STAPEL.laeuft=false; stapelMalen();
+}
+/* Die offenen Punkte: nicht abgeräumt, Wiedervorlage abgelaufen (dann mit Hinweis) — höchstens drei. */
+function stapelOffen(){
+  const now=Date.now();
+  return (STAPEL.punkte||[]).map(p=>{ const st=STAPEL.stand[p.key]; if(!st) return p;
+      if(st.status==='ok') return null;
+      if(st.status==='wieder'){ const bis=Date.parse(st.bis||''); if(bis&&bis>now) return null; return Object.assign({},p,{wieder:st}); }
+      return p; }).filter(Boolean).slice(0,3);
+}
+async function stapelStand(key,status,extra){
+  extra=extra||{}; const p=(STAPEL.punkte||[]).find(x=>x.key===key)||{};
+  const eintrag={status,ts:new Date().toISOString(),bis:status==='wieder'?new Date(Date.now()+(extra.stunden||24)*3600e3).toISOString():'',aktion:extra.aktion||'',titel:p.titel||extra.titel||''};
+  if(status==='offen') delete STAPEL.stand[key]; else STAPEL.stand[key]=eintrag;
+  stapelMerken(); stapelMalen();
+  try{
+    const r=await fetch(JOHN_API+'/api/john/stapel/stand',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({key,status,aktion:eintrag.aktion,titel:eintrag.titel,stunden:extra.stunden||24,auftrag:extra.auftrag||''}),signal:AbortSignal.timeout(15000)});
+    const j=await r.json(); if(j&&j.ok){ stapelStandMischen(j.stand); stapelMerken(); return true; }
+  }catch(e){}
+  toast('Stand nur lokal gemerkt — der john-server war nicht erreichbar.','warn'); return false;
+}
+function stapelOk(key){ const p=(STAPEL.punkte||[]).find(x=>x.key===key); stapelStand(key,'ok'); toast('✓ Abgeräumt'+(p?': '+esc(String(p.titel).slice(0,50)):'')+' — der nächste rückt nach','ok'); }
+function stapelSpaeter(key){ stapelStand(key,'wieder',{stunden:24}); toast('⏰ Wiedervorlage morgen um diese Zeit','ok'); }
+function stapelZurueck(key){ stapelStand(key,'offen'); }
+/* Die Aktion, die Coach gewählt hat — danach automatisch Wiedervorlage in 24 h, damit Coach morgen nachfragt. */
+function stapelAktion(key){
+  const p=(STAPEL.punkte||[]).find(x=>x.key===key); if(!p||!p.aktion) return;
+  const a=p.aktion, art=a.art, label=a.label||(STAPEL_ART[art]||['',''])[1]; let auftrag='';
+  try{
+    if(art==='entscheiden'){ starte('fragen'); }
+    else if(art==='karte'){ NOV.ziel=(['compass','jira','trello-privat','trello-arbeit'].indexOf(a.ziel)>=0)?a.ziel:'compass'; pkNeu('bereit',{name:a.name||p.titel,desc:a.desc||p.satz||''}); }
+    else if(art==='mail'){ const an=String(a.an||'').replace(/[\r\n]/g,''); window.open('mailto:'+encodeURIComponent(an)+'?subject='+encodeURIComponent(a.betreff||p.titel)+'&body='+encodeURIComponent(a.text||''),'_self'); }
+    else if(art==='termin'){ const st=String(a.start||'').replace(/[^\dT:]/g,''); const d=st?new Date(st):null;
+      const fmt=x=>x.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}Z$/,'Z');
+      const url='https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent(a.titel||p.titel)+(d&&!isNaN(d)?'&dates='+fmt(d)+'/'+fmt(new Date(d.getTime()+(a.minuten||30)*60000)):'')+'&details='+encodeURIComponent(a.notiz||p.satz||'');
+      window.open(url,'_blank','noopener'); }
+    else if(art==='john'){ johnOpen(a.frage||('Lass uns das zu Ende denken: '+p.titel+' — '+p.satz)); johnSend(); }
+    else if(art==='claude'){ auftrag=a.auftrag||(p.titel+' — '+p.satz); }
+    else if(art==='link'){ if(/^https?:\/\//.test(a.url||'')) window.open(a.url,'_blank','noopener'); }
+    else if(art==='board'){ const el=document.getElementById('kanbanCard')||document.getElementById('grid'); if(el){ el.scrollIntoView({behavior:'smooth',block:'start'}); el.classList.add('frisch'); setTimeout(()=>el.classList.remove('frisch'),2600); } }
+  }catch(e){ toast('Aktion ging nicht: '+e.message,'bad'); return; }
+  stapelStand(key,'wieder',{stunden:24,aktion:label,auftrag});
+  toast((STAPEL_ART[art]||['✓'])[0]+' '+esc(label)+(art==='claude'?' — Auftrag liegt in checkins/ für die nächste Claude-Session':'')+' · Wiedervorlage in 24 h','ok');
+}
+function stapelZeile(p,i){
+  const a=p.aktion||{}, art=STAPEL_ART[a.art]||['▸','Weiter'];
+  const wieder=p.wieder?`<span class="tag amb" title="Am ${esc(datumKurz(String(p.wieder.ts||'').slice(0,10)))} angestoßen${p.wieder.aktion?': '+esc(p.wieder.aktion):''} — Coach fragt nach">⏰ Wiedervorlage${p.wieder.aktion?' · '+esc(p.wieder.aktion):''}</span>`:'';
+  return `<div class="sp" data-key="${escA(p.key)}"><div class="spn">${i+1}</div><div class="spb">
+    <div class="spt">${esc(p.titel)} ${wieder}</div><div class="sps">${esc(p.satz||'')}</div>
+    <div class="spa"><button class="btn a" onclick="stapelAktion('${escA(p.key)}')" title="Coach- Vorschlag — danach Wiedervorlage in 24 h">${art[0]} ${esc(a.label||art[1])}</button>
+      <button class="btn g" onclick="stapelOk('${escA(p.key)}')" title="Erledigt oder erledigt genug — weg damit, der nächste rückt nach">✓ OK</button>
+      <button class="btn" onclick="stapelSpaeter('${escA(p.key)}')" title="Morgen um diese Zeit wieder vorlegen">⏰ 24 h</button></div></div></div>`;
+}
+function stapelInhalt(){
+  const offen=stapelOffen(), n=(STAPEL.punkte||[]).filter(p=>{ const s=STAPEL.stand[p.key]; return !(s&&s.status==='ok'); }).length;
+  let kopf='';
+  if(STAPEL.laeuft&&!offen.length) kopf=`<div class="hint think">Coach sortiert deinen Stapel …</div>`;
+  else if(STAPEL.fehler) kopf=`<div class="hint warn">${esc(STAPEL.fehler)}</div>`;
+  else if(STAPEL.offline&&!STAPEL.punkte.length) kopf=`<div class="hint warn">Der Coach ist offline — starte deinen Compass-Server, dann liegt der Stapel hier.</div>`;
+  let liste='';
+  if(offen.length) liste=`<div class="stapel">${offen.map(stapelZeile).join('')}</div>`;
+  else if(STAPEL.geladen&&!STAPEL.laeuft&&!STAPEL.fehler) liste=`<div class="empty">Stapel leer — ${n?'alles Weitere liegt auf Wiedervorlage.':'nichts, was heute eine Entscheidung braucht.'} Genau dann lohnt der Blick nach vorn: Was wird in zwei Wochen ein Problem, wenn du heute nichts tust?</div>`;
+  const rest=Math.max(0,n-offen.length);
+  const stand=STAPEL.standUm?`Stand ${new Date(STAPEL.standUm).toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'})}`:'';
+  return kopf+liste+`<div class="spfuss"><span class="muted">${rest?rest+' weitere auf Wiedervorlage · ':''}${esc(stand)}</span>
+    <button class="jm2" onclick="stapelLaden(true)" title="Coach sortiert neu (Kandidaten und Stand von jetzt)">↻ Neu sortieren</button></div>`;
+}
 function johnKachel(){
-  if(JK_MODUS==null) JK_MODUS=JOHN_MODI[Math.floor(Date.now()/36e5)%JOHN_MODI.length].id;
-  const mo=JOHN_MODI.find(function(x){return x.id===JK_MODUS;})||JOHN_MODI[0];
-  const ruft=johnRuf()!==false;
-  let satz=''; try{ satz=mo.satz(); }catch(e){ satz='Coach ist da, hat aber gerade keine Zahlen — starte den Morgencheck.'; }
-  return `<div class="card s6 tone-none jk ${ruft?'ruft':''}"><h3>🤵 Coach</h3>
-    <div class="jkopf"><div class="jav">${mo.ic}</div><div><div class="jwer">${esc(mo.was)}</div>
-      <div class="jwas">${ruft?'ruft dich — du kommst, wenn du magst':'wartet auf dich'}</div></div></div>
-    <div class="jtext">${satz}</div>
-    <div class="jmodi">${JOHN_MODI.map(function(x){return `<button class="jm2 ${x.id===mo.id?'on':''}" onclick="johnModus('${x.id}')" title="${esc(x.was)}">${x.ic} ${esc(x.n)}</button>`;}).join('')}</div>
-    <div class="chipbar"><button class="btn a" onclick="johnAn('${mo.id}')">${mo.ic} Darauf eingehen</button></div></div>`;
+  const ruft=johnRuf()!==false && stapelOffen().length>0;
+  const cnt=stapelOffen().length;
+  return `<div class="card s6 tone-none jk ${ruft?'ruft':''}" id="johnKachel"><h3>🤵 Coach <span class="cnt" id="stapelCnt">${cnt?cnt+' Punkt'+(cnt===1?'':'e'):'Coach'}</span></h3>
+    <div class="jkopf"><div class="jav">🧭</div><div><div class="jwer">Das Wichtigste, der Reihe nach</div>
+      <div class="jwas">OK räumt ab, der nächste rückt nach · jede Aktion legt eine Wiedervorlage in 24 h an</div></div></div>
+    <div id="stapelBody">${stapelInhalt()}</div>
+    <div class="jmodi">${JOHN_MODI.map(function(x){return `<button class="jm2" onclick="johnAn('${x.id}')" title="${esc(x.was)}">${x.ic} ${esc(x.n)}</button>`;}).join('')}</div></div>`;
 }
-/* Nur den Inhalt unter der h3 tauschen — die h3 behaelt ihren Klapp-Listener
-   aus cardsVerdrahten(), sonst haengt bei jedem Moduswechsel einer mehr dran. */
-function johnModus(id){
-  JK_MODUS=id;
-  const c=document.querySelector('.card.jk'); if(!c) return;
-  const huelle=document.createElement('div'); huelle.innerHTML=johnKachel();
-  const neu=huelle.firstElementChild;
-  Array.prototype.slice.call(c.children).forEach(function(el){ if(el.tagName!=='H3') el.remove(); });
-  Array.prototype.slice.call(neu.children).forEach(function(el){ if(el.tagName!=='H3') c.appendChild(el); });
-  c.classList.toggle('ruft', neu.classList.contains('ruft'));
+/* Nur den Inhalt unter der h3 tauschen — die h3 behält ihren Klapp-Listener aus cardsVerdrahten(). */
+function stapelMalen(){
+  const c=document.getElementById('johnKachel'); if(!c) return;
+  const b=document.getElementById('stapelBody'); if(b) b.innerHTML=stapelInhalt();
+  const n=document.getElementById('stapelCnt'); const cnt=stapelOffen().length; if(n) n.textContent=cnt?cnt+' Punkt'+(cnt===1?'':'e'):'Coach';
+  c.classList.toggle('ruft', johnRuf()!==false && cnt>0);
 }
+function johnModus(id){ johnAn(id); }
 function johnAn(id){
   const mo=JOHN_MODI.find(function(x){return x.id===id;})||JOHN_MODI[0];
   johnRufMerken();
   if(typeof johnOpen==='function') johnOpen(mo.frage());
 }
-
 /* ---- 3 · Kompass-Kino ------------------------------------------------------- */
 /* Nietzsche — gemeinfrei (gest. 1900). Kurz, damit sie im Kopf bleiben.        */
 const NIETZSCHE=[
@@ -6433,7 +6597,7 @@ einstellungenSync();                   /* Farbschema, Sprache, Tagesphase — ei
    ========================================================================== */
 /* JOHN_API steht oben bei den Konstanten (wird schon vom Trello-Teil im ersten render() gebraucht). */
 const johnEl=document.getElementById('john'), johnMsgs=document.getElementById('johnMsgs'), johnIn=document.getElementById('johnIn'),
-      johnStat=document.getElementById('johnStat'), johnFab=document.getElementById('johnFab');
+      johnStat=document.getElementById('johnStat'), johnFab=document.getElementById('johnFab'), johnSt=document.getElementById('johnSt');
 let JOHN=(()=>{ try{ return JSON.parse(localStorage.getItem('beneJohn')||'[]'); }catch(e){ return []; } })();
 let johnBusy=false, johnOnline=null;
 const johnSave=()=>{ JOHN=JOHN.slice(-40); localStorage.setItem('beneJohn',JSON.stringify(JOHN)); };
@@ -6462,6 +6626,8 @@ function johnKontext(){
   const lk=lotusFokus().map(k=>{ const c=LOTUS_KATALOG[k], w=(LOT.werte||{})[k]||{}; return `${c.label}: heute ${w.heute??'–'}${w.gestern!=null?` (gestern ${w.gestern})`:''}`; });
   if(lk.length) L.push('Lotus-KPIs (Fokus): '+lk.join(' | '));
   if(S.summary&&S.summary.datum===heute()) L.push('Deine Management-Summary heute: '+S.summary.text);
+  /* Coach- Stapel (06.09.): was gerade im Coach-Feld liegt — so kann Coach im Chat Punkt für Punkt zur Entscheidung führen */
+  try{ const so=stapelOffen(); if(so.length) L.push('Dein Stapel im Coach-Feld (offen, in dieser Reihenfolge): '+so.map((p,i)=>`${i+1}. ${p.titel} — ${p.satz} [Aktion: ${(p.aktion||{}).label||(p.aktion||{}).art||'?'}]${p.wieder?' (Wiedervorlage, angestoßen: '+(p.wieder.aktion||'vertagt')+')':''}`).join(' | ')); }catch(e){}
   const w=D.woche||{}; if((w.bene||[]).length) L.push('Deine Schritte diese Woche: '+w.bene.map(x=>x[1]).join('; '));
   try{ const m=pkMetrik(pkQuellen()); L.push(`Mein Board (Personal Kanban): WIP ${m.wip}/${m.limit}, bereit ${m.bereit}, wartet ${m.wartet}, überfällig ${m.over}, fertig in 7 T ${m.done7}${m.aeltest?`, älteste Karte in Arbeit: „${m.aeltest.name}“ (${m.maxAlter} T)`:''}; in Arbeit: `+(PK.karten||[]).filter(c=>c.col==='doing').map(c=>c.name).slice(0,5).join(' | ')); }catch(e){}
   return L.join('\n');
@@ -6696,7 +6862,7 @@ function compassAbmelden(){
   einbauen(); namen();
   setInterval(()=>{ try{ einbauen(); namen(); }catch(e){} },1500);
 })();
-const EXPORT_KEYS=['beneRhythm','beneJohn','beneTheme','beneCtx','beneFokus','compassKanban','compassKanbanEmbed','compassKanbanPhone','compassKanbanGo','compassKanbanView','compassBoardFilter','compassSec','compassMin','compassJohnApi','compassVaFl','compassVaFilter','compassUser','compassLang'];
+const EXPORT_KEYS=['beneRhythm','beneJohn','beneTheme','beneCtx','beneFokus','compassKanban','compassKanbanEmbed','compassKanbanPhone','compassKanbanGo','compassKanbanView','compassBoardFilter','compassSec','compassMin','compassJohnApi','compassVaFl','compassVaFilter','compassUser','compassLang','compassStapel'];
 function fortschrittExport(){
   const o={_compass:1,_am:new Date().toISOString(),_von:location.origin}; EXPORT_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v!=null) o[k]=v; });
   const t=JSON.stringify(o);
@@ -6755,11 +6921,22 @@ johnIn.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preve
 document.querySelectorAll('#johnQuick button').forEach(b=>b.addEventListener('click',()=>{ johnIn.value=b.dataset.q; johnSend(); }));
 johnMsgs.addEventListener('dblclick',()=>{ if(confirm('Coach-Verlauf lokal löschen?')){ JOHN=[]; johnSave(); johnRender(); } });
 johnStatus();
+/* Der Status-Punkt ist eine Uhr: Zeiger folgen der echten Zeit; der Mouseover-Kasten zeigt Sekunden, Datum
+   und den Absprung in den Outlook-Kalender. Sekündlich nachgestellt (billig: drei Textknoten, zwei CSS-Variablen). */
+const johnUhrZeit=document.getElementById('johnUhrZeit'), johnUhrDatum=document.getElementById('johnUhrDatum'),
+      johnUhrName=document.getElementById('johnUhrName'), johnTip=document.getElementById('johnTip');
+function johnUhr(){ const d=new Date(), m=d.getMinutes(), h=d.getHours()%12, lang=document.documentElement.lang||'de';
+  johnSt.style.setProperty('--um', (m*6)+'deg'); johnSt.style.setProperty('--uh', (h*30+m*.5)+'deg');
+  johnUhrZeit.textContent=d.toLocaleTimeString(lang,{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  johnUhrDatum.textContent=d.toLocaleDateString(lang,{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+  johnUhrName.textContent=johnTip.textContent; }
+johnUhr(); setInterval(johnUhr,1000);
 </script>
 
 <!-- Editier-Modus fuers Layout (24.08.2026): Karten verschieben, Breite aendern,
      oben andocken. Laeuft ganz von aussen — haengt sich per MutationObserver an
      #grid und bringt sein CSS selbst mit. Muss nach dem Haupt-Skript stehen. -->
+<script src="compass-focus.js"></script>
 <script src="compass-edit.js"></script>
 </body>
 </html>
