@@ -2327,6 +2327,108 @@ $mime = @{ '.html'='text/html; charset=utf-8'; '.js'='application/javascript; ch
 # Das Alter rechnet der Server bei jedem Abruf neu aus `seit` — sonst stünde zwischen zwei
 # Läufen der Routine ein eingefrorenes „vor 3 Tagen“ in der Karte. `alterMin` sagt, wie alt
 # die Messung selbst ist; die Karte zeigt das, damit niemand eine kalte Zahl für frisch hält.
+# ---------------------------------------------------------------------------
+# Reaktionen auf Postfach und Slack (06.09.2026, Bene: "Hier muss eine Reaktion moeglich sein")
+#   Je Eintrag der Karten "Wartet auf dich" und "Wartet in Slack" vier Wege: schon erledigt,
+#   Claude schreibt einen Entwurf, Claude schickt direkt, eine Claude-Session soll das Thema
+#   einordnen. Der Stand liegt in reaktionen.json (gitignored; ein Schluessel je Vorgang:
+#   postfach:<threadId> bzw. slack:<kanalId>/<ts>), damit er auf jedem Geraet derselbe ist.
+#   - "erledigt" nimmt den Eintrag aus der Liste, bis die Routine ihn selbst nicht mehr liefert.
+#   - "entwurf" / "senden" / "session" haengen einen Auftrag an checkins\<datum>-auftraege.md
+#     (derselbe Weg wie "An Claude" aus Johns Stapel) und bleiben als Zustand am Eintrag
+#     stehen, bis jemand "erledigt" meldet — die ausfuehrende Session per POST, oder Bene.
+#   - "zurueck" loescht die Reaktion wieder.
+#   Aufgeraeumt wird beim Lesen: liefert eine Messung, die JUENGER ist als die Reaktion, den
+#   Vorgang nicht mehr, ist er durch — sein Eintrag faellt weg. Der Server urteilt nicht,
+#   er merkt sich nur, was Bene geklickt hat. Der Auftragstext nennt den Rueckweg
+#   (POST /api/reaktion … erledigt), damit die Session den Eintrag selbst abraeumt.
+# ---------------------------------------------------------------------------
+$script:ReaktionenDatei = Join-Path $PSScriptRoot 'reaktionen.json'
+$script:ReaktionArten = @('erledigt', 'entwurf', 'senden', 'session', 'zurueck')
+function Get-Reaktionen {
+  $h = @{}
+  if (-not (Test-Path $script:ReaktionenDatei)) { return $h }
+  try {
+    $d = (Get-Content -LiteralPath $script:ReaktionenDatei -Raw -Encoding UTF8) | ConvertFrom-Json
+    foreach ($p in @($d.PSObject.Properties)) { if ($p) { $h[$p.Name] = $p.Value } }
+  } catch { Write-Host "  reaktionen.json unlesbar: $($_.Exception.Message)" -ForegroundColor Yellow }
+  $h
+}
+function Save-Reaktionen($h) {
+  [IO.File]::WriteAllText($script:ReaktionenDatei, ($h | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
+}
+function Use-Reaktionen([string]$quelle, [object[]]$eintraege, [string]$messung) {
+  # Liefert die Eintraege ohne die erledigten und haengt an die uebrigen den gemerkten Zustand.
+  $r = Get-Reaktionen
+  if (-not $r.Count) { return ,@($eintraege) }
+  $mess = $null; if ($messung) { try { $mess = [datetime]::Parse($messung, $null, 'RoundtripKind') } catch { } }
+  $da = @{}; foreach ($e in @($eintraege)) { if ($e -and $e.id) { $da[($quelle + ':' + $e.id)] = $true } }
+  $weg = @()
+  foreach ($k in @($r.Keys)) {
+    if (-not $k.StartsWith($quelle + ':')) { continue }
+    if ($da.ContainsKey($k)) { continue }
+    $z = $null; try { $z = [datetime]::Parse([string]$r[$k].zeit, $null, 'RoundtripKind') } catch { }
+    if ($mess -and $z -and $mess -gt $z) { $weg += $k }
+  }
+  if ($weg.Count) { foreach ($k in $weg) { $r.Remove($k) }; try { Save-Reaktionen $r } catch { } }
+  $out = @()
+  foreach ($e in @($eintraege)) {
+    if (-not $e) { continue }
+    $k = $quelle + ':' + $e.id
+    if ($e.id -and $r.ContainsKey($k)) {
+      $x = $r[$k]
+      if ([string]$x.art -eq 'erledigt') { continue }
+      $e.reaktion = @{ art = [string]$x.art; zeit = [string]$x.zeit; datei = [string]$x.datei }
+    }
+    $out += $e
+  }
+  ,@($out)
+}
+function Add-Auftrag([string]$text, [string]$herkunft) {
+  # Append-only in checkins\<datum>-auftraege.md — dieselbe Datei, die Johns Stapel benutzt.
+  $jetzt = Get-Date
+  $dir = Join-Path $RootFull 'checkins'
+  if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
+  $f = Join-Path $dir ($jetzt.ToString('yyyy-MM-dd') + '-auftraege.md')
+  $enc0 = New-Object Text.UTF8Encoding($false)
+  if (-not (Test-Path $f)) { [IO.File]::WriteAllText($f, ('# Aufträge aus dem Compass, {0}' -f $jetzt.ToString('dd.MM.yyyy')) + "`n`n" + '> Bene hat im Compass geklickt; geschrieben von john-server.ps1. Abarbeiten, dann hier abhaken.' + "`n", $enc0) }
+  [IO.File]::AppendAllText($f, "`n- [ ] **$($jetzt.ToString('HH:mm'))** — $text$(if ($herkunft) { " _($herkunft)_" })`n", $enc0)
+  $f
+}
+function Set-Reaktion($in) {
+  $quelle = [string]$in.quelle; $id = [string]$in.id; $art = [string]$in.art
+  if ($quelle -notin @('postfach', 'slack')) { return @{ ok = $false; error = 'BAD_QUELLE'; hint = 'quelle: postfach | slack' } }
+  if ($art -notin $script:ReaktionArten) { return @{ ok = $false; error = 'BAD_ART'; hint = ('art: ' + ($script:ReaktionArten -join ' | ')) } }
+  $r = Get-Reaktionen
+  $k = $quelle + ':' + $id
+  $jetzt = Get-Date
+  if ($art -eq 'zurueck') {
+    if ($r.ContainsKey($k)) { $r.Remove($k) }
+    Save-Reaktionen $r
+    return @{ ok = $true; key = $k; art = $null }
+  }
+  $von = [string]$in.von; $worum = [string]$in.worum; $url = [string]$in.url
+  $wo = $(if ($quelle -eq 'postfach') { 'E-Mail von ' + $von + $(if ([string]$in.adresse) { ' <' + [string]$in.adresse + '>' }) + ', Betreff „' + [string]$in.betreff + '“ (Gmail-Thread ' + $id + ')' }
+          else { 'Slack-Nachricht von ' + $von + ' in ' + [string]$in.kanal + ' (Kanal/ts ' + $id + ' — Antwort gehoert in den Thread)' })
+  $link = $(if ($url) { 'Link: ' + $url + '. ' } else { '' })
+  $ruecken = 'Danach im Compass abhaken: POST http://localhost:8787/api/reaktion {"quelle":"' + $quelle + '","id":"' + $id + '","art":"erledigt"}'
+  $auftrag = switch ($art) {
+    'entwurf' { $(if ($quelle -eq 'postfach') { 'Antwort als Gmail-ENTWURF anlegen (nicht senden — Bene sendet selbst)' } else { 'Antwort als Slack-ENTWURF im Thread vorbereiten (slack_send_message_draft, nicht senden)' }) + ' auf ' + $wo + '. Worum es geht: ' + $worum + '. ' + $link + $ruecken }
+    'senden'  { 'Antwort schreiben und DIREKT SENDEN — Bene hat im Compass am ' + $jetzt.ToString('dd.MM. HH:mm') + ' ausdruecklich „Claude schickt direkt“ gewaehlt — auf ' + $wo + '. Worum es geht: ' + $worum + '. ' + $link + 'Benes Ton, kurz, per du wo ueblich. ' + $ruecken }
+    'session' { 'Thema einordnen (Bene will dazu eine eigene Claude-Session): ' + $wo + '. Worum es geht: ' + $worum + '. ' + $link + 'Vorgeschichte und Verlauf zusammentragen, sagen, was offen ist und welche Optionen es gibt, Entscheidung als Rueckfrage in den Compass. ' + $ruecken }
+    default   { '' }
+  }
+  $datei = $null
+  if ($auftrag) {
+    try { $datei = [IO.Path]::GetFileName((Add-Auftrag $auftrag ('Compass: ' + $quelle + ' → ' + $art))) }
+    catch { return @{ ok = $false; error = 'AUFTRAG_FEHLER'; hint = $_.Exception.Message } }
+  }
+  $r[$k] = @{ quelle = $quelle; id = $id; art = $art; zeit = $jetzt.ToString('o'); von = $von; worum = $worum; auftrag = $auftrag; datei = $datei }
+  Save-Reaktionen $r
+  Write-Host ("  Reaktion: {0} -> {1} ({2})" -f $k, $art, $von)
+  @{ ok = $true; key = $k; art = $art; zeit = $jetzt.ToString('o'); auftrag = $auftrag; prompt = $auftrag; datei = $datei }
+}
+
 function Get-Postfach {
   $f = Join-Path $PSScriptRoot 'postfach.json'
   if (-not (Test-Path $f)) {
@@ -2343,8 +2445,10 @@ function Get-Postfach {
     if ($w.seit) { try { $tage = [int][Math]::Floor(($jetzt - [datetime]::Parse($w.seit, $null, 'RoundtripKind').ToLocalTime()).TotalDays) } catch { } }
     $wartend += @{ art = $w.art; von = $w.von; adresse = $w.adresse; betreff = $w.betreff
                    worum = $w.worum; ktx = $w.ktx; seit = $w.seit; tage = $tage
+                   id = [string]$w.threadId
                    url = $(if ($w.threadId) { "https://mail.google.com/mail/u/0/#all/$($w.threadId)" } else { $null }) }
   }
+  $wartend = Use-Reaktionen 'postfach' @($wartend) ([string]$d.stand)   # erledigte raus, Zustand dran (06.09.)
   $antwort = @($wartend | Where-Object { $_.art -eq 'antwort' })
   $alter = $null
   if ($d.stand) { try { $alter = [int][Math]::Round(($jetzt - [datetime]::Parse($d.stand, $null, 'RoundtripKind').ToLocalTime()).TotalMinutes) } catch { } }
@@ -2398,10 +2502,13 @@ function Get-Slack {
     $url = $null
     if ($e.kanalId -and $e.ts) { $url = "https://app.slack.com/archives/$($e.kanalId)/p$(($e.ts -replace '\.', ''))" }
     @{ art = $(if ($e.art) { $e.art } else { $vorgabe }); von = $e.von; kanal = $e.kanal; kanalId = $e.kanalId
-       worum = $e.worum; ktx = $e.ktx; seit = $e.seit; tage = $tage; ts = $e.ts; url = $url }
+       worum = $e.worum; ktx = $e.ktx; seit = $e.seit; tage = $tage; ts = $e.ts; url = $url
+       id = $(if ($e.kanalId -and $e.ts) { ([string]$e.kanalId + '/' + [string]$e.ts) } else { $null }) }
   }
   $wartend    = @(@($d.wartend)    | Where-Object { $_ } | ForEach-Object { & $mach $_ 'antwort' })
   $kenntnisse = @(@($d.kenntnisse) | Where-Object { $_ } | ForEach-Object { & $mach $_ 'kenntnis' })
+  $wartend    = Use-Reaktionen 'slack' @($wartend) ([string]$d.stand)      # erledigte raus, Zustand dran (06.09.)
+  $kenntnisse = Use-Reaktionen 'slack' @($kenntnisse) ([string]$d.stand)
 
   $kanaele = @(@($d.kanaele) | Where-Object { $_ } | ForEach-Object {
     @{ name = $_.name; id = $_.id; art = $_.art; nachrichten = $_.nachrichten; leer = [bool]$_.leer } })
@@ -2572,6 +2679,9 @@ function Get-Finanzen([bool]$fresh) {
             ergebnis = $(if ($r.zahlen) { [double]$r.ergebnis } else { $null }); vormonat = $(if ($r.zahlen -and $r.vormonat -ne $null) { [double]$r.vormonat } else { $null })
             monat = [string]$r.monat; kosten = $(if ($r.zahlen) { [double]$r.kosten } else { $null }); einnahmen = $(if ($r.zahlen) { [double]$r.einnahmen } else { $null })
             warnung = [bool]$r.warnung
+            # Verlauf je Monat (06.09., Bene: "die 3 wichtigsten KPIs als Diagramm") — kpi.php rechnet die Deckung je Monat.
+            verlauf = @(@($r.verlauf) | Where-Object { $_ } | ForEach-Object { @{ monat = [string]$_.monat; kontostand = [double]$_.kontostand; ergebnis = [double]$_.ergebnis
+                         einnahmen = [double]$_.einnahmen; ausgaben = [double]$_.ausgaben; deckung = $(if ($_.deckung -ne $null) { [double]$_.deckung } else { $null }) } })
             belege = @{ offen = [int]$r.belege.offen; gesamt = [int]$r.belege.gesamt }
             entscheidungen = $ent
             agenda = @(@($r.agenda) | Where-Object { $_ } | ForEach-Object { @{ id = [string]$_.id; text = [string]$_.text; wer = [string]$_.wer } })
@@ -3760,6 +3870,20 @@ try {
           Write-Host "  Wetter-Fehler: $($_.Exception.Message)" -ForegroundColor Red
           Send-Json $ctx @{ ok = $false; error = $_.Exception.Message; hint = 'Quelle: api.open-meteo.com (kein Schluessel noetig)' } 502
         }
+        continue
+      }
+      # --- Reaktionen auf Postfach/Slack (06.09.): {quelle,id,art[,von,adresse,betreff,kanal,worum,url]} ---
+      if ($path -eq '/api/reaktion' -and $req.HttpMethod -eq 'POST') {
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        if (-not $in -or -not [string]$in.id -or -not [string]$in.quelle) { Send-Json $ctx @{ ok = $false; error = 'NO_BODY'; hint = 'Erwartet {quelle, id, art}' } 400; continue }
+        try { Send-Json $ctx (Set-Reaktion $in) }
+        catch { Write-Host "  Reaktions-Fehler: $($_.Exception.Message)" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $_.Exception.Message } 502 }
+        continue
+      }
+      if ($path -eq '/api/reaktionen') {
+        $alle = Get-Reaktionen
+        Send-Json $ctx @{ ok = $true; anzahl = $alle.Count; reaktionen = @($alle.Keys | Sort-Object | ForEach-Object { $alle[$_] }) }
         continue
       }
       if ($path -eq '/api/postfach') {
