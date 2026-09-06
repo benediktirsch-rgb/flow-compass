@@ -212,13 +212,31 @@ var STATS_LOG=[];
 function statsEv(name){
   name='focus:'+String(name).toLowerCase().replace(/[^a-z0-9:_\-]/g,'-').slice(0,34);
   STATS_LOG.push(name); if(STATS_LOG.length>30) STATS_LOG.shift();
+  statsSenden({k:'ev',n:name,p:'/compass/'});
+  debugMalen();
+}
+function statsSenden(obj){
   var ziel=STATS_AN?statsZiel():''; if(!ziel) return;
   try{
-    var body=JSON.stringify({k:'ev',n:name,p:'/compass/'});
+    var body=JSON.stringify(obj);
     if(navigator.sendBeacon) navigator.sendBeacon(ziel,new Blob([body],{type:'text/plain'}));
     else fetch(ziel,{method:'POST',body:body,keepalive:true,mode:'no-cors'}).catch(function(){});
   }catch(e){}
-  debugMalen();
+}
+/* Aufruf und sichtbare Verweildauer — wie besuch() im Lean-Prototyp der Website, damit der
+   Compass in kennzahlen.html mit Aufrufen und Dauer neben /vishnu-lean/ steht und die Nutzerin beide
+   Lean-Modelle in derselben Tabelle vergleichen kann (Vorschlag der Lean-Session, 06.09.). */
+function besuch(){
+  if(!STATS_AN||!statsZiel()) return;
+  var aktiv=0, seit=0, erste=true;
+  var uhr=function(an){ if(an){ if(!seit) seit=Date.now(); } else if(seit){ aktiv+=Date.now()-seit; seit=0; } };
+  var ende=function(){ uhr(false); if(aktiv<500) return; statsSenden({k:'end',p:'/compass/',ms:aktiv,sc:100,c:erste?1:0}); aktiv=0; erste=false; };
+  var th=hol(function(){ return document.documentElement.getAttribute('data-theme')||'light'; },'light');
+  statsSenden({k:'view',p:'/compass/',t:document.title,r:'',s:1,q:'',l:hol(function(){ return compassSprache.jetzt(); },'de'),
+    d:innerWidth<640?'m':innerWidth<1024?'t':'g',th:th==='dark'?'dark':'light'});
+  uhr(document.visibilityState!=='hidden');
+  document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden') ende(); else uhr(true); });
+  addEventListener('pagehide',ende);
 }
 /* ?debug=1 — kleines Fenster unten rechts, dasselbe Werkzeug wie im Lean-Prototyp der Website */
 function debugMalen(){
@@ -709,7 +727,7 @@ function start(){
   anwenden(); nachRender();
   setInterval(zeilenMalen,15000);
   wizardPruefen();
-  statsEv('start:'+ansicht()); debugMalen();
+  besuch(); statsEv('start:'+ansicht()); debugMalen();
   window.compassFocus={ ansicht:ansichtSetzen, oeffnen:oeffnen, assistent:function(){ wizardZeigen(!!F.gewaehlt); }, statsZiel:statsZiel, ereignisse:function(){ return STATS_LOG.slice(); },
     gewichte:function(){ var o={}; KATALOG.forEach(function(e){ o[e.id]=Math.round(gewicht(e.id)*100)/100; }); return o; }, zustand:function(){ return F; } };
 }
