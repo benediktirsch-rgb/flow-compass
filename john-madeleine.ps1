@@ -187,19 +187,25 @@ function Get-MadeleinePrivat {
   $js = ($sub | ConvertTo-Json -Depth 8 -Compress); if ($js.Length -gt 12000) { $js = $js.Substring(0, 12000) + ' …(gekürzt)' }
   return @{ json = $js; erzeugt = [string]$d.erzeugt }
 }
-function Format-MadeleineVerlauf($msgs, $context) {
+# $fragt: wer gerade schreibt. Leer = Bene im Compass. Seit 07.09.2026 fragt auch Martin — aus dem
+# Finanz-Raumschiff (raumschiff-madeleine.ps1). Ohne diesen Namen redete Madeleine ihn als Bene an
+# und hätte ihm Zahlen genannt, die er auf der Seite gar nicht sieht; deshalb kommt mit ihm eine
+# Schranke mit, kein bloßes Namensschild.
+function Format-MadeleineVerlauf($msgs, $context, $fragt) {
+  $name = $(if ($fragt -and $fragt.name) { [string]$fragt.name } else { $NutzerName })
   $sb = New-Object Text.StringBuilder
   if ($msgs.Count -gt 1) {
     [void]$sb.AppendLine('Bisheriger Verlauf dieses Chats (Kontext — nicht neu beantworten):'); [void]$sb.AppendLine()
     foreach ($m in $msgs[0..($msgs.Count - 2)]) {
-      $wer = $(if ($m.role -eq 'user') { $NutzerName } else { 'Madeleine' })
+      $wer = $(if ($m.role -eq 'user') { $name } else { 'Madeleine' })
       [void]$sb.AppendLine("$wer`: $($m.content)"); [void]$sb.AppendLine()
     }
     [void]$sb.AppendLine('---'); [void]$sb.AppendLine()
   }
+  if ($fragt -and $fragt.hinweis) { [void]$sb.AppendLine("[Wer dich fragt]`n$($fragt.hinweis)`n[/Wer dich fragt]"); [void]$sb.AppendLine() }
   if ($context) { [void]$sb.AppendLine("[Cockpit-Kontext]`n$context`n[/Cockpit-Kontext]"); [void]$sb.AppendLine() }
-  [void]$sb.AppendLine("$NutzerName schreibt jetzt:"); [void]$sb.AppendLine([string]$msgs[-1].content); [void]$sb.AppendLine()
-  [void]$sb.Append("Antworte als Madeleine direkt an $NutzerName — nur die Antwort, ohne Präfix.")
+  [void]$sb.AppendLine("$name schreibt jetzt:"); [void]$sb.AppendLine([string]$msgs[-1].content); [void]$sb.AppendLine()
+  [void]$sb.Append("Antworte als Madeleine direkt an $name — nur die Antwort, ohne Präfix.")
   return $sb.ToString()
 }
 # „NOTIZ: …"-Zeilen aus der Antwort lösen und in Madeleines Notizen legen.
@@ -215,10 +221,10 @@ function Add-MadeleineNotiz([string]$text) {
   $zeile = "- **$((Get-Date).ToString('yyyy-MM-dd HH:mm'))** — $($text.Trim())`n"
   [IO.File]::AppendAllText($f, $zeile, $script:Utf8NoBom)
 }
-function Madeleine-Chat($messages, $context) {
+function Madeleine-Chat($messages, $context, $fragt) {
   $sys = Build-SystemMadeleine
   $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })
-  $prompt = $sys.text + "`n`n" + $MadeleineHinweis + "`n`n" + (Format-MadeleineVerlauf $msgs $context)
+  $prompt = $sys.text + "`n`n" + $MadeleineHinweis + "`n`n" + (Format-MadeleineVerlauf $msgs $context $fragt)
   $c = Invoke-CodexCli $prompt @{ timeout = 240 }
   $s = Split-MadeleineNotiz $c.text
   $tools = @(); foreach ($n in $s.notizen) { Add-MadeleineNotiz $n; $tools += 'notiz' }

@@ -4370,7 +4370,9 @@ try {
         $msgs = @($in.messages | Where-Object { $_.role -in @('user','assistant') -and [string]$_.content })
         if (-not $msgs.Count) { Send-Json $ctx @{ error = 'keine Nachrichten' } 400; continue }
         Write-Host ("[{0}] Madeleine ← {1}" -f (Get-Date -Format 'HH:mm:ss'), ([string]$msgs[-1].content).Substring(0, [Math]::Min(70, ([string]$msgs[-1].content).Length)))
-        try { $out = Madeleine-Chat $msgs $in.context; Send-Json $ctx $out }
+        # $in.fragt (07.09.2026): {name, hinweis} — wer schreibt und was diese Person sehen darf.
+        # Fehlt es, ist es Bene im Compass wie bisher; gesetzt wird es vom Raumschiff-Abholer.
+        try { $out = Madeleine-Chat $msgs $in.context $in.fragt; Send-Json $ctx $out }
         catch {
           $m = $_.Exception.Message
           $f = Get-MadeleineFehler $m
