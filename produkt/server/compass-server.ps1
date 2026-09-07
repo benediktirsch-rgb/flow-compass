@@ -426,7 +426,9 @@ function Invoke-AnbieterChat([string]$systemText, $msgs) {
     $r = Call-OpenAI $anb $body
     $model = [string]$r.model
     $m = $r.choices[0].message
-    $calls = @($m.tool_calls)
+    # @($m.tool_calls) hat bei fehlendem Feld EIN Element ($null) — deshalb filtern, sonst dreht die Schleife
+    # nach der ersten Textantwort weiter (am 07.09. im Mock-Test: fünf Anfragen, drei leere Werkzeugnamen).
+    $calls = @($m.tool_calls | Where-Object { $_ -and $_.function -and $_.function.name })
     if (-not $calls.Count -or $steps -ge 4) {
       return @{ text = ([string]$m.content).Trim(); stop_reason = [string]$r.choices[0].finish_reason; model = $model; usage = $r.usage; tools = $used; backend = 'anbieter' }
     }
