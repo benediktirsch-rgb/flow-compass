@@ -1463,7 +1463,8 @@ function rhythmMalen(){
      trotzdem nicht bei Claude liegen — Server aus, Handy ohne Verbindung. Bisher stand das nur im
      Abschlussbild, und mit dem Schließen war es weg: der Tag sah ordentlich aus, Claude wusste von
      nichts. Jetzt sagt es die Karte selbst, solange der Wächter noch klopft. */
-  (S.uebergabeOffen||[]).forEach(u=>{ const r=rits.find(x=>x.id===u.art); if(r) r.s=r.s+' · ↗ Übergabe an Claude liegt noch'; });
+  (S.uebergabeOffen||[]).forEach(u=>{ const r=rits.find(x=>x.id===u.art);
+    if(r) r.s=r.s+(u.brief?' · ✉ liegt im Briefkasten für Claude':' · ↗ Übergabe an Claude liegt noch'); });
   document.getElementById('rhythm').innerHTML = rits.map(r=>
     `<button class="rit ${r.due?'due':''} ${r.done&&!r.due?'done':''}" data-r="${r.id}">
       <span class="ric">${r.ic}</span>
@@ -1872,15 +1873,18 @@ async function checkinSenden(art,text){
        erzählte den halben Tag Unsinn). Die fertige Nutzlast bleibt liegen und
        uebergabeWacht() klopft weiter, bis sie angekommen ist — ohne Neuladen. */
     uebAnstellen(nutz);
+    const imBrief=await briefEinwerfen(nutz);
     /* „Failed to fetch“ ist die Browsermeldung und sagt die Nutzerin nichts — und weil sie
        englisch ist, bliebe die ganze Zeile unübersetzt (jeder Teil muss auflösbar
        sein). Netzfehler bekommen deshalb den deutschen Klartext, alles andere
        (HTTP 500, Hinweis vom Server) bleibt wörtlich stehen. */
     const grund=(e&&(e.name==='TimeoutError'||e.name==='AbortError'))?'Server antwortet nicht'
       :/Failed to fetch|NetworkError|Load failed/i.test(e.message||'')?'Server nicht erreichbar':(e.message||'Server nicht erreichbar');
-    el.className='pushbox warn';
-    el.innerHTML='⚠ Noch nicht übergeben: '+esc(grund)
-      +' — ich versuche es weiter und melde mich hier, sobald sie angekommen ist. Du musst nichts tun und nichts neu laden.';
+    el.className=imBrief?'pushbox ok':'pushbox warn';
+    el.innerHTML=imBrief
+      ? '<b>✓ Im Briefkasten.</b> '+esc(grund)+' — deine Übergabe liegt so lange sicher auf dem Server und wird abgeholt, sobald dein Rechner wieder läuft. Du musst nichts tun.'
+      : '⚠ Noch nicht übergeben: '+esc(grund)
+        +' — ich versuche es weiter und melde mich hier, sobald sie angekommen ist. Du musst nichts tun und nichts neu laden.';
     abschlussKnoepfe(false,art,text);
     /* Sofort nachsehen, nicht erst in 30 s: liegt sie schon beim Server, wird die
        Zeile gleich grün — sonst übernimmt der Wächter. */
@@ -2147,6 +2151,29 @@ document.addEventListener('compass-sprache',e=>einstMerken('lang',((e||{}).detai
 let UEB_LAEUFT=false, UEB_TIMER=0;
 const UEB_TAKT=30000;                                  /* alle 30 s klopfen — der Server braucht beim Start ~10 s */
 const UEB_LIMIT=15000;                                 /* länger wartet keine Übergabe auf eine Antwort (05.09.) */
+/* Der Briefkasten (07.09.2026). Der john-server läuft auf ihren Rechner; ist er aus, kommt die
+   Übergabe nirgends an — am 07.09. lief er den ganzen Vormittag nicht, Morgencheck und Wochenstart
+   blieben im Browser liegen und Claude wusste am Abend von keinem von beiden. Auf einem Handy ist es
+   nie anders: dort zeigt localhost auf das Handy selbst. Die Tür der Subdomain (gate.php) steht
+   dagegen immer und kennt die Person schon — dort wird die Übergabe eingeworfen, und
+   briefkasten-abholen.ps1 trägt sie ins checkins-Verzeichnis, sobald der Rechner wieder läuft.
+   Auf localhost gibt es keine Tür und braucht es auch keine: läuft der Server dort nicht, lädt
+   die Seite gar nicht erst. */
+const BRIEFKASTEN = (LOKAL || location.protocol !== 'https:') ? '' : '/gate.php?briefkasten=1';
+async function briefEinwerfen(nutz){
+  if(!BRIEFKASTEN || !nutz) return false;
+  try{
+    const r=await fetch(BRIEFKASTEN,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(nutz),credentials:'same-origin',signal:AbortSignal.timeout(UEB_LIMIT)});
+    if(!r.ok) return false;
+    const d=await r.json();
+    if(!d||!d.ok) return false;
+    /* Merken, dass sie dort liegt: der Wächter wirft sie sonst bei jedem Versuch noch einmal ein. */
+    const e=(S.uebergabeOffen||[]).find(x=>x&&x.art===nutz.art&&x.datum===nutz.datum);
+    if(e){ e.brief=d.brief||'1'; try{ speichern(); }catch(e2){} }
+    return true;
+  }catch(e){ return false; }
+}
 function uebAnstellen(nutz){
   if(!nutz||!nutz.art||!nutz.datum) return;
   S.uebergabeOffen=(S.uebergabeOffen||[]).filter(x=>x&&x.art&&x.datum&&!(x.art===nutz.art&&x.datum===nutz.datum));
@@ -2178,12 +2205,12 @@ async function uebergabeNachholen(){
     }
     const r=await fetch(JOHN_API+'/api/checkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(u),signal:AbortSignal.timeout(UEB_LIMIT)});
     let a={}; try{ a=await r.json(); }catch(e){}
-    if(!r.ok||a.ok===false) return false;              /* Server wieder weg → nächster Versuch */
+    if(!r.ok||a.ok===false){ if(!u.brief) await briefEinwerfen(u); return false; }   /* Server wieder weg → nächster Versuch */
     S.letzteUebergabe={art:u.art,datum:u.datum,titel:u.titel||u.art,datei:a.datei||'',text:u.text||''};
     uebWegnehmen(u.art,u.datum);
     uebergabeAngekommen(u,a.datei||'');
     return !S.uebergabeOffen.length;
-  }catch(e){ return false; }                           /* Server aus → still bleiben, gleich noch mal */
+  }catch(e){ if(!u.brief) await briefEinwerfen(u); return false; }   /* Server aus → in den Briefkasten, still bleiben, gleich noch mal */
   finally{ UEB_LAEUFT=false; }
 }
 
