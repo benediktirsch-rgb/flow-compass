@@ -704,6 +704,11 @@ foreach ($wort in 'porscheCard','porscheLive','PORSCHE_STE','Car Sales','STE-Por
 }
 
 # ── 18. Schreiben ────────────────────────────────────────────────────────────
+# Madeleine (07.09.2026) ist Benes zweite Beraterin (GPT über Codex, Finanzen/Steuer/Organisation seiner
+# GmbH und seines Vereins) — persönlich, nicht Produkt. Kommentar und Skriptzeile fliegen raus; die Datei
+# compass-madeleine.js wird hier nie kopiert.
+RepX '\n<!-- Madeleine \(07\.09\.2026\):.*?-->\n<script src="compass-madeleine\.js"></script>' '' 'Madeleine nur in der eigenen Instanz'
+
 Write-Lf (Join-Path $Ziel 'index.html') $script:s
 
 # Kennzahlenseite: die Quelle (kennzahlen.html im persoenlichen Ordner) ist ein

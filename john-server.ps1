@@ -171,6 +171,11 @@ param(
   [ValidateSet('auto','cli','api','openai')][string]$Backend = 'auto',
   # Wie John seinen Menschen im Gesprächsverlauf nennt (Abo-Weg: der Verlauf wird als Text übergeben).
   [string]$NutzerName = 'Benedikt',
+  # Madeleine (07.09.2026): zweite Beraterin — Finanzen, Steuern, Organisation der GmbH und des Vereins — auf GPT über
+  # die Codex CLI (ChatGPT-Abo, kein API-Schlüssel). Persona und Wissen in C:\dev\madeleine; Modell leer = Codex-Standard.
+  # Alles Weitere in john-madeleine.ps1.
+  [string]$MadeleineDir = 'C:\dev\madeleine',
+  [string]$MadeleineModel = '',
   # Trello-Boards: Schlüsselname → Board-ID/Shortlink. Zwei Konten, darum je Board eigenes Key/Token-Paar (s. Kopf).
   [hashtable]$TrelloBoards = @{ arbeit = 'Zw3jgjsR'; privat = 'jO3Q7d8Z' },
   [int]$TrelloCacheSec = 60,
@@ -544,6 +549,8 @@ Du darfst ihn von dir aus rufen, aber selten — höchstens zweimal am Tag. „R
 # Die zwei Werkzeuge liegen seit dem 07.09.2026 in john-tools.ps1 — dieselbe Datei nutzt john-mcp.ps1,
 # damit Claude Code (Abo-Weg) exakt dieselben Werkzeuge hat wie der API-Weg.
 . (Join-Path $PSScriptRoot 'john-tools.ps1')
+# Madeleine (07.09.2026): zweite Beraterin auf GPT über Codex, Beraterrunde mit John — eigene Datei, gleiche Bausteine.
+. (Join-Path $PSScriptRoot 'john-madeleine.ps1')
 
 # ---------- KI-Anbindung: Claude Code (Abo) oder API (Schlüssel) — 07.09.2026 ----------
 # Bene, 07.09.2026: „ist es möglich, meine Tokens aus dem Abo zu nutzen?" — ja, über Claude Code im
@@ -685,6 +692,8 @@ function Invoke-Prozess([string]$exe, [string[]]$argv, [string]$stdin, [int]$tim
   # sonst rechnet Claude Code doch über die API ab.
   foreach ($k in @($psi.EnvironmentVariables.Keys)) { if ($k -match '^(CLAUDECODE|CLAUDE_CODE_)') { $psi.EnvironmentVariables.Remove($k) } }
   if ($opt -and $opt.ohneApiKey) { foreach ($k in @('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN')) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } } }
+  # Codex (Madeleine, 07.09.2026): ohne OPENAI_API_KEY, sonst rechnet Codex über die API ab statt über das ChatGPT-Abo.
+  if ($opt -and $opt.ohneOpenAiKey) { foreach ($k in @('OPENAI_API_KEY','OPENAI_BASE_URL')) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } } }
   $psi.EnvironmentVariables['DISABLE_AUTOUPDATER'] = '1'
   $psi.EnvironmentVariables['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'] = '1'
   $p = [Diagnostics.Process]::Start($psi)
@@ -4343,6 +4352,48 @@ try {
         }
         $st = Read-Stapel
         Send-Json $ctx @{ ok = $true; stand = $st.stand; letzte = $st.letzte; datei = $script:StapelDatei }
+        continue
+      }
+      # --- Madeleine (07.09.2026): zweite Beraterin auf GPT über Codex; Beraterrunde = John ↔ Madeleine ----
+      if ($path -eq '/api/madeleine/status') {
+        $login = Get-CodexLogin -Frisch:($req.QueryString['fresh'] -eq '1')
+        $sys = $(try { Build-SystemMadeleine } catch { @{ text = ''; geladen = @("Fehler: $($_.Exception.Message)") } })
+        $exe = Find-CodexExe
+        Send-Json $ctx @{ ok = $true; key = [bool]$login.ok; backend = 'codex'; cli = $exe; login = $login
+                          hint = $(if ($login.ok) { '' } elseif (-not $exe) { (Get-MadeleineFehler 'CODEX_NO_CLI').hint } else { Get-CodexHint })
+                          model = $script:MadeleineModelLabel; geladen = $sys.geladen; madeleineDir = $MadeleineDir; systemChars = $sys.text.Length }
+        continue
+      }
+      if ($path -eq '/api/madeleine' -and $req.HttpMethod -eq 'POST') {
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $raw | ConvertFrom-Json
+        $msgs = @($in.messages | Where-Object { $_.role -in @('user','assistant') -and [string]$_.content })
+        if (-not $msgs.Count) { Send-Json $ctx @{ error = 'keine Nachrichten' } 400; continue }
+        Write-Host ("[{0}] Madeleine ← {1}" -f (Get-Date -Format 'HH:mm:ss'), ([string]$msgs[-1].content).Substring(0, [Math]::Min(70, ([string]$msgs[-1].content).Length)))
+        try { $out = Madeleine-Chat $msgs $in.context; Send-Json $ctx $out }
+        catch {
+          $m = $_.Exception.Message
+          $f = Get-MadeleineFehler $m
+          if ($f) { Write-Host "  Madeleine: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ error = $f.code; hint = $f.hint } $f.status }
+          else { Write-Host "  Madeleine-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ error = $m } 502 }
+        }
+        continue
+      }
+      if ($path -eq '/api/beraterrunde') {
+        if ($req.HttpMethod -eq 'POST') {
+          $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+          $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+          try { Send-Json $ctx (Beraterrunde $in) }
+          catch {
+            $m = $_.Exception.Message
+            $f = Get-MadeleineFehler $m; if (-not $f) { $f = Get-JohnFehler $m }
+            if ($f) { Write-Host "  Beraterrunde: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $f.code; hint = $f.hint } $f.status }
+            else { Write-Host "  Beraterrunde-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 502 }
+          }
+          continue
+        }
+        $n = 3; if ($req.QueryString['n']) { $n = [int]$req.QueryString['n'] }
+        Send-Json $ctx (Read-Beraterrunde $n)
         continue
       }
       if ($path -eq '/api/john' -and $req.HttpMethod -eq 'POST') {

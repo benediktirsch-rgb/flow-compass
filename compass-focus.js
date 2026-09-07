@@ -120,6 +120,13 @@ var KATALOG=[
       return {t:'verbindet …', live:false};
     },
     sel:'#btnJohnTop, #johnFab, .card.jk' },
+  /* Madeleine (07.09.2026): zweite Beraterin — Finanzen, Steuern, Organisation — kommt aus
+     compass-madeleine.js und gibt es nur in der eigenen Instanz; ohne die Datei fehlt der Einstieg. */
+  { id:'madeleine', ic:'👩‍💼', t:'Madeleine', s:'Finanzen, Steuern, Organisation — und die Beraterrunde mit John', prior:0.4, art:'john',
+    nur:function(){ return typeof window.madOpen==='function'; },
+    run:function(){ window.madOpen(); },
+    zeile:function(){ try{ return window.madZeile ? window.madZeile() : {t:'',live:false}; }catch(e){ return {t:'',live:false}; } },
+    sel:'#madKachel' },
   { id:'kalender', ic:'📅', t:'Kalender', s:'Termine heute, freie Blöcke, nächster Termin', prior:0.3, art:'buehne',
     nur:function(){ return fnDa(function(){ return kalenderCard; }); },
     karte:function(){ return kalenderCard(); }, nach:function(){ try{ kalenderRefresh(); }catch(e){} },
