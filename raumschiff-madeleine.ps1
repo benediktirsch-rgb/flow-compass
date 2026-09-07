@@ -71,7 +71,13 @@ else {
   }
 }
 if (-not $ausweis) { Log 'FINANZ_TOKEN fehlt — ohne Ausweis bleibt der Briefkasten zu.'; return }
-$kopf = @{ 'X-Finanz-Token' = $ausweis }
+# Geschickt wird der SHA-256, nie der Token selbst — genauso wie tools/raumschiff-privat.py hochlaedt.
+# Auf dem Server steht in feedback-config.php der Hash; die Seite prueft zwar beide Formen, aber der
+# rohe Token kam live mit 401 zurueck, weil dort eben der Hash liegt. Der Geheimtext verlaesst diesen
+# Rechner damit nie.
+$sha256  = New-Object Security.Cryptography.SHA256Managed
+$hash    = [BitConverter]::ToString($sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($ausweis))).Replace('-', '').ToLower()
+$kopf    = @{ 'X-Finanz-Token' = $hash }
 
 # Wer darf was fragen. Die Schranke steht schon serverseitig in madeleine.php ($SICHT, rsm_lagebild);
 # hier steht sie noch einmal in Worten, damit Madeleine sie im Ton haelt und nicht aus ihrem eigenen
