@@ -103,6 +103,12 @@ function Build-SystemMadeleine {
   if (Test-Path $wissen) { Get-ChildItem $wissen -Filter *.md -File | Sort-Object Name | ForEach-Object {
       $t = Read-Text $_.FullName
       if ($t) { $parts.Add("# Datei: madeleine/wissen/$($_.Name)`n" + (Limit-Ende $t 12000)); $geladen.Add("madeleine/wissen/$($_.Name)") } } }
+  # Benes private Konten (07.09.2026, Bene: „es fehlt beim Wissen noch die Informationen über meine privaten Finanzen
+  # und Verträge"): der lokale Kontenlauf tools/raumschiff-privat.py (Redesign-Repo) schreibt nach madeleine\privat\stand.json —
+  # dieselbe Datei, die er sonst ans Finanz-Raumschiff hochlädt. Hier nur der kompakte Auszug: Kontostände mit Datenalter,
+  # Monatsreihen, gemessene Fixkosten, Depot, Verein. Keine Einzelbuchungen, keine IBANs, keine ISINs.
+  $priv = Get-MadeleinePrivat
+  if ($priv) { $parts.Add("# Benes private Konten — Auszug aus privat/stand.json (JSON, Euro; konten.datum = Stand je Konto, datenalter = Tage seit diesem Stand; monate = ein/aus/saldo ohne Umbuchungen; fixkosten.schnitt = Median je Monat). Nenne bei Kontoständen immer das Datum.`n$($priv.json)"); $geladen.Add("madeleine/privat/stand.json ($($priv.erzeugt))") }
   $notiz = Read-Text (Join-Path $MadeleineDir 'notizen\beratung.md')
   if ($notiz) { $parts.Add("# Datei: madeleine/notizen/beratung.md (deine eigenen Notizen, jüngste zuletzt)`n" + (Limit-Ende $notiz 8000)); $geladen.Add('madeleine/notizen/beratung.md') }
   $coach = Join-Path $JohnDir 'coaching'
@@ -146,6 +152,38 @@ Was gilt:
 - Willst du etwas festhalten, schreib als letzte Zeile NOTIZ: <ein Satz>. Höchstens eine je Antwort.
 "@)
   return @{ text = ($parts -join "`n`n"); geladen = $geladen }
+}
+# Kompakter Auszug aus madeleine\privat\stand.json (Ausgabe von tools/raumschiff-privat.py). Fehlt die Datei oder ist sie
+# kaputt, gibt es $null — Madeleine sagt dann, dass ihr die privaten Kontostände fehlen, statt welche zu erfinden.
+function Get-MadeleinePrivat {
+  $f = Join-Path $MadeleineDir 'privat\stand.json'
+  if (-not (Test-Path $f)) { return $null }
+  try { $d = [IO.File]::ReadAllText($f, $script:Utf8NoBom) | ConvertFrom-Json } catch { return $null }
+  if (-not $d) { return $null }
+  $sub = [ordered]@{ erzeugt = [string]$d.erzeugt }
+  $konten = [ordered]@{}
+  foreach ($p in @($d.konten.PSObject.Properties)) {
+    $k = $p.Value
+    if ($p.Name -eq 'depot') {
+      $pos = @(); foreach ($x in @($k.positionen)) { $pos += [ordered]@{ name = [string]$x.name; wert = $x.wert; anteil = $(if ($k.summe) { [math]::Round(100 * $x.wert / $k.summe, 1) } else { $null }) } }
+      $konten[$p.Name] = [ordered]@{ datum = [string]$k.datum; summe = $k.summe; positionen = $pos }
+    } else {
+      $e = [ordered]@{ stand = $k.stand; datum = [string]$k.datum }
+      foreach ($z in @('limit','dispo','linie','zins')) { if ($k.PSObject.Properties[$z]) { $e[$z] = $k.$z } }
+      $konten[$p.Name] = $e
+    }
+  }
+  $sub.konten = $konten
+  $sub.datenalter_tage = $d.datenalter
+  $sub.monate_voll = @($d.monate_voll); $sub.monate_teil = @($d.monate_teil)
+  $mon = [ordered]@{}
+  foreach ($p in @($d.monate.PSObject.Properties | Select-Object -Last 9)) { $m = $p.Value; $mon[$p.Name] = [ordered]@{ ein = $m.ein; aus = $m.aus; saldo = $m.saldo; intern = $m.intern; gruppen = $m.gruppen } }
+  $sub.monate = $mon
+  $sub.fixkosten = @(@($d.fixkosten) | ForEach-Object { [ordered]@{ kat = [string]$_.kat; schnitt = $_.schnitt; mittel = $_.mittel; letzter = $_.letzter; monate = $_.monate } })
+  $sub.umbuchungs_probe = $d.intern_probe
+  if ($d.verein) { $sub.verein = [ordered]@{ jahre = $d.verein.jahre; stand = $d.verein.stand; stand_datum = $d.verein.stand_datum } }
+  $js = ($sub | ConvertTo-Json -Depth 8 -Compress); if ($js.Length -gt 12000) { $js = $js.Substring(0, 12000) + ' …(gekürzt)' }
+  return @{ json = $js; erzeugt = [string]$d.erzeugt }
 }
 function Format-MadeleineVerlauf($msgs, $context) {
   $sb = New-Object Text.StringBuilder
