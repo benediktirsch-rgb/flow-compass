@@ -551,9 +551,12 @@ function Find-ClaudeExe {
   foreach ($scope in @('Process','User')) { $v = [Environment]::GetEnvironmentVariable('JOHN_CLAUDE_EXE', $scope); if ($v) { $kand.Add($v.Trim()) } }
   $kand.Add((Join-Path $env:USERPROFILE '.local\bin\claude.exe'))
   $cmd = Get-Command claude -ErrorAction SilentlyContinue; if ($cmd -and $cmd.Source) { $kand.Add($cmd.Source) }
-  # Bündel der Claude-Desktop-App (Store-Paket): …\Packages\Claude_<id>\LocalCache\Roaming\Claude\claude-code\<version>\claude.exe
+  # Bündel der Claude-Desktop-App: %APPDATA%\Claude\claude-code\<version>\claude.exe — beim Store-Paket liegt
+  # dasselbe unter …\Packages\Claude_<id>\LocalCache\Roaming\Claude\claude-code\ (virtualisiertes APPDATA).
+  $wurzeln = @((Join-Path $env:APPDATA 'Claude\claude-code'))
   foreach ($paket in @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue)) {
-    $cc = Join-Path $paket.FullName 'LocalCache\Roaming\Claude\claude-code'
+    $wurzeln += (Join-Path $paket.FullName 'LocalCache\Roaming\Claude\claude-code') }
+  foreach ($cc in $wurzeln) {
     if (Test-Path $cc) {
       Get-ChildItem $cc -Directory -ErrorAction SilentlyContinue |
         Sort-Object { $v = $null; if ([version]::TryParse($_.Name, [ref]$v)) { $v } else { [version]'0.0' } } -Descending |
