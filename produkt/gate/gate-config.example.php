@@ -3,7 +3,9 @@
    Wird je Instanz aus dieser Vorlage angelegt und danach NIE überschrieben
    (wie instanz.js und portal.js). Ohne diese Datei bleibt die Tür zu.
 
-   $GATE_MAIL    Die Person, der diese Instanz gehört — ihre Mailadresse im CRM.
+   $GATE_MAIL    Die Person, der diese Instanz gehört — ihre Mailadresse(n) im CRM,
+                 als String oder Liste: array( 'jan@…', 'jan.edinger@…' ). Die Tür
+                 vergleicht gegen alle Adressen, die das CRM zu der Person kennt.
                  Leer lassen für gemeinsame Werkzeuge (dann zählen nur die Rollen).
    $GATE_ROLLEN  Wer sonst noch hereindarf, über die Rolle im CRM. Rollen aus
                  db.php › $VF_ROLLEN, z. B. gruender, intern, kollektiv, freelancer,

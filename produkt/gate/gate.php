@@ -28,9 +28,14 @@
         Cookie lesen — so holt der persönliche Compass va-data.json vom Team-Cockpit.
 
    WER DARF, steht in gate-config.php neben dieser Datei:
-       $GATE_MAIL   = 'jan@vishnuartists.com';         // die Person, der diese Instanz gehört
+       $GATE_MAIL   = array( 'jan@vishnuartists.com', 'jan.edinger@vishnuartists.com' );
+                                                       // die Person, der diese Instanz gehört —
+                                                       // alle ihre Adressen (String geht auch)
        $GATE_ROLLEN = array( 'gruender' );             // zusätzlich: wer diese Rolle im CRM trägt
        $GATE_TITEL  = 'Jans Portal';
+   Verglichen wird gegen ALLE Adressen, die das CRM zu der angemeldeten Person kennt (weiter.php
+   liefert `mails`), nicht nur gegen die Hauptadresse. Vorfall 07.09.2026: Jan stand vor seiner
+   eigenen Tür — die Konfiguration kannte jan@, sein Postfach und das CRM führen jan.edinger@.
    Fehlt die Datei, kommt niemand durch — eine Tür ohne Schloss ist schlimmer als eine
    verschlossene.
 
@@ -110,11 +115,17 @@ function g_schluessel_ok() {
 	return $k !== '' && hash_equals( $GATE_KEY, $k );
 }
 
-/* ————— Darf die Person hier herein? ————— */
-function g_darf( $mail, $rollen ) {
+/* ————— Darf die Person hier herein? —————
+   $mails: alle Adressen der angemeldeten Person (weiter.php › mails, Rückfall: die eine Hauptadresse).
+   $GATE_MAIL: String oder Liste. Trifft irgendeine Adresse irgendeine andere, ist es ihre Tür. */
+function g_darf( $mails, $rollen ) {
 	global $GATE_MAIL, $GATE_ROLLEN;
-	$mail = strtolower( trim( (string) $mail ) );
-	if ( $GATE_MAIL !== '' && $mail === strtolower( trim( $GATE_MAIL ) ) ) { return true; }
+	$eigene = array();
+	foreach ( (array) $GATE_MAIL as $m ) { $m = strtolower( trim( (string) $m ) ); if ( $m !== '' ) { $eigene[] = $m; } }
+	foreach ( (array) $mails as $m ) {
+		$m = strtolower( trim( (string) $m ) );
+		if ( $m !== '' && in_array( $m, $eigene, true ) ) { return true; }
+	}
 	foreach ( (array) $GATE_ROLLEN as $r ) {
 		if ( in_array( $r, (array) $rollen, true ) ) { return true; }
 	}
@@ -148,7 +159,8 @@ if ( isset( $_GET['vf_t'] ) ) {
 		header( 'Location: ' . $PRUEFE . '?zu=' . rawurlencode( g_meine_url() ) );
 		exit;
 	}
-	if ( ! g_darf( $d['mail'] ?? '', $d['rollen'] ?? array() ) ) {
+	$mails = ( ! empty( $d['mails'] ) && is_array( $d['mails'] ) ) ? $d['mails'] : array( $d['mail'] ?? '' );
+	if ( ! g_darf( $mails, $d['rollen'] ?? array() ) ) {
 		g_seite( 403, 'Das ist nicht deine Tür',
 			'Angemeldet als <b>' . g_h( $d['voll'] ?? $d['name'] ?? '' ) . '</b> — für <b>' . g_h( $GATE_TITEL ) . '</b> reicht das nicht. '
 			. 'Persönliche Instanzen öffnen nur die Person selbst und die Geschäftsführung. Wenn das ein Irrtum ist: kurz melden, wir tragen es ein.',
