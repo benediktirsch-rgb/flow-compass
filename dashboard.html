@@ -1328,6 +1328,13 @@ S.z=Object.assign({},LEER.z,S.z||{});
 if(!Array.isArray(S.arbeitTage)) S.arbeitTage=[];
 ['meldeFragen','meldePlan'].forEach(k=>{ if(!S[k]||typeof S[k]!=='object') S[k]={}; });
 if(!S.kan||typeof S.kan!=='object') S.kan={}; ['doing','wait','done','eigene','spalte'].forEach(k=>{ if(!S.kan[k]||typeof S.kan[k]!=='object') S.kan[k]={}; }); if(!('wip' in S.kan)) S.kan.wip=null;
+/* Warteschlange statt Einzelplatz (07.09.2026, Meldung Bene): S.uebergabeOffen hielt genau EINE
+   liegengebliebene Übergabe. Am Montag lief der john-server den ganzen Vormittag nicht — der
+   Morgencheck legte sich hin, der Wochenstart legte sich eine Stunde später DARÜBER, und als der
+   Server abends zurück war, kam nur der letzte an. Der überschriebene war weg, ohne ein Wort.
+   Jetzt stehen sie in einer Reihe (höchstens acht, gleiche art+datum ersetzt sich selbst). */
+if(S.uebergabeOffen && !Array.isArray(S.uebergabeOffen)) S.uebergabeOffen=[S.uebergabeOffen];
+if(!Array.isArray(S.uebergabeOffen)) S.uebergabeOffen=[];
 const speichern=()=>localStorage.setItem('beneRhythm',JSON.stringify(S));
 
 function levelInfo(){
@@ -1417,8 +1424,18 @@ function letzterAbendcheck(){
   if(daten&&lokal) return daten.datum>=lokal.datum?daten:lokal;
   return daten||lokal;
 }
-function kw(d){ const t=new Date(d); const n=new Date(t.getFullYear(),0,1);
-  return t.getFullYear()+'-'+Math.ceil((((t-n)/86400000)+n.getDay()+1)/7); }
+/* Kalenderwoche nach ISO — Montag beginnt sie (07.09.2026). Die alte Rechnung zählte ab dem
+   1. Januar in Siebenerblöcken und schob damit jeden SONNTAG in die kommende Woche: die
+   Wochen-Rückschau vom Sonntag, 06.09. galt als die der Woche ab Montag 07.09. und hätte den
+   Freitag stumm gelassen; der Wochenstart vom Montag wäre am Sonntag darauf schon wieder
+   „fällig“ gewesen. Zum Jahreswechsel wurde aus dem Sonntag, 03.01.2027 sogar „KW 2“.
+   Montag bis Samstag liefern beide Rechnungen dieselbe Kennung — gespeicherte Stände bleiben
+   also gültig, es ändert sich nur der Sonntag. */
+function kw(d){ const q=(d instanceof Date)?d:new Date(d);
+  const t=new Date(q.getFullYear(),q.getMonth(),q.getDate());
+  t.setDate(t.getDate()+3-((t.getDay()+6)%7));                       /* auf den Donnerstag der Woche */
+  const e=new Date(t.getFullYear(),0,4);                             /* der 4. Januar liegt immer in KW 1 */
+  return t.getFullYear()+'-'+(1+Math.round(((t-e)/86400000-3+((e.getDay()+6)%7))/7)); }
 
 function rhythmMalen(){
   const tag=new Date().getDay();
@@ -1438,6 +1455,11 @@ function rhythmMalen(){
     {id:'abend', ic:'🌙', t:'Abendcheck', s: abendOk?'Tag geschlossen — der Abend gehört dir':(abendZeit?'Tag schließen · Sport, Erholung, dein Projekt':'ab 17 Uhr · Sport, Erholung, dein Projekt'), due: abendZeit&&!abendOk, done: abendOk, badge: abendOk?'erledigt':(abendZeit?'4 Min':'ab 17 h')},
     {id:'wochenreview', ic:'🪞', t:'Wochen-Rückschau', s: tag===5?'Heute — Woche abschließen':'freitags', due: tag===5&&!revOk, done: revOk, badge: revOk?'erledigt':(tag===5?'fällig':'Fr')}
   ];
+  /* Liegengebliebene Übergabe sichtbar machen (07.09.2026): ein Checkin kann erledigt sein und
+     trotzdem nicht bei Claude liegen — Server aus, Handy ohne Verbindung. Bisher stand das nur im
+     Abschlussbild, und mit dem Schließen war es weg: der Tag sah ordentlich aus, Claude wusste von
+     nichts. Jetzt sagt es die Karte selbst, solange der Wächter noch klopft. */
+  (S.uebergabeOffen||[]).forEach(u=>{ const r=rits.find(x=>x.id===u.art); if(r) r.s=r.s+' · ↗ Übergabe an Claude liegt noch'; });
   document.getElementById('rhythm').innerHTML = rits.map(r=>
     `<button class="rit ${r.due?'due':''} ${r.done&&!r.due?'done':''}" data-r="${r.id}">
       <span class="ric">${r.ic}</span>
@@ -1838,14 +1860,14 @@ async function checkinSenden(art,text){
     el.className='pushbox ok';
     el.innerHTML='<b>✓ Angekommen.</b> Claude hat deinen '+esc(nutz.titel)+' — <code>'+esc(d.datei||'checkins')+'</code>. Du musst nichts mehr einfügen.';
     S.letzteUebergabe={art,datum:heute(),titel:nutz.titel,datei:d.datei||'',text}; speichern();
-    if(S.uebergabeOffen&&S.uebergabeOffen.art===art&&S.uebergabeOffen.datum===heute()){ delete S.uebergabeOffen; speichern(); }
+    uebWegnehmen(art,heute());
     abschlussKnoepfe(true,art,text);
     if(d.board) boardWarten(art,heute(),d.board);
   }catch(e){
     /* Übergabe verloren? Nie wieder (27.08.: Morgencheck lief, Server war aus, John
        erzählte den halben Tag Unsinn). Die fertige Nutzlast bleibt liegen und
        uebergabeWacht() klopft weiter, bis sie angekommen ist — ohne Neuladen. */
-    S.uebergabeOffen=nutz; try{ speichern(); }catch(e2){}
+    uebAnstellen(nutz);
     /* „Failed to fetch“ ist die Browsermeldung und sagt Bene nichts — und weil sie
        englisch ist, bliebe die ganze Zeile unübersetzt (jeder Teil muss auflösbar
        sein). Netzfehler bekommen deshalb den deutschen Klartext, alles andere
@@ -1992,7 +2014,10 @@ let CHECKIN_SYNC=null;   /* Promise von checkinSync() — summaryHolen() wartet 
 async function checkinSync(){
   let d=null;
   try{
-    const r=await fetch(JOHN_API+'/api/checkin?voll=1&limit=10');
+    /* 20 statt 10 (07.09.2026): mit dem Wochenstart reicht das Fenster jetzt über die ganze Woche.
+       An einem Tag mit mehreren Rückfrage-Runden waren die letzten 10 sonst schon am Mittwoch
+       aufgebraucht, und der Montags-Wochenstart fiel unbemerkt heraus. */
+    const r=await fetch(JOHN_API+'/api/checkin?voll=1&limit=20');
     if(!r.ok) return;
     d=await r.json();
   }catch(e){ return; }                    /* Server aus → lokaler Stand bleibt gültig */
@@ -2026,6 +2051,19 @@ async function checkinSync(){
     if(!(S.lastAbend&&S.lastAbend>=ab.datum)){ S.lastAbend=ab.datum; neu=true; neuAbend=true; }
     if(felder.morgen && !(S.fokusMorgen&&S.fokusMorgen.text&&S.fokusMorgen.datum>=ab.datum)){ S.fokusMorgen={datum:ab.datum,text:felder.morgen}; neu=true; }
   }
+  /* Wochenstart und Wochen-Rückschau ebenso (07.09.2026, Meldung Bene): sie kannten diesen Weg
+     noch nicht. Morgen- und Abendcheck holt checkinSync() seit dem 31.08. vom Server, der
+     Wochenstart blieb außen vor — am Montagabend stand er deshalb weiter auf „fällig“, obwohl er
+     längst gemacht war, nur eben in einer anderen Fassung. Gewertet wird die Kalenderwoche des
+     Checkins, nicht die von heute: einer aus dieser Woche gilt, einer aus der Vorwoche nicht mehr.
+     XP gibt es hier keine — die bleiben dort, wo der Check geklickt wurde (wie beim Morgencheck). */
+  const wkHeute=kw(new Date());
+  const juengster=a=>liste.filter(c=>c&&c.art===a&&c.datum).sort((x,y)=>x.datum<y.datum?1:-1)[0]||null;
+  [['wochenstart','lastWochenstart'],['wochenreview','lastReview']].forEach(function(paar){
+    const c=juengster(paar[0]);
+    /* Mittags-Uhrzeit, damit kw() nicht über die Zeitzone auf den Vortag rutscht. */
+    if(c && kw(new Date(c.datum+'T12:00:00'))===wkHeute && S[paar[1]]!==wkHeute){ S[paar[1]]=wkHeute; neu=true; }
+  });
   /* rhythmMalen() muss mit: die Rituale-Leiste malt sich beim Laden EINMAL, da war die
      Antwort des Servers noch nicht da. Ohne sie stand „Das Eine" richtig oben, die Karte
      Morgencheck daneben aber weiter auf „5 Min · fällig" statt „erledigt". */
@@ -2105,11 +2143,22 @@ document.addEventListener('compass-sprache',e=>einstMerken('lang',((e||{}).detai
 let UEB_LAEUFT=false, UEB_TIMER=0;
 const UEB_TAKT=30000;                                  /* alle 30 s klopfen — der Server braucht beim Start ~10 s */
 const UEB_LIMIT=15000;                                 /* länger wartet keine Übergabe auf eine Antwort (05.09.) */
+function uebAnstellen(nutz){
+  if(!nutz||!nutz.art||!nutz.datum) return;
+  S.uebergabeOffen=(S.uebergabeOffen||[]).filter(x=>x&&x.art&&x.datum&&!(x.art===nutz.art&&x.datum===nutz.datum));
+  S.uebergabeOffen.push(nutz);
+  if(S.uebergabeOffen.length>8) S.uebergabeOffen=S.uebergabeOffen.slice(-8);
+  try{ speichern(); }catch(e){}
+}
+function uebWegnehmen(art,datum){
+  S.uebergabeOffen=(S.uebergabeOffen||[]).filter(x=>!(x&&x.art===art&&x.datum===datum));
+  try{ speichern(); }catch(e){}
+}
 async function uebergabeNachholen(){
-  const u=S.uebergabeOffen; if(!u||!u.art||!u.datum) return true;
+  const u=(S.uebergabeOffen||[])[0]; if(!u||!u.art||!u.datum) return true;
   if(UEB_LAEUFT) return false;                         /* nicht zwei Versuche gleichzeitig */
   const alterTage=(Date.parse(heute())-Date.parse(u.datum))/864e5;
-  if(!(alterTage>=0&&alterTage<=2)){ delete S.uebergabeOffen; speichern(); return true; }
+  if(!(alterTage>=0&&alterTage<=2)){ uebWegnehmen(u.art,u.datum); return !S.uebergabeOffen.length; }
   UEB_LAEUFT=true;
   try{
     const g=await fetch(JOHN_API+'/api/checkin?limit=8',{cache:'no-store',signal:AbortSignal.timeout(UEB_LIMIT)}); if(!g.ok) return false;
@@ -2119,17 +2168,17 @@ async function uebergabeNachholen(){
       /* Lag schon da (der POST kam an, nur seine Antwort nicht — 05.09.): genauso
          melden wie ein frisches Angekommen, sonst bleibt die Warnzeile stehen. */
       S.letzteUebergabe={art:u.art,datum:u.datum,titel:u.titel||u.art,datei:da.datei||('checkins/'+u.datum+'-'+u.art+'.md'),text:u.text||''};
-      delete S.uebergabeOffen; speichern();
+      uebWegnehmen(u.art,u.datum);
       uebergabeAngekommen(u,S.letzteUebergabe.datei);
-      return true;
+      return !S.uebergabeOffen.length;                /* noch etwas in der Reihe? dann klopft der Wächter weiter */
     }
     const r=await fetch(JOHN_API+'/api/checkin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(u),signal:AbortSignal.timeout(UEB_LIMIT)});
     let a={}; try{ a=await r.json(); }catch(e){}
     if(!r.ok||a.ok===false) return false;              /* Server wieder weg → nächster Versuch */
     S.letzteUebergabe={art:u.art,datum:u.datum,titel:u.titel||u.art,datei:a.datei||'',text:u.text||''};
-    delete S.uebergabeOffen; speichern();
+    uebWegnehmen(u.art,u.datum);
     uebergabeAngekommen(u,a.datei||'');
-    return true;
+    return !S.uebergabeOffen.length;
   }catch(e){ return false; }                           /* Server aus → still bleiben, gleich noch mal */
   finally{ UEB_LAEUFT=false; }
 }
@@ -2158,17 +2207,17 @@ function uebergabeAngekommen(u,datei){
    seriell) — dafür sofort wieder, sobald der Tab nach vorn kommt. */
 function uebergabeStopp(){ if(UEB_TIMER){ clearInterval(UEB_TIMER); UEB_TIMER=0; } }
 function uebergabeWacht(){
-  if(UEB_TIMER || !S.uebergabeOffen) return;
+  if(UEB_TIMER || !S.uebergabeOffen.length) return;
   UEB_TIMER=setInterval(async()=>{
-    if(!S.uebergabeOffen) return uebergabeStopp();
+    if(!S.uebergabeOffen.length) return uebergabeStopp();
     if(document.hidden) return;
     if(await uebergabeNachholen()) uebergabeStopp();
   },UEB_TAKT);
 }
 document.addEventListener('visibilitychange',()=>{
-  if(!document.hidden && S.uebergabeOffen) uebergabeNachholen().then(f=>{ if(f) uebergabeStopp(); else uebergabeWacht(); });
+  if(!document.hidden && S.uebergabeOffen.length) uebergabeNachholen().then(f=>{ if(f) uebergabeStopp(); else uebergabeWacht(); });
 });
-window.addEventListener('online',()=>{ if(S.uebergabeOffen) uebergabeWacht(); });
+window.addEventListener('online',()=>{ if(S.uebergabeOffen.length) uebergabeWacht(); });
 
 function briefing(art){
   const L=[];
