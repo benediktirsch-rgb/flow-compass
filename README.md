@@ -20,6 +20,8 @@ Abendboard. Verkauft wird eine **eingerichtete Instanz inkl. Coaching** — Prei
 | `build-compass-produkt.ps1` | baut die anonymisierte **Demo** (`site/compass-demo/`) oder mit `-Instanz "<Kunde>"` eine Kundeninstanz (`instanzen/<slug>/`, gitignored). Bricht ab, wenn ein Anker fehlt oder Persönliches in einer Ausgabedatei steht — nie die Prüfung entschärfen |
 | `publish-compass.ps1` | geplante Aufgabe: baut beides, lädt die eigene Instanz per FTPS hoch, committet und pusht die Demo |
 | `produkt/compass/` | Produktschicht: `instanz.example.js` (Vorlage), `compass-produkt.js/.css`, Einrichtungs-Assistent, Kennzahlenseite der Demo |
+| `produkt/server/` | das auslieferbare **Compass-Server-Paket** für Team- und Kundeninstanzen: `compass-server.ps1` (Coach, Stapel, Trello, Jira — sonst nichts), `coach-tools.ps1`/`coach-mcp.ps1`, `compass-server.json`, README mit den Wegen zur KI (Claude-Abo · API-Schlüssel · anderer Anbieter · ohne). Kennt keinen Namen, keinen Pfad dieses Rechners |
+| `build-compass-server.ps1` | packt `produkt/server/` nach `site/compass-demo/compass-server.zip` (Demo) oder mit `-Instanz "<Kunde>"` nach `instanzen/<slug>/compass/compass-server.zip` mit vorbelegter Konfiguration aus `instanz.js`. Wortprüfung wie beim Produkt-Build; schreibt nur bei geändertem Inhalt |
 | `aufraeumen-refresh.ps1`, `sprint-rollover.ps1` | Jira-Helfer (Aufräum-Karte, Sprint-Anlage) |
 | `docs/` | Onboarding-Kette, Compass ⇄ Cockpit, Git-Regeln |
 
@@ -41,7 +43,14 @@ Abendboard. Verkauft wird eine **eingerichtete Instanz inkl. Coaching** — Prei
 ```
 powershell -NoProfile -ExecutionPolicy Bypass -File build-compass-produkt.ps1                    # → site/compass-demo/
 powershell -NoProfile -ExecutionPolicy Bypass -File build-compass-produkt.ps1 -Instanz "Muster GmbH"   # → instanzen/muster-gmbh/
+powershell -NoProfile -ExecutionPolicy Bypass -File build-compass-server.ps1                     # → site/compass-demo/compass-server.zip
+powershell -NoProfile -ExecutionPolicy Bypass -File build-compass-server.ps1 -Instanz "Muster GmbH"    # → instanzen/muster-gmbh/compass/compass-server.zip
 ```
+
+Der Compass-Server einer Instanz läuft **auf dem Rechner der Person** (Port 8787), mit ihrem
+Claude-Abo, ihrem API-Schlüssel oder ihrem eigenen KI-Anbieter — nie über unser Konto. Die Zip
+liegt neben der `index.html` der Instanz; der Einrichtungs-Assistent (Schritt „Dein Coach“)
+erklärt die Wege, `produkt/server/README.md` die Einzelheiten.
 
 `git push origin main` → `.github/workflows/deploy.yml` spielt `site/compass-demo/` nach
 vishnu-artists.de/compass-demo/ (Secrets `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`).

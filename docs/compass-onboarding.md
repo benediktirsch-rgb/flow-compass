@@ -142,7 +142,7 @@ Dann `instanz.js` ausfüllen. Die Datei ist durchkommentiert; das Wesentliche:
 |------|-------------------|
 | `eingerichtet` | Auf `true`, sobald die Datei fertig ist. Sonst geht bei der Kundin beim ersten Öffnen der Einrichtungs-Assistent auf — sie sieht einen Fragebogen statt ihres Cockpits (⚙️ im Kopf öffnet ihn weiterhin) |
 | `kunde`, `name`, `mail` | Instanzname (steht im Fuß), Anrede im Kopf, Ziel der „schick mir …“-Knöpfe |
-| `api` | Adresse des Compass-Servers. Leer = Solo-Modus (alles im Browser, keine Quellen). `'same-origin'`, wenn der Server die Seite selbst ausliefert |
+| `api` | Adresse des Compass-Servers. Leer = Solo-Modus (alles im Browser, keine Quellen). `'same-origin'`, wenn der Server die Seite selbst ausliefert. Bei Team- und Kundeninstanzen `http://localhost:8787`: die Person startet das **Compass-Server-Paket** auf dem eigenen Rechner (siehe unten) |
 | `gate` | `hash` = SHA-256(salt + Zugangswort). Erzeugen: Instanz im Browser öffnen, Konsole, `compass.hash('das Zugangswort')`. Leerer Hash = kein Schutz (nur für die Demo richtig) |
 | `kontexte` | Bis zu vier, aus dem Erstgespräch. `slot` 1–4 nicht umbenennen — das sind die Farbplätze |
 | `trello`, `jira` | URLs und Projektkürzel. **Keine Token** |
@@ -152,6 +152,34 @@ Dann `instanz.js` ausfüllen. Die Datei ist durchkommentiert; das Wesentliche:
 Danach die Datenschicht entdemoisieren: `dashboard-data.js` bekommt die echten Kontext-Inhalte
 (`kontexte.va/vk/pr/fi` → `next`, `termine`, `vorbereiten`) und `projekte` bzw. `projekteListe` der Kundin.
 `kennzahlen-data.js` bleibt schlank — **keine erfundenen Kacheln**: was keine Quelle hat, steht auf „–“.
+
+### Das Compass-Server-Paket (seit 07.09.2026)
+
+Der Coach, der Stapel und die Quellen Trello/Jira laufen nicht bei uns, sondern auf dem Rechner der
+Person — mit ihrem Konto. Dafür gibt es ein neutrales Paket aus `produkt/server/`:
+
+```
+powershell -NoProfile -ExecutionPolicy Bypass -File build-compass-server.ps1 -Instanz "<Kunde>"
+```
+
+schreibt `instanzen/<slug>/compass/compass-server.zip` mit vorbelegter `compass-server.json`
+(Name, Trello-Kurzlinks, Jira-Site und -Projekt aus `instanz.js`). Der Publish-Lauf lädt die Zip mit
+hoch; sie liegt dann neben der `index.html` der Instanz. Die Person entpackt sie, startet
+`start-compass-server.cmd` und wählt im Assistenten (Schritt „Dein Coach“) ihren Weg:
+
+| Weg | Was die Person tut | Rechnung |
+|---|---|---|
+| Claude-Abo | Claude Code installieren, einmal `claude auth login` | ihr Abo |
+| API-Schlüssel | `ANTHROPIC_API_KEY` als Benutzer-Umgebungsvariable | ihr Anthropic-Konto |
+| anderer Anbieter | `JOHN_KI_KEY`, `JOHN_KI_URL`, `JOHN_KI_MODEL` (OpenAI-kompatibel) | ihr Anbieter |
+| ohne KI | nichts — Stapel als Liste, Trello/Jira laufen trotzdem | keine |
+
+Trello-/Jira-Zugänge setzt sie ebenfalls als Umgebungsvariablen (Anleitung in der README des
+Pakets). **Nie unseren Schlüssel oder unser Abo in eine Instanz legen** — das war Benes Vorgabe vom
+07.09.2026 („nicht über meine Rechnung“). Das Paket enthält nur die Endpunkte, die eine Instanz
+braucht; alles andere (`/api/kalender`, `/api/postfach` …) beantwortet es mit `NICHT_IM_PAKET`, und
+der Compass zeigt das an. Wer eine neue Datei ins Paket legt, trägt sie in `$dateien` in
+`build-compass-server.ps1` ein — die Wortprüfung läuft über jede davon.
 
 ## 5 · Ausrollen und prüfen
 
@@ -166,6 +194,7 @@ Vor der Übergabe diese Liste durchgehen:
 - [ ] Morgencheck, Abendcheck und die Rückfragen laufen durch
 - [ ] Bei Solo-Instanzen: keine `/api/`-Aufrufe in der Konsole (der Build fängt sie ab)
 - [ ] Server-Zugänge liegen als Umgebungsvariablen, nicht in Dateien
+- [ ] `compass-server.zip` liegt neben der `index.html` der Instanz (`build-compass-server.ps1 -Instanz`), Name in der Konfiguration stimmt
 
 ## 6 · Übergabe (60 Minuten)
 

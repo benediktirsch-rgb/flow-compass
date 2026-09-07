@@ -1,0 +1,46 @@
+﻿# coach-mcp.ps1 — die Werkzeuge des Coachs als MCP-Server (stdio) für Claude Code im Kopflos-Modus.
+#
+# Warum: auf dem Abo-Weg läuft der Coach über `claude -p`. Claude Code kennt die Werkzeuge
+# (notiz_speichern, aufgabe_anlegen) nicht — es bekommt sie über diesen MCP-Server, den es selbst
+# je Anfrage startet (die Konfiguration schreibt compass-server.ps1 nach _puffer\mcp-<ticks>.json).
+# Ein Prozess je Anfrage, kein Zustand, keine Netzverbindung: JSON-RPC-Zeilen auf stdin,
+# Antworten auf stdout — beides UTF-8 ohne BOM.
+#
+#   -DatenDir    Ordner mit TASKS.md und coaching\     -NutzerName  wie der Coach die Person nennt
+#   -Log         Datei, in die je Werkzeugaufruf der Name kommt (der Server zeigt ihn im Compass an)
+param([string]$DatenDir = (Join-Path $PSScriptRoot 'daten'), [string]$NutzerName = '', [string]$Log = '')
+$ErrorActionPreference = 'Stop'
+$utf8 = New-Object Text.UTF8Encoding($false)
+[Console]::InputEncoding = $utf8; [Console]::OutputEncoding = $utf8
+$in  = New-Object IO.StreamReader ([Console]::OpenStandardInput(), $utf8)
+$out = New-Object IO.StreamWriter ([Console]::OpenStandardOutput(), $utf8)
+$out.AutoFlush = $true; $out.NewLine = "`n"
+$CoachDir = $DatenDir
+. (Join-Path $PSScriptRoot 'coach-tools.ps1')
+function Send($obj) { $out.WriteLine(($obj | ConvertTo-Json -Depth 20 -Compress)) }
+
+while ($null -ne ($line = $in.ReadLine())) {
+  if (-not $line.Trim()) { continue }
+  try { $m = $line | ConvertFrom-Json } catch { continue }
+  $hasId = ($m.PSObject.Properties.Name -contains 'id'); $id = $m.id
+  switch ([string]$m.method) {
+    'initialize' {
+      $pv = $(if ($m.params -and $m.params.protocolVersion) { [string]$m.params.protocolVersion } else { '2025-06-18' })
+      Send @{ jsonrpc = '2.0'; id = $id; result = @{ protocolVersion = $pv; capabilities = @{ tools = @{} }; serverInfo = @{ name = 'coach'; version = '1.0' } } }
+    }
+    'notifications/initialized' { }
+    'ping' { Send @{ jsonrpc = '2.0'; id = $id; result = @{} } }
+    'tools/list' {
+      $liste = @($Tools | ForEach-Object { @{ name = $_.name; description = $_.description; inputSchema = $_.input_schema } })
+      Send @{ jsonrpc = '2.0'; id = $id; result = @{ tools = $liste } }
+    }
+    'tools/call' {
+      $name = [string]$m.params.name; $inp = $m.params.arguments
+      $fehler = $false
+      try { $txt = Invoke-Tool $name $inp } catch { $txt = "Fehler: $($_.Exception.Message)"; $fehler = $true }
+      if ($Log) { try { [IO.File]::AppendAllText($Log, "$name`n", $utf8) } catch { } }
+      Send @{ jsonrpc = '2.0'; id = $id; result = @{ content = @(@{ type = 'text'; text = [string]$txt }); isError = $fehler } }
+    }
+    default { if ($hasId) { Send @{ jsonrpc = '2.0'; id = $id; error = @{ code = -32601; message = "Unbekannte Methode: $($m.method)" } } } }
+  }
+}

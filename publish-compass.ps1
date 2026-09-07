@@ -119,6 +119,16 @@ try {
   if ($LASTEXITCODE -ne 0) { throw ($pb | Select-Object -Last 6) -join ' / ' }
 } catch { $demoOk = $false; Log "WARNUNG: Demo-Build (site/compass-demo) fehlgeschlagen, alte Demo bleibt live: $($_.Exception.Message)" }
 
+# 2c) Compass-Server-Paket fuer die Demo (07.09.2026): produkt\server\ → site\compass-demo\compass-server.zip.
+#     Die Zip liegt neben der index.html der Demo, der Einrichtungs-Assistent verlinkt sie, und sie geht
+#     mit dem Demo-Commit unten mit. Der Build schreibt nur bei geaendertem Inhalt (Hash in VERSION.txt),
+#     sonst stuende alle 30 Minuten eine neue Zip in der Historie. Fehler nur loggen — die Demo selbst
+#     haengt nicht daran.
+try {
+  $ps = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass-server.ps1') 2>&1
+  if ($LASTEXITCODE -ne 0) { throw (($ps | Select-Object -Last 4) -join ' / ') }
+} catch { Log "WARNUNG: Compass-Server-Paket (site/compass-demo/compass-server.zip) nicht gebaut: $($_.Exception.Message)" }
+
 if ($NurBauen) { Log 'NurBauen: fertig, nichts hochgeladen, nichts committet.'; return }
 
 # 3) Hochladen per FTPS — je Ziel eine Subdomain mit eigenem Dokumentenverzeichnis (03.09.2026):
@@ -225,6 +235,10 @@ if (-not $zugang) {
       } else {
         $pi = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass-produkt.ps1') -Instanz $inst.name 2>&1
         if ($LASTEXITCODE -ne 0) { throw (($pi | Select-Object -Last 4) -join ' / ') }
+        # Compass-Server-Paket mit vorbelegter Konfiguration (Name, Trello, Jira aus instanz.js) neben die
+        # index.html der Instanz (07.09.2026). Fehler nur loggen — die Instanz rollt trotzdem aus.
+        $ps = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass-server.ps1') -Instanz $inst.name 2>&1
+        if ($LASTEXITCODE -ne 0) { Log ("WARNUNG: Compass-Server-Paket fuer {0} nicht gebaut: {1}" -f $inst.name, (($ps | Select-Object -Last 3) -join ' / ')) }
       }
       # Portal an die Wurzel der Subdomain (04.09.2026): Kacheln zu Backstage, Team-Cockpit,
       # Vaikuntha und dem Compass daneben. portal.js bleibt dabei unangetastet.

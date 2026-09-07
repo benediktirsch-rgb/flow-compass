@@ -1,0 +1,23 @@
+{
+  "_hinweis": "Konfiguration des Compass-Servers. Nur diese Datei anpassen; Schlüssel und Token gehören NICHT hierher, sondern in Benutzer-Umgebungsvariablen (siehe README.md).",
+  "name": "",
+  "coach": "Coach",
+  "sprache": "Deutsch",
+  "port": 8787,
+  "backend": "auto",
+  "modell": "claude-opus-5",
+  "effort": "medium",
+  "daten": "daten",
+  "anbieter": {
+    "url": "",
+    "modell": ""
+  },
+  "trello": {
+    "privat": "",
+    "arbeit": ""
+  },
+  "jira": {
+    "site": "",
+    "projekt": ""
+  }
+}
