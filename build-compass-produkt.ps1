@@ -429,7 +429,7 @@ function demoBand(){
 # ── 16. Der Coach heisst im Produkt „Coach“ ──────────────────────────────────
 # „Claude“ bleibt bewusst stehen, wo es die Maschine dahinter meint — das ist
 # Teil des Produkts (KI-Coach auf Basis von Claude), kein Persoenliches.
-Rep '<div class="jav">J</div><div class="jt"><b>John</b><span id="johnSub">Karriere-Coach · Claude Fable 5</span></div>' `
+Rep '<div class="jav">J</div><div class="jt"><b>John</b><span id="johnSub">Karriere-Coach · Claude Opus 5</span></div>' `
     '<div class="jav">C</div><div class="jt"><b>Coach</b><span id="johnSub">Dein Flow-Coach · Claude</span></div>' 'Coach-Kopf'
 Rep '`<div class="jm j sys">Hallo, ich bin John — dein Coach und Sparringspartner. Ich kenne dein Profil, deine Pipeline, deine Aufgaben und dein Claude-Memory. Frag mich etwas oder tipp auf einen Vorschlag.</div>`' `
     '`<div class="jm j sys">Hallo, ich bin dein Coach. Ich sehe dein Board, deine Kennzahlen und deine offenen Entscheidungen — frag mich etwas oder tipp auf einen Vorschlag.</div>`' 'Coach-Begruessung'
@@ -553,7 +553,7 @@ Hinterlege den API-Schlüssel im Compass-Server und starte ihn neu.
    Coach — Chat-Bubble. Spricht mit dem Compass-Server (POST /api/john), das
 '@),
   @(@'
-<!-- John — Karriere-Coach, verbunden mit Claude Fable 5 über john-server.ps1 -->
+<!-- John — Karriere-Coach, verbunden mit Claude Opus 5 über john-server.ps1 -->
 '@, @'
 <!-- Coach — verbunden mit Claude über den Compass-Server -->
 '@),
@@ -581,7 +581,7 @@ Hinterlege den API-Schlüssel im Compass-Server und starte ihn neu.
   @('John ist offline',                'Der Coach ist offline'),
   @('John trägt die Summary vor',      'Der Coach trägt die Summary vor'),
   @('John „trägt vor“',                'Der Coach „trägt vor“'),
-  @('Claude Fable 5 mit Johns Persona + Profil + Pipeline + deinem Claude-Memory', 'Claude mit der Coach-Persona und deinem Board-Kontext'),
+  @('Claude Opus 5 mit Johns Persona + Profil + Pipeline + deinem Claude-Memory', 'Claude mit der Coach-Persona und deinem Board-Kontext'),
   @('Fortschritt + John-Chatverlauf',  'Fortschritt + Chatverlauf'),
   @('john-server.cmd',                 'deinen Compass-Server'),
   @('Johns Kontext',                   'Coach-Kontext'),

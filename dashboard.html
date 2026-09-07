@@ -1118,11 +1118,11 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
 </div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
-<!-- John — Karriere-Coach, verbunden mit Claude Fable 5 über john-server.ps1 -->
+<!-- John — Karriere-Coach, verbunden mit Claude Opus 5 über john-server.ps1 -->
 <button id="johnFab" title="John — Coach & Sparringspartner"><span class="in">J<span class="st" id="johnSt"></span></span><span class="tip" id="johnTip">John · Coach</span></button>
 <div id="johnUhrTip" role="tooltip"><b id="johnUhrName"></b><span class="z" id="johnUhrZeit">–</span><span class="d" id="johnUhrDatum"></span><a href="outlook:calendar" id="johnUhrKal" title="Kalender in Outlook (klassisch) öffnen">📅 Kalender in Outlook öffnen</a></div>
 <div id="john" role="dialog" aria-label="John">
-  <div class="jh"><div class="jav">J</div><div class="jt"><b>John</b><span id="johnSub">Karriere-Coach · Claude Fable 5</span></div><button class="jx" id="johnClose" title="Schließen">✕</button></div>
+  <div class="jh"><div class="jav">J</div><div class="jt"><b>John</b><span id="johnSub">Karriere-Coach · Claude Opus 5</span></div><button class="jx" id="johnClose" title="Schließen">✕</button></div>
   <div class="jstat" id="johnStat">Verbinde …</div>
   <div class="jmsgs" id="johnMsgs"></div>
   <div class="jquick" id="johnQuick">
@@ -6769,7 +6769,7 @@ einstellungenSync();                   /* Farbschema, Sprache, Tagesphase — ei
 
 /* ==========================================================================
    John — Chat-Bubble. Spricht mit john-server.ps1 (POST /api/john), das
-   Claude Fable 5 mit Johns Persona + Profil + Pipeline + deinem Claude-Memory
+   Claude Opus 5 mit Johns Persona + Profil + Pipeline + deinem Claude-Memory
    aufruft. Läuft die Seite über den Server (http://localhost:8787), ist die
    API same-origin; von file:// aus wird localhost:8787 direkt angesprochen.
    ========================================================================== */
@@ -7058,7 +7058,7 @@ async function johnStatus(){
     const r=await fetch(JOHN_API+'/api/john/status',{cache:'no-store'});
     const s=await r.json();
     johnOnline=!!s.ok;
-    if(s.ok && s.key){ johnStat.textContent=`Verbunden · ${s.backend==='cli'?'Claude Code (Abo) · ':''}${s.model} · ${(s.geladen||[]).length} Quellen geladen (Profil, Pipeline, Memory …)`; johnStat.classList.remove('bad'); johnFab.className='on'; }
+    if(s.ok && s.key){ johnStat.textContent=`Verbunden · ${s.backend==='cli'?'Claude Code (Abo) · ':s.backend==='openai'?'eigener Anbieter · ':''}${s.model} · ${(s.geladen||[]).length} Quellen geladen (Profil, Pipeline, Memory …)`; johnStat.classList.remove('bad'); johnFab.className='on'; }
     else if(s.ok){ johnStat.textContent='Server läuft, aber '+(s.hint||'kein API-Schlüssel: ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann neu starten.'); johnStat.classList.add('bad'); johnFab.className='warn'; }
   }catch(e){
     johnOnline=false; johnFab.className='';
