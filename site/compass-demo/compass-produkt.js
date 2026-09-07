@@ -354,7 +354,7 @@
           r('schluessel', '🔑 Eigener Anthropic-Schlüssel', 'Ein Schlüssel aus deiner Anthropic-Konsole, hinterlegt im Compass-Server auf deinem Rechner. Abrechnung nach Verbrauch, über dein Konto.') +
           r('anbieter', '🔌 Anderer KI-Anbieter (OpenAI-kompatibel)', 'ChatGPT, Mistral, Groq, ein lokales Ollama — jeder Endpunkt, der die OpenAI-Schnittstelle spricht. Schlüssel, Adresse und Modell trägst du im Compass-Server ein; abgerechnet wird bei deinem Anbieter.') +
           r('ohne', '📁 Ohne KI — aus deinen Dateien', 'Board, Rituale, Kennzahlen, Rückfragen und der Stapel als einfache Liste — alles aus deinen Quellen und Dateien. Den Coach klemmst du später an (⚙️).') +
-          '<p class="shint"><b>So klemmst du an:</b> 1) Den Compass-Server (Ordner von uns) auf deinem Rechner starten. ' +
+          '<p class="shint"><b>So klemmst du an:</b> 1) <a href="compass-server.zip" download>compass-server.zip</a> laden, entpacken und den Compass-Server auf deinem Rechner starten (README liegt bei). ' +
           '2) Bei „Abo“ einmalig im Terminal <code>claude auth login</code> ausführen — der Browser bestätigt die Anmeldung; bei „Anthropic-Schlüssel“ <code>ANTHROPIC_API_KEY</code> als Benutzer-Umgebungsvariable setzen; bei „anderer Anbieter“ <code>JOHN_KI_KEY</code>, dazu <code>JOHN_KI_URL</code> und <code>JOHN_KI_MODEL</code>. ' +
           '3) Hier weiter — die Server-Adresse steht dann auf <code>http://localhost:8787</code>. Der Coach meldet sich, sobald der Compass den Server erreicht; bis dahin bleibt alles im Datei-Modus, nichts geht verloren.</p>';
       }
