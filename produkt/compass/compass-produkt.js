@@ -351,10 +351,11 @@
         return '' +
           '<p class="sub">Der Coach im Compass ist eine KI. Sie läuft <b>auf deinem Konto</b> — nie auf unserem. Du entscheidest, wie:</p>' +
           r('abo', '🪷 Mein Claude-Abo (empfohlen)', 'Claude Code auf deinem Rechner, einmal angemeldet. Der Compass-Server ruft es für dich auf; die Kosten deckt dein Abo (Pro oder Max), kein Guthaben nötig.') +
-          r('schluessel', '🔑 Eigener API-Schlüssel', 'Ein Schlüssel aus deiner Anthropic-Konsole, hinterlegt im Compass-Server auf deinem Rechner. Abrechnung nach Verbrauch, über dein Konto.') +
+          r('schluessel', '🔑 Eigener Anthropic-Schlüssel', 'Ein Schlüssel aus deiner Anthropic-Konsole, hinterlegt im Compass-Server auf deinem Rechner. Abrechnung nach Verbrauch, über dein Konto.') +
+          r('anbieter', '🔌 Anderer KI-Anbieter (OpenAI-kompatibel)', 'ChatGPT, Mistral, Groq, ein lokales Ollama — jeder Endpunkt, der die OpenAI-Schnittstelle spricht. Schlüssel, Adresse und Modell trägst du im Compass-Server ein; abgerechnet wird bei deinem Anbieter.') +
           r('ohne', '📁 Ohne KI — aus deinen Dateien', 'Board, Rituale, Kennzahlen, Rückfragen und der Stapel als einfache Liste — alles aus deinen Quellen und Dateien. Den Coach klemmst du später an (⚙️).') +
-          '<p class="shint"><b>So klemmst du an:</b> 1) Den Compass-Server (Ordner von uns) auf deinem Rechner starten. ' +
-          '2) Bei „Abo“ einmalig im Terminal <code>claude auth login</code> ausführen — der Browser bestätigt die Anmeldung; bei „Schlüssel“ <code>ANTHROPIC_API_KEY</code> als Benutzer-Umgebungsvariable setzen. ' +
+          '<p class="shint"><b>So klemmst du an:</b> 1) <a href="compass-server.zip" download>compass-server.zip</a> laden, entpacken und den Compass-Server auf deinem Rechner starten (README liegt bei). ' +
+          '2) Bei „Abo“ einmalig im Terminal <code>claude auth login</code> ausführen — der Browser bestätigt die Anmeldung; bei „Anthropic-Schlüssel“ <code>ANTHROPIC_API_KEY</code> als Benutzer-Umgebungsvariable setzen; bei „anderer Anbieter“ <code>JOHN_KI_KEY</code>, dazu <code>JOHN_KI_URL</code> und <code>JOHN_KI_MODEL</code>. ' +
           '3) Hier weiter — die Server-Adresse steht dann auf <code>http://localhost:8787</code>. Der Coach meldet sich, sobald der Compass den Server erreicht; bis dahin bleibt alles im Datei-Modus, nichts geht verloren.</p>';
       }
 
@@ -375,7 +376,7 @@
         '<li><b>' + E(d.name || 'Du') + '</b> · ' + E(d.mail || 'ohne E-Mail') + '</li>' +
         '<li>' + d.kontexte.length + ' Kontext' + (d.kontexte.length === 1 ? '' : 'e') + ': ' + E(d.kontexte.map(function (k) { return (k.icon || '') + ' ' + k.name; }).join(' · ')) + '</li>' +
         '<li>Quellen: ' + E(quellen || 'noch keine — eigene Karten reichen für den Anfang') + '</li>' +
-        '<li>Coach: ' + E(d.ki === 'abo' ? 'dein Claude-Abo (Claude Code)' : d.ki === 'schluessel' ? 'dein API-Schlüssel' : 'ohne KI — aus deinen Dateien') + '</li>' +
+        '<li>Coach: ' + E(d.ki === 'abo' ? 'dein Claude-Abo (Claude Code)' : d.ki === 'schluessel' ? 'dein Anthropic-Schlüssel' : d.ki === 'anbieter' ? 'dein eigener KI-Anbieter' : 'ohne KI — aus deinen Dateien') + '</li>' +
         '<li>WIP-Limit: ' + E(d.board.wip || 3) + '</li></ul>' +
         '<p class="shint">Danach zeigt dir der Compass den Morgencheck. Fünf Minuten, jeden Tag — mehr braucht es nicht.</p>';
     },
