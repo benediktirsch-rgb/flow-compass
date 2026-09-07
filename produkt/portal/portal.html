@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- vishnu-portal v1 — an dieser Zeile erkennt build-portal.ps1, dass die Wurzel dieser
+<!-- vishnu-portal v2 — an dieser Zeile erkennt build-portal.ps1, dass die Wurzel dieser
      Subdomain bereits das Portal ist und nicht mehr der Compass (dann laeuft keine Migration). -->
 <html lang="de">
 <head>
@@ -17,10 +17,17 @@
 <meta name="apple-mobile-web-app-title" content="Portal">
 <style>
 /* ==========================================================================
-   Mein Portal — die Startseite einer persönlichen Subdomain (04.09.2026).
+   Mein Portal — die Startseite einer persönlichen Subdomain (04.09.2026, v2 07.09.2026).
    <vorname>.vishnuartists.com führt an einer Stelle zusammen, was vorher auf
    vier Adressen mit vier Logins lag: Backstage/Profil, Team-Cockpit, Vaikuntha
    und der Flow Compass (der liegt hier daneben in /compass/).
+
+   v2 (07.09.2026, Bene: „Meine Einstiegsseite ist sehr dürftig … modern und im Style
+   von vishnuartists.com"): Typografie und Bausteine der Website (Instrument Serif für
+   Überschriften, Inter im Lauftext, Kicker, Karten, Pillen-Knöpfe, Lotus-Logo) und
+   unter den Kacheln die BEREICHE — CRM, Freelancer-Pool (FAP & JAP), Finanz-Raumschiff
+   mit allen Entitäten, Vishnu-Backend, Vaikuntha-Backend. Jeder Bereich ist opt-in
+   (portal.js › bereiche), weil er Rückseiten zeigt, die nicht jede Person etwas angehen.
 
    Farben sind die Tokens der Website (f/vf.css), damit das Portal zum Auftritt
    des Kollektivs gehört und nicht wie ein zweites Produkt aussieht. Der
@@ -31,87 +38,135 @@
   --paper:#faf8f2; --surface:#f3f0e6; --card:#ffffff;
   --ink:#1c2314; --sub:#686f5d; --line:#e6e2d4; --line-strong:#d5d0bd;
   --green:#89c527; --green-d:#4f7418; --green-soft:#eef4de;
-  --radius:18px; --shadow:0 2px 12px rgba(40,46,28,.07);
+  --violet:#6544ea; --violet-soft:#efeaff;
+  --amber-d:#8a6008; --amber-soft:#fdf0d4;
+  --radius:16px; --shadow:0 2px 12px rgba(40,46,28,.07);
+  --top:rgba(250,248,242,.88);
 }
 html[data-theme="dark"]{
   --paper:#11150d; --surface:#171c11; --card:#1b2114;
   --ink:#eef2e4; --sub:#a4ac95; --line:#2b3421; --line-strong:#3b482c;
   --green:#a3dc45; --green-d:#c7ec8a; --green-soft:#25311a;
+  --violet:#a08cff; --violet-soft:#26204a;
+  --amber-d:#e0b25a; --amber-soft:#3a2f12;
   --shadow:0 2px 14px rgba(0,0,0,.35);
+  --top:rgba(17,21,13,.88);
 }
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}
 body{margin:0;background:var(--paper);color:var(--ink);
-  font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:15.5px;line-height:1.65;-webkit-font-smoothing:antialiased}
 a{color:inherit}
-.wrap{max-width:1000px;margin:0 auto;padding:28px 20px 60px}
-header.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:8px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.2px}
-.brand .v{width:34px;height:34px;border-radius:10px;background:var(--ink);color:var(--paper);
-  display:inline-flex;align-items:center;justify-content:center;font-size:17px;flex:none}
-html[data-theme="dark"] .brand .v{background:var(--green);color:#11150d}
-.top .sp{flex:1}
+h1,h2,h3{font-family:'Instrument Serif',Georgia,serif;font-weight:400;line-height:1.08;letter-spacing:-.01em;margin:0}
+h1 em,h2 em{font-style:italic;color:var(--green-d)}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.kick{color:var(--green-d);font-weight:700;letter-spacing:2.2px;font-size:11.5px;text-transform:uppercase;font-family:Inter;margin:0}
+.lead{color:var(--sub);max-width:62ch;font-size:16px;margin:10px 0 0}
+
+/* ---------- Kopf: wie header.vf der Website — schwebend, leicht durchscheinend --------- */
+header.top{position:sticky;top:0;z-index:60;background:var(--top);backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:7px;height:68px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:17.5px;letter-spacing:.2px;text-decoration:none}
+.logo img{width:28px;height:28px;border-radius:8px;display:block}
+.logo b{color:var(--green-d)}
+.logo .pill{font-weight:600;font-size:12px;color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin-left:6px}
+.nav .sp{flex:1}
+.navlinks{display:flex;gap:2px;align-items:center}
+.navlinks a{color:var(--sub);text-decoration:none;font-size:13px;font-weight:600;padding:9px 10px;border-radius:999px;white-space:nowrap}
+.navlinks a:hover{color:var(--ink)}
 .kn{background:var(--card);border:1.5px solid var(--line);color:var(--sub);border-radius:999px;
-  padding:6px 13px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  padding:6px 13px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;margin-left:4px}
 .kn:hover{border-color:var(--line-strong);color:var(--ink)}
-h1{font-size:clamp(26px,4.4vw,38px);line-height:1.2;margin:18px 0 4px;font-weight:800;letter-spacing:-.5px}
-h1 em{font-style:normal;color:var(--green-d)}
-.lead{color:var(--sub);margin:0 0 26px;max-width:60ch}
-/* 215px, damit vier Kacheln auf einem normalen Bildschirm in eine Reihe passen —
-   bei 258px rutschte die vierte (Vaikuntha) allein in die zweite Zeile. */
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:16px}
-.tile{position:relative;background:var(--card);border:1.5px solid var(--line);border-radius:var(--radius);
-  padding:20px 20px 18px;display:flex;flex-direction:column;gap:7px;text-decoration:none;
-  box-shadow:var(--shadow);transition:border-color .15s,transform .15s}
-.tile:hover,.tile:focus-visible{border-color:var(--green);transform:translateY(-2px);outline:none}
+
+/* ---------- Begrüßung ---------------------------------------------------------------- */
+.hero{padding:44px 0 30px}
+.hero h1{font-size:clamp(36px,5.2vw,60px);margin:10px 0 0;max-width:18ch}
+
+/* ---------- Kacheln: die Karten der Website (.card), eine Reihe für die Hauptwege ----- */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:16px}
+.tile{position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:22px 20px 18px;display:flex;flex-direction:column;gap:6px;text-decoration:none;
+  box-shadow:var(--shadow);transition:transform .25s,box-shadow .25s,border-color .25s}
+.tile:hover,.tile:focus-visible{transform:translateY(-3px);box-shadow:0 10px 28px rgba(40,46,28,.11);border-color:var(--green);outline:none}
 .tile:focus-visible{box-shadow:0 0 0 3px var(--green-soft)}
-.tile .ic{font-size:27px;line-height:1}
-.tile h2{margin:2px 0 0;font-size:19px;font-weight:800;letter-spacing:-.2px}
-.tile p{margin:0;color:var(--sub);font-size:13.5px}
-.tile .go{margin-top:auto;padding-top:12px;display:flex;align-items:center;gap:8px;
-  font-size:12px;font-weight:700;color:var(--green-d);letter-spacing:.3px}
-.tile .host{color:var(--sub);font-weight:600;letter-spacing:0}
+.tile .ic{font-size:28px;line-height:1}
+.tile h2{font-size:23px;margin-top:4px}
+.tile p{margin:0;color:var(--sub);font-size:13.5px;line-height:1.5}
+.tile .go{margin-top:auto;padding-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-size:13px;font-weight:800;color:var(--green-d)}
+.tile .host{color:var(--sub);font-weight:600;font-size:12px}
 .tile.haupt{background:linear-gradient(155deg,var(--green-soft),var(--card) 62%);border-color:var(--green)}
 .tile .kbd{position:absolute;top:12px;right:14px;font-size:11px;color:var(--sub);font-weight:700}
-/* Zweite Ebene: alles, was man selten braucht und trotzdem finden muss. Bewusst
-   ohne Kachel-Optik — Textzeilen in Spalten, kleiner und ruhiger als die Kacheln. */
-.mehr{margin-top:30px;padding-top:20px;border-top:1px solid var(--line);
+
+/* ---------- Bereiche: die Rückseiten, je eine Sektion mit Spalten --------------------- */
+.bereich{margin-top:44px;padding-top:26px;border-top:1px solid var(--line)}
+.bk{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.bk .bic{width:52px;height:52px;border-radius:14px;background:var(--surface);border:1px solid var(--line);
+  display:inline-flex;align-items:center;justify-content:center;font-size:26px;flex:none}
+.bk .bt{flex:1;min-width:240px}
+.bk h2{font-size:clamp(26px,3.2vw,36px);margin:2px 0 4px}
+.bk .sub{margin:0;color:var(--sub);font-size:14.5px;max-width:64ch}
+.btn{background:var(--green);color:#122005;border:none;border-radius:999px;padding:10px 18px;font-weight:800;font-size:13.5px;
+  cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-family:Inter;transition:.2s;white-space:nowrap;align-self:center}
+.btn:hover{background:var(--green-d);color:#fff;transform:translateY(-1px)}
+.btn.ghost{background:transparent;border:1.5px solid var(--line-strong);color:var(--ink)}
+.btn.ghost:hover{border-color:var(--green-d);background:var(--green-soft);color:var(--ink);transform:none}
+html[data-theme="dark"] .btn{color:#11150d} html[data-theme="dark"] .btn:hover{color:#11150d}
+html[data-theme="dark"] .btn.ghost{color:var(--ink)}
+.spalten{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:18px}
+.spalte{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px 14px;box-shadow:var(--shadow)}
+.spalte h4{margin:0 0 8px;font-size:10.5px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--sub);font-family:Inter}
+.spalte ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.spalte a{display:flex;align-items:baseline;gap:8px;text-decoration:none;color:var(--ink);font-size:14px;
+  padding:4px 6px;margin:0 -6px;border-radius:8px;transition:background .15s,color .15s}
+.spalte a:hover,.spalte a:focus-visible{background:var(--green-soft);color:var(--green-d);outline:none}
+.spalte a .ic2{font-size:14px;flex:none;width:19px}
+.spalte a .ext{margin-left:auto;font-size:11px;color:var(--sub);font-weight:600}
+
+/* ---------- Zweite Ebene: selten gebraucht, ohne Kachel-Optik ------------------------- */
+.mehr{margin-top:40px;padding-top:22px;border-top:1px solid var(--line);
   display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:18px 26px}
-.mehr h3{margin:0 0 7px;font-size:10.5px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--sub)}
+.mehr h3{margin:0 0 7px;font-size:10.5px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--sub);font-family:Inter}
 .mehr ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
-.mehr a{display:flex;align-items:baseline;gap:7px;text-decoration:none;color:var(--ink);
-  font-size:13.5px;padding:2px 0;border-radius:6px}
+.mehr a{display:flex;align-items:baseline;gap:7px;text-decoration:none;color:var(--ink);font-size:13.5px;padding:2px 0;border-radius:6px}
 .mehr a:hover,.mehr a:focus-visible{color:var(--green-d);outline:none}
-.mehr a:focus-visible{box-shadow:0 0 0 3px var(--green-soft)}
 .mehr a .ic2{font-size:13px;flex:none;width:17px}
-footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:12.5px}
+footer{margin-top:44px;padding:20px 0 56px;border-top:1px solid var(--line);color:var(--sub);font-size:12.5px}
 footer b{color:var(--ink);font-weight:700}
-/* Große Schrift (portal.js › gross:true, 06.09.2026 für Martin): alles eine Stufe größer,
-   Kacheln etwas breiter, damit der Text nicht umbricht. */
+footer a{color:var(--green-d)}
+
+/* Große Schrift (portal.js › gross:true, 06.09.2026 für Martin) */
 body.gross{font-size:18px}
-body.gross .tile h2{font-size:23px} body.gross .tile p{font-size:16px} body.gross .tile .go{font-size:14px}
-body.gross .mehr a{font-size:16px} body.gross .lead{font-size:18px} body.gross .kn{font-size:14.5px}
+body.gross .tile h2{font-size:27px} body.gross .tile p{font-size:16px} body.gross .tile .go{font-size:15px}
+body.gross .spalte a{font-size:16.5px} body.gross .mehr a{font-size:16px} body.gross .lead{font-size:18.5px} body.gross .kn{font-size:14.5px}
 body.gross .grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
-@media(max-width:560px){ .wrap{padding:20px 16px 44px} .tile .kbd{display:none} }
-@media(prefers-reduced-motion:reduce){ .tile{transition:none} }
+@media(max-width:640px){ .hero{padding:30px 0 22px} .tile .kbd{display:none} .nav{height:60px} .logo .pill{display:none} footer{padding-bottom:40px} }
+@media(prefers-reduced-motion:reduce){ .tile,.btn{transition:none} html{scroll-behavior:auto} }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <span class="brand"><span class="v">V</span> Vishnu Artists</span>
-    <span class="sp"></span>
-    <button class="kn" id="knSprache" type="button">EN</button>
-    <button class="kn" id="knTheme" type="button">🌗</button>
-  </header>
+<header class="top"><div class="wrap nav">
+  <a class="logo" href="./"><img src="app-icons/icon-192.png" alt="">Vishnu<b>Artists</b><span class="pill" id="pill">Mein Portal</span></a>
+  <span class="sp"></span>
+  <nav class="navlinks" id="navlinks"></nav>
+  <button class="kn" id="knSprache" type="button">EN</button>
+  <button class="kn" id="knTheme" type="button" aria-label="Hell/Dunkel">🌗</button>
+</div></header>
 
-  <h1 id="gruss">Willkommen</h1>
-  <p class="lead" id="lead">Deine Werkzeuge an einer Stelle. Ein Login, vier Wege.</p>
+<main class="wrap">
+  <section class="hero">
+    <p class="kick" id="kick">Persönliches Portal</p>
+    <h1 id="gruss">Willkommen</h1>
+    <p class="lead" id="lead">Deine Werkzeuge an einer Stelle. Ein Login, alle Wege.</p>
+  </section>
 
   <div class="grid" id="grid"></div>
+  <div id="bereiche"></div>
   <div class="mehr" id="mehr"></div>
-  <footer id="fuss"></footer>
-</div>
+</main>
+<footer><div class="wrap" id="fuss"></div></footer>
 
 <!-- Die Instanz des Compass liefert Name und Mailadresse (eine Pflegestelle, nicht zwei).
      Fehlt sie, läuft das Portal trotzdem — dann zählt allein portal.js. -->
@@ -128,19 +183,30 @@ if (P.gross) document.body.classList.add('gross');
 /* ---------- Sprache: Deutsch und Englisch (VA-13529: Marwan liest Englisch) ---------- */
 var TEXTE = {
   de: { gruss:['Guten Morgen','Guten Tag','Guten Abend'],
-        lead:'Deine Werkzeuge an einer Stelle. Ein Login, vier Wege.',
-        oeffnen:'Öffnen', hier:'hier auf dieser Seite',
-        fuss:'Persönliches Portal · geschützt wie das Team-Cockpit · Fragen an ', sprache:'EN' },
+        lead:'Deine Werkzeuge an einer Stelle. Ein Login, alle Wege.',
+        kick:'Persönliches Portal', oeffnen:'Öffnen', hier:'hier auf dieser Seite', extern:'extern',
+        fuss:'Persönliches Portal · geschützt wie das Team-Cockpit · Fragen an ', sprache:'EN', pill:'Mein Portal' },
   en: { gruss:['Good morning','Hello','Good evening'],
-        lead:'Your tools in one place. One login, four ways.',
-        oeffnen:'Open', hier:'here on this site',
-        fuss:'Personal portal · protected like the team cockpit · questions to ', sprache:'DE' }
+        lead:'Your tools in one place. One login, every way in.',
+        kick:'Personal portal', oeffnen:'Open', hier:'here on this site', extern:'external',
+        fuss:'Personal portal · protected like the team cockpit · questions to ', sprache:'DE', pill:'My portal' }
 };
 var SPR = (function(){
   try { var g = localStorage.getItem('portalSprache'); if (g) return g; } catch(e){}
   if (P.sprache) return P.sprache;
   return (navigator.language || 'de').slice(0,2) === 'en' ? 'en' : 'de';
 })();
+
+/* ---------- Adressen, die mehrfach vorkommen ---------------------------------------- */
+var VA   = 'https://vishnuartists.com/';
+var JIRA = 'https://vishnuartists.atlassian.net/jira/software/projects/';
+/* Vaikuntha-Backend über das Sprungbrett (SSO, 04.09.2026): weiter.php stellt ein
+   Einmal-Ticket aus, die Route /wp-json/vishnu/v1/anmelden meldet die Person in WordPress
+   an und schickt sie auf den gewünschten Pfad — kein zweites Login. */
+function vk(pfad){
+  return VA + 'weiter.php?zu=' + encodeURIComponent('https://vaikuntha.eu/wp-json/vishnu/v1/anmelden?zu=' + encodeURIComponent(pfad));
+}
+function wp(seite){ return vk('/wp-admin/admin.php?page=' + seite); }
 
 /* ---------- Kacheln: Standard ist das, was jede Person im Kollektiv hat -------------- */
 var STANDARD = [
@@ -150,10 +216,12 @@ var STANDARD = [
   { id:'cockpit', icon:'📊', url:'https://va.vishnuartists.com/',
     de:['Team-Cockpit','Flight Levels, Aging, Analysen — woran das Team gerade arbeitet.'],
     en:['Team cockpit','Flight levels, aging, analytics — what the team is working on.'] },
-  { id:'backstage', icon:'🎭', url:'https://vishnuartists.com/backstage.php',
+  /* backstage.html, nicht backstage.php: die .php ist das Relay für die fünf Meldungen
+     (nur POST, GET antwortet 405) — bis v1 zeigte die Kachel dorthin. */
+  { id:'backstage', icon:'🎭', url:VA + 'backstage.html',
     de:['Backstage','Dein Rollenbild, Unterlagen, Trainings und die Meldungen des Alltags.'],
     en:['Backstage','Your role, documents, trainings and the everyday notices.'] },
-  { id:'vaikuntha', icon:'🌿', url:'',
+  { id:'vaikuntha', icon:'🌿', url:'', zeigt:'vaikuntha.eu',
     de:['Vaikuntha','Der Verein: Termine, Camp, Mitmachen.'],
     en:['Vaikuntha','The association: dates, camp, joining in.'] },
   /* 04.09.2026: das Finanz-Raumschiff — aus, bis portal.js eine Adresse einträgt
@@ -163,38 +231,167 @@ var STANDARD = [
     de:['Finanz-Raumschiff','Firma, privat, Verein, Luxemburg — ein Cockpit, ein Kurs.'],
     en:['Finance spaceship','Company, private, association, Luxembourg — one cockpit, one course.'] }
 ];
+
+/* ---------- Bereiche: die Rückseiten (07.09.2026) -----------------------------------
+   Alle opt-in — portal.js › bereiche: { crm:true, fap:true, raumschiff:true, vishnu:true,
+   vaikuntha:true }. true = an, false/fehlt = aus, Text = eigene Hauptadresse. Einzelne
+   Zeilen: portal.js › links: { 'fap.stajira': false, 'crm.start': 'https://…' }.
+   `ersetzt` nennt die Zeilen der zweiten Ebene, die derselbe Bereich schon enthält —
+   sie fallen weg, sobald der Bereich an ist (zwei Wege zum selben Ziel verwirren).
+   Jede Adresse wurde am 07.09.2026 live geprüft — keine erfundenen Einträge. */
+var BEREICHE = [
+  { id:'crm', icon:'🗂️', url:VA + 'crm.php?v=start', ersetzt:['crm'],
+    kick:['Menschen & Kunden','People & clients'],
+    de:['CRM','Eine Akte je Mensch und Organisation — Rollen, Fähigkeiten, Pipeline, Kurse.'],
+    en:['CRM','One record per person and organisation — roles, skills, pipeline, courses.'],
+    spalten:[
+      { de:'Akten', en:'Records', links:[
+        { id:'start',   icon:'🏠', url:VA + 'crm.php?v=start',    de:'Überblick',          en:'Overview' },
+        { id:'liste',   icon:'👤', url:VA + 'crm.php?v=liste',    de:'Personen',           en:'People' },
+        { id:'orgs',    icon:'🏢', url:VA + 'crm.php?v=orgs',     de:'Organisationen',     en:'Organisations' },
+        { id:'skills',  icon:'🛠️', url:VA + 'crm.php?v=skills',   de:'Fähigkeiten',        en:'Skills' },
+        { id:'luecken', icon:'🧩', url:VA + 'crm.php?v=luecken',  de:'Profile mit Lücken', en:'Profiles with gaps' } ] },
+      { de:'Vertrieb & Termine', en:'Sales & dates', links:[
+        { id:'pipeline', icon:'📈', url:VA + 'crm.php?v=pipeline', de:'Pipeline',        en:'Pipeline' },
+        { id:'kurse',    icon:'🎓', url:VA + 'crm.php?v=kurse',    de:'Kurse & Termine', en:'Courses & dates' },
+        { id:'abos',     icon:'🔁', url:VA + 'crm.php?v=abos',     de:'Abos',            en:'Subscriptions' } ] },
+      { de:'Pflege', en:'Housekeeping', links:[
+        { id:'zustand',   icon:'🩺', url:VA + 'crm.php?v=zustand',   de:'Zustand des CRM',      en:'CRM health' },
+        { id:'dubletten', icon:'👥', url:VA + 'crm.php?v=dubletten', de:'Dubletten',            en:'Duplicates' },
+        { id:'aufraeumen',icon:'🧹', url:VA + 'dubletten.php',       de:'Dubletten zusammenführen', en:'Merge duplicates' } ] }
+    ] },
+
+  { id:'fap', icon:'🎒', url:VA + 'portal-admin.php?v=bewerbungen', ersetzt:['bewerbungen','portalpflege'],
+    kick:['Freelancer-Pool','Freelancer pool'],
+    de:['FAP & JAP','Aufnahme ins Kollektiv (FAP) und Einsatz beim Kunden (JAP) — von der Bewerbung bis zum Placement.'],
+    en:['FAP & JAP','Joining the collective (FAP) and client placements (JAP) — from application to placement.'],
+    spalten:[
+      { de:'Vorgänge', en:'Cases', links:[
+        { id:'bewerbungen', icon:'📋', url:VA + 'portal-admin.php?v=bewerbungen',            de:'Bewerbungen fortschreiben', en:'Advance applications' },
+        { id:'laufend',     icon:'⏳', url:VA + 'portal-admin.php?v=bewerbungen&zeige=laufend', de:'Laufende Vorgänge',      en:'Open cases' },
+        { id:'dokumente',   icon:'📎', url:VA + 'portal-admin.php?v=dokumente&nur=offen',    de:'Unterlagen prüfen',         en:'Check documents' },
+        { id:'termine',     icon:'📅', url:VA + 'portal-admin.php?v=termine',                de:'Termine & AI-Café',         en:'Dates & AI café' } ] },
+      { de:'Pool', en:'Pool', links:[
+        { id:'kpi',    icon:'🎯', url:VA + 'pool-kpi.php',          de:'Pool-KPIs',                  en:'Pool KPIs' },
+        { id:'pool',   icon:'📇', url:VA + 'pool-kpi.php?v=liste',  de:'Pool-Liste',                 en:'Pool list' },
+        { id:'pflege', icon:'🛠️', url:VA + 'portal-admin.php',      de:'Portal-Pflege',              en:'Portal admin' },
+        { id:'sicht',  icon:'👁️', url:VA + 'portal.html',           de:'Dein Portal (Freelancer-Sicht)', en:'The portal as freelancers see it' } ] },
+      { de:'Außen', en:'Outside', links:[
+        { id:'freelancer', icon:'🌐', url:VA + 'freelancer.html',   de:'Freelancer-Seite',   en:'Freelancer page' },
+        { id:'formular',   icon:'✍️', url:VA + 'bewerbung.html',    de:'Bewerbungsformular', en:'Application form' },
+        { id:'stajira',    icon:'🎫', url:JIRA + 'STA/boards',      de:'Jira STA',           en:'Jira STA' } ] }
+    ] },
+
+  { id:'raumschiff', icon:'🚀', url:VA + 'raumschiff/', ersetzt:['finanzen','strategie','abos'],
+    kick:['Finanzen','Finances'],
+    de:['Finanz-Raumschiff','Firma, privat, Verein, Luxemburg — ein Cockpit, ein Kurs. Jede Entität hat ihren Platz.'],
+    en:['Finance spaceship','Company, private, association, Luxembourg — one cockpit, one course. Every entity has its place.'],
+    spalten:[
+      { de:'Entitäten', en:'Entities', links:[
+        { id:'bruecke', icon:'🛸', url:VA + 'raumschiff/#bruecke',      de:'Brücke — das Gesamtbild', en:'Bridge — the whole picture' },
+        { id:'privat',  icon:'👤', url:VA + 'raumschiff/#modul-privat', de:'Privat',                  en:'Private' },
+        { id:'firma',   icon:'🏢', url:VA + 'raumschiff/#modul-firma',  de:'Vishnu Artists GmbH',     en:'Vishnu Artists GmbH' },
+        { id:'lux',     icon:'🇱🇺', url:VA + 'raumschiff/#modul-lux',    de:'Luxemburg',               en:'Luxembourg' },
+        { id:'verein',  icon:'🌿', url:VA + 'raumschiff/#modul-verein', de:'Vaikuntha e.V.',          en:'Vaikuntha e.V.' } ] },
+      { de:'Steuerung', en:'Steering', links:[
+        { id:'vertraege',  icon:'📜', url:VA + 'raumschiff/#vertraege',  de:'Verträge & Darlehen', en:'Contracts & loans' },
+        { id:'wechsel',    icon:'🔗', url:VA + 'raumschiff/#wechsel',    de:'Wechselwirkungen',    en:'Interactions' },
+        { id:'kurs',       icon:'🧭', url:VA + 'raumschiff/#kurs',       de:'Kurskorrekturen',     en:'Course corrections' },
+        { id:'pruefstand', icon:'🦅', url:VA + 'raumschiff/#pruefstand', de:'Prüfstand',           en:'Test bench' },
+        { id:'anlage',     icon:'📈', url:VA + 'raumschiff/#anlage',     de:'Anlage & Trading',    en:'Investing & trading' },
+        { id:'fragen',     icon:'❓', url:VA + 'raumschiff/#fragen',     de:'Offene Fragen',       en:'Open questions' },
+        { id:'logbuch',    icon:'📓', url:VA + 'raumschiff/#logbuch',    de:'Logbuch',             en:'Logbook' } ] },
+      { de:'Finanzlauf GmbH', en:'Company finance run', links:[
+        { id:'finanzen',  icon:'💶', url:VA + 'finanzlauf/',              de:'Übersicht',            en:'Overview' },
+        { id:'lauf',      icon:'🗓️', url:VA + 'finanzlauf/lauf.php',      de:'Monatslauf & Belege',  en:'Monthly run & receipts' },
+        { id:'strategie', icon:'🧮', url:VA + 'finanzlauf/strategie.php', de:'Strategie Liquidität', en:'Liquidity strategy' },
+        { id:'abos',      icon:'🧾', url:VA + 'finanzlauf/abos.php',      de:'Abos der Firma',       en:'Company subscriptions' },
+        { id:'sync',      icon:'🤝', url:VA + 'finanzlauf/sync.php',      de:'GF-Sync',              en:'Management sync' } ] }
+    ] },
+
+  { id:'vishnu', icon:'🎛️', url:'', ersetzt:['jira'],
+    kick:['Vishnu Artists','Vishnu Artists'],
+    de:['Vishnu-Backend','Die Rückseite von vishnuartists.com: Pflege, Zahlen und die Werkzeuge dahinter.'],
+    en:['Vishnu backend','Behind vishnuartists.com: admin, numbers and the tools underneath.'],
+    spalten:[
+      { de:'Pflege & Zahlen', en:'Admin & numbers', links:[
+        { id:'portaladmin', icon:'🛠️', url:VA + 'portal-admin.php',  de:'Portal-Pflege',          en:'Portal admin' },
+        { id:'zustand',     icon:'🩺', url:VA + 'crm.php?v=zustand', de:'Zustand des CRM',        en:'CRM health' },
+        { id:'kennzahlen',  icon:'📊', url:VA + 'kennzahlen.html',   de:'Kennzahlen der Website', en:'Website metrics' },
+        { id:'erwachen',    icon:'🌸', url:VA + 'erwachen.html',     de:'Stufen des Erwachens',   en:'Stages of awakening' },
+        { id:'cockpit',     icon:'📈', url:'https://va.vishnuartists.com/', de:'Team-Cockpit',      en:'Team cockpit' } ] },
+      { de:'Website', en:'Website', links:[
+        { id:'start',     icon:'🌐', url:VA,                     de:'Startseite',   en:'Home page' },
+        { id:'backstage', icon:'🎭', url:VA + 'backstage.html',  de:'Backstage',    en:'Backstage' },
+        { id:'team',      icon:'👥', url:VA + 'team.html',       de:'Team',         en:'Team' },
+        { id:'academy',   icon:'🎓', url:VA + 'academy.html',    de:'Academy',      en:'Academy' },
+        { id:'meinvishnu',icon:'🪷', url:VA + 'mein-vishnu.html',de:'Mein Vishnu',  en:'My Vishnu' } ] },
+      { de:'Werkzeuge', en:'Tools', links:[
+        { id:'jira',     icon:'🎫', url:JIRA + 'VA/boards',                    de:'Jira VA',            en:'Jira VA', zeigt:'atlassian.net' },
+        { id:'github',   icon:'🐙', url:'https://github.com/benediktirsch-rgb', de:'GitHub (Repos)',     en:'GitHub (repos)', zeigt:'github.com' },
+        { id:'kas',      icon:'🖥️', url:'https://kas.all-inkl.com/',            de:'KAS — Hosting',      en:'KAS — hosting', zeigt:'all-inkl.com' },
+        { id:'fastbill', icon:'🧾', url:'https://my.fastbill.com/',             de:'Fastbill — Rechnungen', en:'Fastbill — invoices', zeigt:'fastbill.com' },
+        { id:'stripe',   icon:'💳', url:'https://dashboard.stripe.com/',        de:'Stripe — Zahlungen', en:'Stripe — payments', zeigt:'stripe.com' } ] }
+    ] },
+
+  { id:'vaikuntha', icon:'🌿', url:wp('vk-cockpit'), zeigt:'vaikuntha.eu', ersetzt:[],
+    kick:['Verein','Association'],
+    de:['Vaikuntha-Backend','Das WordPress-Cockpit von vaikuntha.eu — angemeldet über dein Vishnu-Konto, kein zweites Login.'],
+    en:['Vaikuntha backend','The WordPress cockpit of vaikuntha.eu — signed in through your Vishnu account, no second login.'],
+    spalten:[
+      { de:'Cockpit & Mitglieder', en:'Cockpit & members', links:[
+        { id:'cockpit',  icon:'🏠', url:wp('vk-cockpit'),                   de:'Vaikuntha Cockpit',   en:'Vaikuntha cockpit' },
+        { id:'crm',      icon:'📇', url:wp('vk-crm'),                       de:'CRM & Kontakte',      en:'CRM & contacts' },
+        { id:'freigabe', icon:'🔐', url:vk('/wp-admin/users.php?page=vk-freigabe'), de:'Zugänge freigeben', en:'Approve access' },
+        { id:'beitraege',icon:'💶', url:wp('vk-beitraege'),                 de:'Mitgliedsbeiträge',   en:'Membership fees' },
+        { id:'wpadmin',  icon:'⚙️', url:vk('/wp-admin/'),                   de:'WordPress-Admin',     en:'WordPress admin' } ] },
+      { de:'Camp & Programm', en:'Camp & programme', links:[
+        { id:'sommercamp', icon:'⛺', url:wp('vk_sc_admin'),      de:'Sommercamp',       en:'Summer camp' },
+        { id:'verwaltung', icon:'📋', url:wp('vk_sc_verwaltung'), de:'Camp-Verwaltung',  en:'Camp admin' },
+        { id:'kasse',      icon:'💰', url:wp('vk-camp-kasse'),    de:'Camp-Kasse',       en:'Camp cash desk' },
+        { id:'gebuehren',  icon:'🧾', url:wp('vk_sc_fee'),        de:'Gebühren-Report',  en:'Fee report' },
+        { id:'yoga',       icon:'🧘', url:wp('vk_yk_admin'),      de:'YogaKuntha',       en:'YogaKuntha' },
+        { id:'goa',        icon:'🌴', url:wp('vk-goa'),           de:'Goa-Trip 2026/27', en:'Goa trip 2026/27' },
+        { id:'social',     icon:'📣', url:wp('vk-social-plan'),   de:'Social-Plan',      en:'Social plan' } ] },
+      { de:'Außen', en:'Outside', links:[
+        { id:'site',    icon:'🌐', url:'https://vaikuntha.eu/',   de:'vaikuntha.eu',      en:'vaikuntha.eu' },
+        { id:'bereich', icon:'🪷', url:vk('/mein-bereich/'),      de:'Mein Bereich',      en:'My area' },
+        { id:'jira',    icon:'🎫', url:JIRA + 'VAIKWEB/boards',   de:'Jira VAIKWEB',      en:'Jira VAIKWEB', zeigt:'atlassian.net' } ] }
+    ] }
+];
+
 /* ---------- Zweite Ebene: selten gebraucht, trotzdem auffindbar ---------------------
    std:false = steht nur da, wenn portal.js es einschaltet (Finanzen, Bewerbungen, CRM
    und die Portal-Pflege gehen nicht jede Person etwas an). Wie bei den Kacheln:
    true = Standardadresse, false = weg, Text = eigene Adresse. Aus Gründen der
    Abwärtskompatibilität wirkt auch der alte Block `neben` weiter. */
 var MEHR = [
-  { gruppe:'ich', id:'profil', icon:'👤', std:true, url:'https://vishnuartists.com/profil.php',
+  { gruppe:'ich', id:'profil', icon:'👤', std:true, url:VA + 'profil.php',
     de:'Mein Profil pflegen', en:'Edit my profile' },
   { gruppe:'ich', id:'kennzahlen', icon:'📈', std:true, url:'./compass/kennzahlen.html',
     de:'Meine Kennzahlen', en:'My metrics' },
-  { gruppe:'ich', id:'freelancerportal', icon:'🎒', std:true, url:'https://vishnuartists.com/portal.html',
+  { gruppe:'ich', id:'freelancerportal', icon:'🎒', std:true, url:VA + 'portal.html',
     de:'Mein Freelancer-Portal', en:'My freelancer portal' },
 
-  { gruppe:'firma', id:'finanzen', icon:'💶', std:false, url:'https://vishnuartists.com/finanzlauf/',
+  { gruppe:'firma', id:'finanzen', icon:'💶', std:false, url:VA + 'finanzlauf/',
     de:'Finanzen', en:'Finances' },
-  { gruppe:'firma', id:'strategie', icon:'🧭', std:false, url:'https://vishnuartists.com/finanzlauf/strategie.php',
+  { gruppe:'firma', id:'strategie', icon:'🧭', std:false, url:VA + 'finanzlauf/strategie.php',
     de:'Strategie Liquidität', en:'Liquidity strategy' },
-  { gruppe:'firma', id:'abos', icon:'🧾', std:false, url:'https://vishnuartists.com/finanzlauf/abos.php',
+  { gruppe:'firma', id:'abos', icon:'🧾', std:false, url:VA + 'finanzlauf/abos.php',
     de:'Abos', en:'Subscriptions' },
 
-  { gruppe:'menschen', id:'bewerbungen', icon:'📋', std:false, url:'https://vishnuartists.com/portal-admin.php?v=bewerbungen',
+  { gruppe:'menschen', id:'bewerbungen', icon:'📋', std:false, url:VA + 'portal-admin.php?v=bewerbungen',
     de:'Bewerbungen (FAP & JAP)', en:'Applications (FAP & JAP)' },
-  { gruppe:'menschen', id:'crm', icon:'🗂️', std:false, url:'https://vishnuartists.com/crm.php',
+  { gruppe:'menschen', id:'crm', icon:'🗂️', std:false, url:VA + 'crm.php',
     de:'CRM', en:'CRM' },
-  { gruppe:'menschen', id:'portalpflege', icon:'🛠️', std:false, url:'https://vishnuartists.com/portal-admin.php',
+  { gruppe:'menschen', id:'portalpflege', icon:'🛠️', std:false, url:VA + 'portal-admin.php',
     de:'Portal-Pflege', en:'Portal admin' },
-  { gruppe:'menschen', id:'team', icon:'👥', std:true, url:'https://vishnuartists.com/team.html',
+  { gruppe:'menschen', id:'team', icon:'👥', std:true, url:VA + 'team.html',
     de:'Menschen & Profile', en:'People & profiles' },
 
-  { gruppe:'lernen', id:'academy', icon:'🎓', std:true, url:'https://vishnuartists.com/academy.html',
+  { gruppe:'lernen', id:'academy', icon:'🎓', std:true, url:VA + 'academy.html',
     de:'Academy', en:'Academy' },
-  { gruppe:'lernen', id:'buchung', icon:'📅', std:true, url:'https://vishnuartists.com/buchung.html',
+  { gruppe:'lernen', id:'buchung', icon:'📅', std:true, url:VA + 'buchung.html',
     de:'Training buchen', en:'Book a training' },
   { gruppe:'lernen', id:'jira', icon:'🎫', std:true, url:'https://vishnuartists.atlassian.net/jira/projects',
     de:'Jira', en:'Jira' }
@@ -215,12 +412,36 @@ function ziel(k){
   if (v === true) return k.url;
   return String(v || '');
 }
-function host(u){
+/* Dasselbe für einen Bereich (Standard: aus) und für eine einzelne Zeile darin. */
+function bereichZiel(b){
+  var c = P.bereiche || {};
+  if (!(b.id in c)) return null;               /* aus */
+  var v = c[b.id];
+  if (v === false) return null;
+  if (v === true) return b.url;                /* '' erlaubt: Bereich ohne Hauptknopf */
+  return String(v || '');
+}
+function linkZiel(b, l){
+  var c = P.links || {};
+  var k = b.id + '.' + l.id;
+  if (!(k in c)) return l.url;
+  var v = c[k];
+  if (v === false) return '';
+  if (v === true) return l.url;
+  return String(v || '');
+}
+function host(u, zeigt){
+  if (zeigt) return zeigt;
   if (u.charAt(0) === '.') return TEXTE[SPR].hier;
   try { return new URL(u, location.href).host; } catch(e) { return u; }
 }
 function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
   return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]; }); }
+function extern(u){ return u.charAt(0) !== '.' && u.charAt(0) !== '#'; }
+function aTag(u, klasse){
+  return '<a' + (klasse ? ' class="' + klasse + '"' : '') + ' href="' + esc(u) + '"' +
+         (extern(u) ? ' target="_blank" rel="noopener"' : '') + '>';
+}
 
 function zeichne(){
   var T = TEXTE[SPR];
@@ -229,8 +450,11 @@ function zeichne(){
   var g = h < 11 ? T.gruss[0] : (h < 17 ? T.gruss[1] : T.gruss[2]);
   document.getElementById('gruss').innerHTML = esc(g) + (NAME ? ', <em>' + esc(NAME) + '</em>' : '');
   document.getElementById('lead').textContent = P.lead || T.lead;
+  document.getElementById('kick').textContent = T.kick + ' · ' + location.host;
+  document.getElementById('pill').textContent = T.pill;
   document.getElementById('knSprache').textContent = T.sprache;
 
+  /* ---- Kacheln ---- */
   var n = 0, html = '';
   /* portal.js › haupt: '<id>' macht eine andere Kachel zur ersten und hervorgehobenen
      (06.09.2026: bei Martin ist es das Raumschiff, nicht der Compass). */
@@ -240,21 +464,46 @@ function zeichne(){
     var u = ziel(k); if (!u) return;
     n++;
     var t = k[SPR] || k.de;
-    var extern = u.charAt(0) !== '.';
     var haupt = P.haupt ? (k.id === P.haupt) : !!k.haupt;
-    html += '<a class="tile' + (haupt ? ' haupt' : '') + '" href="' + esc(u) + '"' +
-            (extern ? ' target="_blank" rel="noopener"' : '') + ' data-nr="' + n + '">' +
+    html += aTag(u, 'tile' + (haupt ? ' haupt' : '')).replace('<a ', '<a data-nr="' + n + '" ') +
             '<span class="kbd">' + n + '</span><span class="ic">' + k.icon + '</span>' +
             '<h2>' + esc(t[0]) + '</h2><p>' + esc(t[1]) + '</p>' +
-            '<span class="go">' + esc(T.oeffnen) + ' →<span class="host">' + esc(host(u)) + '</span></span></a>';
+            '<span class="go">' + esc(T.oeffnen) + ' →<span class="host">' + esc(host(u, k.zeigt)) + '</span></span></a>';
   });
   document.getElementById('grid').innerHTML = html;
 
+  /* ---- Bereiche ---- */
+  var ersetzt = {}, bh = '', nav = '';
+  BEREICHE.forEach(function(b){
+    var u = bereichZiel(b); if (u === null) return;
+    (b.ersetzt || []).forEach(function(id){ ersetzt[id] = true; });
+    var t = b[SPR] || b.de, kick = b.kick[SPR === 'en' ? 1 : 0];
+    var sp = '';
+    b.spalten.forEach(function(s){
+      var zeilen = '';
+      s.links.forEach(function(l){
+        var lu = linkZiel(b, l); if (!lu) return;
+        zeilen += '<li>' + aTag(lu) + '<span class="ic2">' + l.icon + '</span>' + esc(l[SPR] || l.de) +
+                  (l.zeigt ? '<span class="ext">' + esc(l.zeigt) + '</span>' : '') + '</a></li>';
+      });
+      if (zeilen) sp += '<div class="spalte"><h4>' + esc(s[SPR] || s.de) + '</h4><ul>' + zeilen + '</ul></div>';
+    });
+    bh += '<section class="bereich" id="b-' + esc(b.id) + '"><div class="bk">' +
+          '<span class="bic">' + b.icon + '</span><div class="bt"><p class="kick">' + esc(kick) + '</p>' +
+          '<h2>' + esc(t[0]) + '</h2><p class="sub">' + esc(t[1]) + '</p></div>' +
+          (u ? aTag(u, 'btn ghost') + esc(T.oeffnen) + ' → <span style="font-weight:600;color:var(--sub)">' + esc(host(u, b.zeigt)) + '</span></a>' : '') +
+          '</div><div class="spalten">' + sp + '</div></section>';
+    nav += '<a href="#b-' + esc(b.id) + '">' + esc(t[0]) + '</a>';
+  });
+  document.getElementById('bereiche').innerHTML = bh;
+  document.getElementById('navlinks').innerHTML = nav;
+
+  /* ---- Zweite Ebene ---- */
   var mehr = '';
   GRUPPEN.forEach(function(g){
     var zeilen = '';
     MEHR.forEach(function(k){
-      if (k.gruppe !== g.id) return;
+      if (k.gruppe !== g.id || ersetzt[k.id]) return;
       var c = P.mehr || {}, alt = P.neben || {};
       var wahl = (k.id in c) ? c[k.id] : ((k.id in alt) ? alt[k.id] : undefined);
       var u;
@@ -263,8 +512,7 @@ function zeichne(){
       else if (wahl === true)  { u = k.url; }
       else { u = String(wahl || ''); }
       if (!u) return;
-      zeilen += '<li><a href="' + esc(u) + '"' + (u.charAt(0) !== '.' ? ' target="_blank" rel="noopener"' : '') +
-                '><span class="ic2">' + k.icon + '</span>' + esc(k[SPR] || k.de) + '</a></li>';
+      zeilen += '<li>' + aTag(u) + '<span class="ic2">' + k.icon + '</span>' + esc(k[SPR] || k.de) + '</a></li>';
     });
     if (zeilen) mehr += '<div><h3>' + esc(g[SPR] || g.de) + '</h3><ul>' + zeilen + '</ul></div>';
   });
@@ -298,7 +546,7 @@ document.getElementById('knSprache').addEventListener('click', function(){
   try { localStorage.setItem('portalSprache', SPR); } catch(e){}
   zeichne();
 });
-/* Tasten 1..4 öffnen die Kacheln — wie die Kontextwechsel im Compass. */
+/* Tasten 1..9 öffnen die Kacheln — wie die Kontextwechsel im Compass. */
 document.addEventListener('keydown', function(e){
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (/^[1-9]$/.test(e.key)) {
