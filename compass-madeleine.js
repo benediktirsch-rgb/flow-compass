@@ -51,6 +51,7 @@
       <div class="jstat" id="madDlgStat">Verbinde …</div>
       <div class="jmsgs" id="madMsgs"></div>
       <div class="jquick" id="madQuick">
+        <button data-q="Gesamtbild: GmbH, privat und Verein zusammen — wo stehen wir bei Liquidität, Steuerlast, Vorsorge und Klumpenrisiko, und welche eine Optimierung über die Grenzen hinweg bringt jetzt am meisten?">Gesamtbild</button>
         <button data-q="Wie steht die Liquidität der GmbH — Kontostand, Deckung, was kommt in den nächsten 30 Tagen rein und raus?">Liquidität</button>
         <button data-q="Welche Fristen stehen an — Steuer, Abo-Kündigungen, Luxemburg, Verein? Was ist überfällig?">Fristen</button>
         <button data-q="Welche Entscheidung aus dem Strategiepapier ist noch offen, und was würdest du mit den heutigen Zahlen empfehlen?">Strategie</button>
@@ -157,10 +158,11 @@
   /* ---------- Karte: hinter Johns Karte, gleiche Bauart (.jk) ---------- */
   function madKachel(){
     return `<div class="card s6 tone-none jk mk" id="madKachel"><h3>👩‍💼 Madeleine <span class="cnt" id="madCnt">Finanzen · Steuer · Organisation</span></h3>
-    <div class="jkopf"><div class="jav">📊</div><div><div class="jwer">Zahlen, Fristen, Struktur — GmbH und Verein</div>
+    <div class="jkopf"><div class="jav">📊</div><div><div class="jwer">Das Gesamtbild — GmbH, privat, Verein</div>
       <div class="jwas" id="madStat">${H(statusText())}</div></div></div>
     <div id="madBody">${bodyHtml()}</div>
     <div class="jmodi">
+      <button class="jm2" onclick="madOpen('Gesamtbild: GmbH, privat und Verein zusammen — wo stehen wir bei Liquidität, Steuerlast, Vorsorge und Klumpenrisiko, und welche eine Optimierung über die Grenzen hinweg bringt jetzt am meisten?')" title="Alle drei Töpfe, vier Gesamt-Kennzahlen, ein Hebel">🧭 Gesamtbild</button>
       <button class="jm2" onclick="madOpen('Wie steht die Liquidität der GmbH — Kontostand, Deckung, was kommt in den nächsten 30 Tagen rein und raus?')" title="Kontostand, Deckung, Ein- und Ausgänge">💧 Liquidität</button>
       <button class="jm2" onclick="madOpen('Welche Fristen stehen an — Steuer, Abo-Kündigungen, Luxemburg, Verein? Was ist überfällig?')" title="Steuer, Kündigungen, Verein">📅 Fristen</button>
       <button class="jm2" onclick="madOpen('Was sollte ich organisatorisch als Nächstes ordnen — GmbH oder Verein? Ein Vorschlag mit Begründung.')" title="Struktur, Zuständigkeiten, Routinen">🗂️ Organisation</button>
