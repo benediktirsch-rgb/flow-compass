@@ -103,9 +103,18 @@
                                  unter C:\dev. Rein lokal, keine Zugangsdaten. GET /api/sicherung/status zeigt
                                  die geprueften Paare und die Schwellen.
 
-  Voraussetzung
-    Ein API-Schlüssel — entweder Umgebungsvariable ANTHROPIC_API_KEY (empfohlen) oder die Datei
-    john-api-key.txt neben diesem Skript (eine Zeile, nur der Schlüssel). Nie ins Repo legen.
+  Voraussetzung — eine KI-Anbindung, auf DEINE Rechnung (seit 07.09.2026 zwei Wege)
+    a) Claude-Abo (empfohlen, Backend 'cli'): Claude Code ist auf dem Rechner und angemeldet. Der Server findet die
+       claude.exe selbst (JOHN_CLAUDE_EXE, ~\.local\bin, PATH, Bündel der Claude-Desktop-App) und ruft sie je Anfrage
+       im Kopflos-Modus auf (`claude -p`, Systemprompt aus Datei, Werkzeuge über john-mcp.ps1). Anmelden — einmalig,
+       im Terminal, öffnet den Browser:   "<pfad>\claude.exe" auth login     (Prüfen: … auth status)
+       Installieren ohne Claude Code:      irm https://claude.ai/install.ps1 | iex   (legt ~\.local\bin\claude.exe an)
+       Kosten: dein Abo (5-Stunden- und Wochenfenster), kein Guthaben. ANTHROPIC_API_KEY wird dem Aufruf bewusst
+       NICHT mitgegeben — sonst zahlte doch die API.
+    b) API-Schlüssel (Backend 'api'): Umgebungsvariable ANTHROPIC_API_KEY oder die Datei john-api-key.txt neben
+       diesem Skript (eine Zeile, nur der Schlüssel). Nie ins Repo legen. Abrechnung nach Verbrauch.
+    Auswahl: -Backend cli|api|auto (Standard auto = cli, sobald eine claude.exe da ist) oder die
+    Benutzer-Umgebungsvariable JOHN_BACKEND. GET /api/john/status sagt, was gerade gilt.
     Trello (optional): je Board Key + Token als Benutzer-Umgebungsvariablen
       TRELLO_ARBEIT_KEY / TRELLO_ARBEIT_TOKEN   (Konto porsche@vishnuartists.com, Board Zw3jgjsR)
       TRELLO_PRIVAT_KEY / TRELLO_PRIVAT_TOKEN   (Konto benedikt.irsch@gmail.com, Board jO3Q7d8Z)
@@ -151,6 +160,13 @@ param(
   [string]$Model = 'claude-fable-5',
   [ValidateSet('low','medium','high','xhigh','max')][string]$Effort = 'medium',
   [int]$MaxTokens = 2048,
+  # KI-Anbindung (07.09.2026): 'cli' = Claude Code im Kopflos-Modus (`claude -p`) — läuft auf dem Claude-Abo des
+  # Kontos, das in Claude Code angemeldet ist, kein API-Guthaben nötig. 'api' = Anthropic-API mit Schlüssel
+  # (Guthaben). 'auto' = cli, sobald eine claude.exe gefunden wird, sonst api. Ohne Neustart umstellbar über die
+  # Benutzer-Umgebungsvariable JOHN_BACKEND (cli|api); JOHN_CLAUDE_EXE zeigt bei Bedarf auf eine bestimmte claude.exe.
+  [ValidateSet('auto','cli','api')][string]$Backend = 'auto',
+  # Wie John seinen Menschen im Gesprächsverlauf nennt (Abo-Weg: der Verlauf wird als Text übergeben).
+  [string]$NutzerName = 'Benedikt',
   # Trello-Boards: Schlüsselname → Board-ID/Shortlink. Zwei Konten, darum je Board eigenes Key/Token-Paar (s. Kopf).
   [hashtable]$TrelloBoards = @{ arbeit = 'Zw3jgjsR'; privat = 'jO3Q7d8Z' },
   [int]$TrelloCacheSec = 60,
@@ -507,30 +523,179 @@ selten: höchstens zweimal am Tag. „Rufe mich ab und an, nicht zu oft. Ich kom
   return @{ text = ($parts -join "`n`n"); geladen = $geladen }
 }
 
-$Tools = @(
-  @{ name = 'notiz_speichern'; description = 'Hängt eine Coaching-Notiz (Erkenntnis, Entscheidung, Feedback von Benedikt) mit Datum an john/coaching/cockpit-notizen.md an. Nutze es, wenn Benedikt etwas entscheidet, dir Feedback gibt oder etwas Neues über seine Ziele/Situation erzählt.';
-     input_schema = @{ type = 'object'; properties = @{ text = @{ type = 'string'; description = 'Die Notiz in 1–3 Sätzen, in Benedikts Sinne formuliert.' } }; required = @('text') } },
-  @{ name = 'aufgabe_anlegen'; description = 'Fügt eine offene Aufgabe (mit optionaler Deadline) an john/TASKS.md an. Nutze es, wenn im Gespräch ein konkretes Todo für Benedikt oder dich entsteht.';
-     input_schema = @{ type = 'object'; properties = @{ text = @{ type = 'string'; description = 'Aufgabe als Checkbox-Zeile ohne führendes "- [ ]".' }; deadline = @{ type = 'string'; description = 'Optional, z. B. 2026-08-22.' } }; required = @('text') } }
-)
-function Invoke-Tool($name, $inp) {
-  $stamp = Get-Date -Format 'yyyy-MM-dd HH:mm'
-  switch ($name) {
-    'notiz_speichern' {
-      $f = Join-Path $JohnDir 'coaching\cockpit-notizen.md'
-      if (-not (Test-Path (Split-Path $f))) { New-Item -ItemType Directory -Force (Split-Path $f) | Out-Null }
-      if (-not (Test-Path $f)) { [IO.File]::WriteAllText($f, "# Cockpit-Notizen (John)`n`nNotizen aus der Chat-Bubble im Cockpit — neueste unten.`n", [Text.UTF8Encoding]::new($false)) }
-      [IO.File]::AppendAllText($f, "`n- **$stamp** — $($inp.text)`n", [Text.UTF8Encoding]::new($false))
-      return "Notiz gespeichert in john/coaching/cockpit-notizen.md ($stamp)."
+# Die zwei Werkzeuge liegen seit dem 07.09.2026 in john-tools.ps1 — dieselbe Datei nutzt john-mcp.ps1,
+# damit Claude Code (Abo-Weg) exakt dieselben Werkzeuge hat wie der API-Weg.
+. (Join-Path $PSScriptRoot 'john-tools.ps1')
+
+# ---------- KI-Anbindung: Claude Code (Abo) oder API (Schlüssel) — 07.09.2026 ----------
+# Bene, 07.09.2026: „ist es möglich, meine Tokens aus dem Abo zu nutzen?" — ja, über Claude Code im
+# Kopflos-Modus. Und für alle anderen Instanzen: „Claude oder jeder andere KI-Agent muss angebunden werden,
+# damit das nicht über meine Rechnung läuft" — der Server läuft auf dem Rechner der jeweiligen Person, mit
+# ihrem Konto. Ohne Anbindung bleibt der Compass im Solo-Modus (Dateien statt KI).
+$script:Utf8NoBom = New-Object Text.UTF8Encoding($false)
+$script:ClaudeExe = $null
+$script:CliLogin  = $null
+$CliHinweisChat = @"
+Technischer Rahmen: Du läufst über Claude Code im Kopflos-Modus. Es gibt keine Dateiwerkzeuge und keine Shell —
+deine einzigen Werkzeuge sind notiz_speichern und aufgabe_anlegen (MCP-Server „john"). Der Gesprächsverlauf
+kommt als Text in der Nachricht; antworte nur mit deinem Beitrag, ohne Präfix und ohne Zusammenfassung des Verlaufs.
+"@
+$CliHinweisText = @"
+Technischer Rahmen: Du läufst über Claude Code im Kopflos-Modus ohne Werkzeuge. Antworte ausschließlich mit dem
+verlangten Text — keine Einleitung, keine Rückfrage, keine Erklärung.
+"@
+
+function Find-ClaudeExe {
+  if ($script:ClaudeExe -and (Test-Path $script:ClaudeExe)) { return $script:ClaudeExe }
+  $kand = New-Object System.Collections.Generic.List[string]
+  foreach ($scope in @('Process','User')) { $v = [Environment]::GetEnvironmentVariable('JOHN_CLAUDE_EXE', $scope); if ($v) { $kand.Add($v.Trim()) } }
+  $kand.Add((Join-Path $env:USERPROFILE '.local\bin\claude.exe'))
+  $cmd = Get-Command claude -ErrorAction SilentlyContinue; if ($cmd -and $cmd.Source) { $kand.Add($cmd.Source) }
+  # Bündel der Claude-Desktop-App (Store-Paket): …\Packages\Claude_<id>\LocalCache\Roaming\Claude\claude-code\<version>\claude.exe
+  foreach ($paket in @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue)) {
+    $cc = Join-Path $paket.FullName 'LocalCache\Roaming\Claude\claude-code'
+    if (Test-Path $cc) {
+      Get-ChildItem $cc -Directory -ErrorAction SilentlyContinue |
+        Sort-Object { $v = $null; if ([version]::TryParse($_.Name, [ref]$v)) { $v } else { [version]'0.0' } } -Descending |
+        ForEach-Object { $kand.Add((Join-Path $_.FullName 'claude.exe')) }
     }
-    'aufgabe_anlegen' {
-      $f = Join-Path $JohnDir 'TASKS.md'
-      $line = "- [ ] $($inp.text)"; if ($inp.deadline) { $line += " (bis $($inp.deadline))" }; $line += " · via John-Bubble $stamp"
-      [IO.File]::AppendAllText($f, "`n$line`n", [Text.UTF8Encoding]::new($false))
-      return "Aufgabe angelegt in john/TASKS.md: $($inp.text)"
-    }
-    default { return "Unbekanntes Tool: $name" }
   }
+  foreach ($k in $kand) { if ($k -and (Test-Path $k)) { $script:ClaudeExe = $k; return $k } }
+  return $null
+}
+function Get-Backend {
+  $b = $Backend
+  if ($b -eq 'auto') {
+    $e = [Environment]::GetEnvironmentVariable('JOHN_BACKEND', 'User'); if (-not $e) { $e = $env:JOHN_BACKEND }
+    if ($e -and (@('cli','api') -contains $e.Trim().ToLower())) { $b = $e.Trim().ToLower() }
+  }
+  if ($b -eq 'auto') { $b = $(if (Find-ClaudeExe) { 'cli' } else { 'api' }) }
+  return $b
+}
+function Get-CliLoginHint {
+  $exe = Find-ClaudeExe
+  if (-not $exe) { return 'Keine Claude-Code-CLI gefunden — Claude Code installieren (PowerShell: irm https://claude.ai/install.ps1 | iex) oder JOHN_CLAUDE_EXE auf die claude.exe zeigen lassen. Ohne Abo: JOHN_BACKEND=api mit eigenem Schlüssel.' }
+  return "Claude Code ist nicht angemeldet — einmalig im Terminal ausführen: `"$exe`" auth login (öffnet den Browser, Anmeldung mit dem Claude-Abo), danach hier ↻ Neu laden."
+}
+# Anmeldestand von Claude Code, höchstens alle 10 Minuten neu gefragt (`claude auth status` liefert JSON).
+function Get-CliLogin([switch]$Frisch) {
+  if (-not $Frisch -and $script:CliLogin -and ((Get-Date) - [DateTime]::Parse($script:CliLogin.zeit)).TotalMinutes -lt 10) { return $script:CliLogin }
+  $exe = Find-ClaudeExe
+  if (-not $exe) { $script:CliLogin = @{ ok = $false; methode = 'keine CLI'; zeit = (Get-Date).ToString('o') }; return $script:CliLogin }
+  try {
+    $r = Invoke-Prozess $exe @('auth','status') $null 40 @{ ohneApiKey = $true } $null
+    # `auth status` druckt das JSON mehrzeilig — von der ersten { bis zur letzten } nehmen.
+    $a = $r.stdout.IndexOf('{'); $z = $r.stdout.LastIndexOf('}')
+    if ($a -lt 0 -or $z -le $a) { throw "unerwartete Antwort: $(($r.stdout + ' ' + $r.stderr).Trim())" }
+    $j = $r.stdout.Substring($a, $z - $a + 1) | ConvertFrom-Json
+    $script:CliLogin = @{ ok = [bool]$j.loggedIn; methode = [string]$j.authMethod; konto = [string]$j.email; abo = [string]$j.subscriptionType; zeit = (Get-Date).ToString('o') }
+  } catch { $script:CliLogin = @{ ok = $false; methode = "Fehler: $($_.Exception.Message)"; zeit = (Get-Date).ToString('o') } }
+  return $script:CliLogin
+}
+function Quote-Arg([string]$a) {
+  if ($a -eq $null -or $a -eq '') { return '""' }
+  if ($a -notmatch '[\s"]') { return $a }
+  $a = $a -replace '(\\*)"', '$1$1\"'
+  $a = $a -replace '(\\+)$', '$1$1'
+  return '"' + $a + '"'
+}
+# Fremdprozess mit umgeleiteten Strömen: stdin als UTF-8-Bytes (PowerShell 5.1 kann die Eingabe-Kodierung
+# nicht setzen), stdout/stderr asynchron gelesen (sonst blockiert ein voller Puffer), harter Timeout.
+function Invoke-Prozess([string]$exe, [string[]]$argv, [string]$stdin, [int]$timeoutSec, [hashtable]$opt, [string]$cwd) {
+  $psi = New-Object Diagnostics.ProcessStartInfo
+  $psi.FileName = $exe
+  $psi.Arguments = (($argv | ForEach-Object { Quote-Arg $_ }) -join ' ')
+  $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
+  $psi.RedirectStandardInput = $true; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true
+  $psi.StandardOutputEncoding = $script:Utf8NoBom; $psi.StandardErrorEncoding = $script:Utf8NoBom
+  if ($cwd) { $psi.WorkingDirectory = $cwd }
+  # Nichts aus einer umgebenden Claude-Code-Sitzung mitschleppen; und beim Abo-Weg keinen API-Schlüssel —
+  # sonst rechnet Claude Code doch über die API ab.
+  foreach ($k in @($psi.EnvironmentVariables.Keys)) { if ($k -match '^(CLAUDECODE|CLAUDE_CODE_)') { $psi.EnvironmentVariables.Remove($k) } }
+  if ($opt -and $opt.ohneApiKey) { foreach ($k in @('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN')) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } } }
+  $psi.EnvironmentVariables['DISABLE_AUTOUPDATER'] = '1'
+  $psi.EnvironmentVariables['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'] = '1'
+  $p = [Diagnostics.Process]::Start($psi)
+  $outT = $p.StandardOutput.ReadToEndAsync(); $errT = $p.StandardError.ReadToEndAsync()
+  # Beendet sich der Prozess, bevor er die Eingabe gelesen hat (z. B. „nicht angemeldet"), bricht das
+  # Schreiben in die Pipe mit IOException ab — das ist dann kein Fehler, die Antwort auf stdout sagt, was los ist.
+  try {
+    if ($stdin -ne $null) { $b = $script:Utf8NoBom.GetBytes($stdin); $p.StandardInput.BaseStream.Write($b, 0, $b.Length); $p.StandardInput.BaseStream.Flush() }
+  } catch [System.IO.IOException] { } finally { try { $p.StandardInput.Close() } catch { } }
+  if (-not $p.WaitForExit($timeoutSec * 1000)) { try { $p.Kill() } catch { }; throw 'CLI_TIMEOUT' }
+  return @{ code = $p.ExitCode; stdout = $outT.GetAwaiter().GetResult(); stderr = $errT.GetAwaiter().GetResult() }
+}
+# Ein Aufruf von Claude Code im Kopflos-Modus. $o: tools (bool), maxTurns, effort, timeout (s).
+#   Systemprompt → Datei (256 kB passen in keine Kommandozeile), Prompt → stdin, Antwort → JSON auf stdout.
+#   --setting-sources "" und --strict-mcp-config: keine Nutzer-Einstellungen, Hooks oder fremden MCP-Server —
+#   John soll nicht Benes 27 Konnektoren starten. --tools "": keine eingebauten Werkzeuge. Werkzeuge nur über
+#   john-mcp.ps1, freigegeben per --allowedTools. Arbeitsordner außerhalb jedes Repos (keine CLAUDE.md-Funde).
+function Invoke-ClaudeCli([string]$systemText, [string]$prompt, [hashtable]$o) {
+  $exe = Find-ClaudeExe; if (-not $exe) { throw 'NO_CLI' }
+  $puf = Join-Path $PSScriptRoot '_puffer'; if (-not (Test-Path $puf)) { New-Item -ItemType Directory -Force $puf | Out-Null }
+  $cwd = Join-Path $env:LOCALAPPDATA 'john-compass\cli-cwd'; if (-not (Test-Path $cwd)) { New-Item -ItemType Directory -Force $cwd | Out-Null }
+  $stamp = [DateTime]::Now.Ticks
+  $sysFile = Join-Path $puf "john-system-$stamp.md"; $mcpFile = Join-Path $puf "john-mcp-$stamp.json"; $log = Join-Path $puf "john-mcp-$stamp.log"
+  [IO.File]::WriteAllText($sysFile, $systemText, $script:Utf8NoBom)
+  $argv = @('-p', '--output-format', 'json', '--system-prompt-file', $sysFile, '--model', $Model,
+            '--effort', $(if ($o.effort) { $o.effort } else { $Effort }), '--max-turns', [string]$(if ($o.maxTurns) { $o.maxTurns } else { 1 }),
+            '--no-session-persistence', '--strict-mcp-config', '--setting-sources', '', '--permission-mode', 'dontAsk', '--tools', '')
+  if ($o.tools) {
+    $cfg = @{ mcpServers = @{ john = @{ type = 'stdio'; command = 'powershell.exe'
+              args = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'john-mcp.ps1'),'-JohnDir',$JohnDir,'-Log',$log) } } }
+    [IO.File]::WriteAllText($mcpFile, ($cfg | ConvertTo-Json -Depth 10), $script:Utf8NoBom)
+    $argv += @('--mcp-config', $mcpFile, '--allowedTools', (@($Tools | ForEach-Object { "mcp__john__$($_.name)" }) -join ','))
+  }
+  $t0 = Get-Date
+  try {
+    $r = Invoke-Prozess $exe $argv $prompt $(if ($o.timeout) { $o.timeout } else { 300 }) @{ ohneApiKey = $true } $cwd
+    $zeile = ($r.stdout -split "`n" | Where-Object { $_.TrimStart().StartsWith('{') } | Select-Object -Last 1)
+    $j = $null; if ($zeile) { try { $j = $zeile | ConvertFrom-Json } catch { $j = $null } }
+    if (-not $j) {
+      $roh = (($r.stderr + ' ' + $r.stdout).Trim() -replace '\s+', ' '); if ($roh.Length -gt 400) { $roh = $roh.Substring(0, 400) }
+      throw "CLI ($($r.code)): $roh"
+    }
+    if ($j.is_error) {
+      $m = [string]$j.result
+      if ($m -match '(?i)not logged in|/login|authentication|OAuth token') { $script:CliLogin = $null; throw 'NO_LOGIN' }
+      if ($m -match '(?i)credit balance') { throw 'NO_CREDIT' }
+      if ($m -match '(?i)usage limit|rate limit|limit reached|extra usage|too many requests|overloaded') { throw 'LIMIT' }
+      throw "CLI: $m"
+    }
+    $tools = @(); if (Test-Path $log) { $tools = @(Get-Content $log -Encoding UTF8 | Where-Object { $_ }) }
+    $model = ''; if ($j.modelUsage) { $model = (@($j.modelUsage.PSObject.Properties.Name) -join ', ') }
+    if (-not $model) { $model = $Model }
+    Write-Host ("  Claude Code: {0:n0} s · {1} · {2} Runde(n){3}" -f ((Get-Date) - $t0).TotalSeconds, $model, [int]$j.num_turns, $(if ($tools.Count) { ' · ✎ ' + ($tools -join ', ') } else { '' })) -ForegroundColor DarkGray
+    return @{ text = [string]$j.result; model = $model; usage = $j.usage; tools = $tools; cost = $j.total_cost_usd; turns = $j.num_turns; backend = 'cli' }
+  } finally { Remove-Item $sysFile, $mcpFile, $log -Force -ErrorAction SilentlyContinue }
+}
+# Der Chat-Verlauf als Text (der Kopflos-Modus nimmt eine Nachricht, keine Nachrichtenliste).
+function Format-CliVerlauf($msgs, $context) {
+  $sb = New-Object Text.StringBuilder
+  if ($msgs.Count -gt 1) {
+    [void]$sb.AppendLine('Bisheriger Verlauf dieses Chats (Kontext — nicht neu beantworten):'); [void]$sb.AppendLine()
+    foreach ($m in $msgs[0..($msgs.Count - 2)]) {
+      $wer = $(if ($m.role -eq 'user') { $NutzerName } else { 'John' })
+      [void]$sb.AppendLine("$wer`: $($m.content)"); [void]$sb.AppendLine()
+    }
+    [void]$sb.AppendLine('---'); [void]$sb.AppendLine()
+  }
+  if ($context) { [void]$sb.AppendLine("[Cockpit-Kontext]`n$context`n[/Cockpit-Kontext]"); [void]$sb.AppendLine() }
+  [void]$sb.AppendLine("$NutzerName schreibt jetzt:"); [void]$sb.AppendLine([string]$msgs[-1].content); [void]$sb.AppendLine()
+  [void]$sb.Append("Antworte als John direkt an $NutzerName — nur die Antwort, ohne Präfix.")
+  return $sb.ToString()
+}
+# Bekannte Fehlercodes der KI-Anbindung → Antwort für den Compass (Code, HTTP-Status, Klartext).
+function Get-JohnFehler([string]$m) {
+  switch ($m) {
+    'NO_KEY'      { return @{ code = 'NO_KEY';      status = 503; hint = 'ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann Server neu starten.' } }
+    'NO_CREDIT'   { return @{ code = 'NO_CREDIT';   status = 402; hint = 'Anthropic-Guthaben aufgebraucht — im Anthropic-Konto unter Plans & Billing aufladen. Der John-Server läuft weiter, ein Neustart ist nicht nötig.' } }
+    'NO_LOGIN'    { return @{ code = 'NO_LOGIN';    status = 503; hint = (Get-CliLoginHint) } }
+    'NO_CLI'      { return @{ code = 'NO_CLI';      status = 503; hint = (Get-CliLoginHint) } }
+    'LIMIT'       { return @{ code = 'LIMIT';       status = 429; hint = 'Das Nutzungsfenster deines Claude-Abos ist gerade ausgeschöpft — es öffnet sich von selbst wieder. Bis dahin arbeitet der Compass aus den Dateien.' } }
+    'CLI_TIMEOUT' { return @{ code = 'CLI_TIMEOUT'; status = 504; hint = 'Claude Code hat nicht rechtzeitig geantwortet — noch einmal versuchen.' } }
+  }
+  return $null
 }
 
 # ---------- Anthropic Messages API (raw HTTP; kein SDK für PowerShell) ----------
@@ -561,9 +726,14 @@ function Call-Claude($apiKey, $body) {
   return ($txt | ConvertFrom-Json)
 }
 function John-Chat($messages, $context) {
+  $sys = Build-System
+  if ((Get-Backend) -eq 'cli') {
+    $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })
+    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisChat) (Format-CliVerlauf $msgs $context) @{ tools = $true; maxTurns = 8; effort = $Effort; timeout = 420 }
+    return @{ text = ([string]$c.text).Trim(); stop_reason = 'end_turn'; model = $c.model; usage = $c.usage; tools = $c.tools; geladen = $sys.geladen; backend = 'cli' }
+  }
   $apiKey = Get-ApiKey
   if (-not $apiKey) { throw 'NO_KEY' }
-  $sys = Build-System
   # Stabiler Prefix (Persona + Dateien) wird gecacht; der wechselnde Cockpit-Kontext hängt hinten dran.
   $system = @(@{ type = 'text'; text = $sys.text; cache_control = @{ type = 'ephemeral' } })
   $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })
@@ -2066,8 +2236,6 @@ function Get-Sicherung([bool]$fresh) {
 
 # ---------- Johns Management-Summary (2 Sätze: gestern ehrlich, heute eingeordnet) ----------
 function John-Summary($in) {
-  $apiKey = Get-ApiKey
-  if (-not $apiKey) { throw 'NO_KEY' }
   $sys = Build-System
   $system = @(@{ type = 'text'; text = $sys.text; cache_control = @{ type = 'ephemeral' } })
   $daten = ($in | ConvertTo-Json -Depth 8)
@@ -2080,6 +2248,12 @@ Regeln: Zahlen nennen statt umschreiben; wenn Daten fehlen oder null sind, sag d
 Datenblock (JSON, vom Cockpit erzeugt):
 $daten
 "@
+  if ((Get-Backend) -eq 'cli') {
+    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisText) $auftrag @{ tools = $false; maxTurns = 1; effort = 'medium'; timeout = 240 }
+    return @{ text = ([string]$c.text).Trim(); model = $c.model; usage = $c.usage; stand = (Get-Date).ToString('o'); backend = 'cli' }
+  }
+  $apiKey = Get-ApiKey
+  if (-not $apiKey) { throw 'NO_KEY' }
   $body = @{ model = $Model; max_tokens = 400; system = $system; messages = @(@{ role = 'user'; content = $auftrag })
              output_config = @{ effort = 'medium' }; fallbacks = 'default' }
   $r = Call-Claude $apiKey $body
@@ -2212,8 +2386,6 @@ function Test-StapelPunkte($punkte) {
 }
 
 function John-Stapel($in) {
-  $apiKey = Get-ApiKey
-  if (-not $apiKey) { throw 'NO_KEY' }
   $s = Read-Stapel
   $jetzt = Get-Date
   $kand = @()
@@ -2281,9 +2453,16 @@ Antworte NUR mit JSON, ohne Erklärung, ohne Code-Zaun:
 "@
   $body = @{ model = $Model; max_tokens = 2500; system = $system; messages = @(@{ role = 'user'; content = $auftrag })
              output_config = @{ effort = 'medium' }; fallbacks = 'default' }
-  $r = Call-Claude $apiKey $body
-  if ($r.stop_reason -eq 'refusal') { return @{ ok = $false; error = 'REFUSAL'; hint = 'Sicherheitsfilter — später noch einmal.' } }
-  $text = (($r.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join "`n").Trim()
+  if ((Get-Backend) -eq 'cli') {
+    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisText) $auftrag @{ tools = $false; maxTurns = 1; effort = 'medium'; timeout = 300 }
+    $r = @{ model = $c.model; usage = $c.usage; stop_reason = 'end_turn' }; $text = ([string]$c.text).Trim()
+  } else {
+    $apiKey = Get-ApiKey
+    if (-not $apiKey) { throw 'NO_KEY' }
+    $r = Call-Claude $apiKey $body
+    if ($r.stop_reason -eq 'refusal') { return @{ ok = $false; error = 'REFUSAL'; hint = 'Sicherheitsfilter — später noch einmal.' } }
+    $text = (($r.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join "`n").Trim()
+  }
   $a = $text.IndexOf('{'); $z = $text.LastIndexOf('}')
   if ($a -lt 0 -or $z -le $a) { return @{ ok = $false; error = 'KEIN_JSON'; hint = 'John hat kein JSON geliefert.'; roh = $text } }
   $o = $null
@@ -3768,6 +3947,9 @@ Write-Host "  John-Ordner: $JohnDir"
 Write-Host "  Cockpit:  ${prefix}dashboard.html"
 Write-Host "  Status:   ${prefix}api/john/status"
 Write-Host "  Modell:   $Model · Effort $Effort · Schlüssel: $(if (Get-ApiKey) {'gefunden'} else {'FEHLT (ANTHROPIC_API_KEY oder john-api-key.txt)'})"
+$be0 = Get-Backend
+if ($be0 -eq 'cli') { $l0 = Get-CliLogin; Write-Host "  KI:       Claude Code (Abo) · $(Find-ClaudeExe) · $(if ($l0.ok) { 'angemeldet' + $(if ($l0.konto) { ' als ' + $l0.konto } else { '' }) } else { 'NICHT angemeldet → claude auth login' })" -ForegroundColor $(if ($l0.ok) { 'Green' } else { 'Red' }) }
+else { Write-Host "  KI:       Anthropic-API (Schlüssel, Guthaben) · JOHN_BACKEND=cli schaltet auf das Claude-Abo um, sobald Claude Code da ist" }
 Write-Host ("  Trello:   " + (($TrelloBoards.Keys | Sort-Object | ForEach-Object { "$_=$($TrelloBoards[$_]) " + $(if (Get-TrelloAuth $_) { '✓' } else { '(kein Key)' }) }) -join ' · '))
 Write-Host ("  Arbeit:   {0}api/arbeit  (Claude-Code-Transkripte: {1})" -f $prefix, $(if (Test-Path $script:ArbeitRoot) { 'gefunden' } else { 'FEHLT' }))
 Write-Host ("  Jira-KPI: {0}api/kpi/jira  ({1})" -f $prefix, $(if (Get-JiraAuth) { 'JIRA_EMAIL/JIRA_TOKEN ✓' } else { 'kein Schlüssel — optional' }))
@@ -3813,8 +3995,12 @@ try {
       if ($req.HttpMethod -eq 'OPTIONS') { $res.StatusCode = 204; $res.Close(); continue }
       if ($path -eq '/__stop') { Send-Json $ctx @{ ok = $true; msg = 'bye' }; break }
       if ($path -eq '/api/john/status') {
-        $sys = Build-System
-        Send-Json $ctx @{ ok = $true; key = [bool](Get-ApiKey); model = $Model; effort = $Effort; geladen = $sys.geladen; johnDir = $JohnDir; memoryDirs = $MemoryDirs; systemChars = $sys.text.Length }
+        $sys = Build-System; $be = Get-Backend
+        $login = $(if ($be -eq 'cli') { Get-CliLogin -Frisch:($req.QueryString['fresh'] -eq '1') } else { $null })
+        $key = $(if ($be -eq 'cli') { [bool]($login -and $login.ok) } else { [bool](Get-ApiKey) })
+        $hint = $(if ($key) { '' } elseif ($be -eq 'cli') { Get-CliLoginHint } else { (Get-JohnFehler 'NO_KEY').hint })
+        Send-Json $ctx @{ ok = $true; key = $key; backend = $be; cli = $(if ($be -eq 'cli') { Find-ClaudeExe } else { $null }); login = $login; hint = $hint
+                          model = $Model; effort = $Effort; geladen = $sys.geladen; johnDir = $JohnDir; memoryDirs = $MemoryDirs; systemChars = $sys.text.Length }
         continue
       }
       if ($path -eq '/api/va') {
@@ -4047,8 +4233,8 @@ try {
         Write-Host ("[{0}] John-Summary angefragt" -f (Get-Date -Format 'HH:mm:ss'))
         try { Send-Json $ctx (John-Summary $in) }
         catch { $m = $_.Exception.Message
-          if ($m -eq 'NO_KEY') { Send-Json $ctx @{ error = 'NO_KEY'; hint = 'ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann Server neu starten.' } 503 }
-          elseif ($m -eq 'NO_CREDIT') { Write-Host '  Summary: Anthropic-Guthaben aufgebraucht' -ForegroundColor Red; Send-Json $ctx @{ error = 'NO_CREDIT'; hint = 'Anthropic-Guthaben aufgebraucht — im Anthropic-Konto unter Plans & Billing aufladen. Der John-Server läuft weiter, ein Neustart ist nicht nötig.' } 402 }
+          $f = Get-JohnFehler $m
+          if ($f) { Write-Host "  Summary: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ error = $f.code; hint = $f.hint } $f.status }
           else { Write-Host "  Summary-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ error = $m } 502 } }
         continue
       }
@@ -4068,8 +4254,8 @@ try {
           try { Send-Json $ctx (John-Stapel $in) }
           catch {
             $m = $_.Exception.Message
-            if ($m -eq 'NO_KEY') { Send-Json $ctx @{ ok = $false; error = 'NO_KEY'; hint = 'ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann Server neu starten.' } 503 }
-            elseif ($m -eq 'NO_CREDIT') { Write-Host '  Stapel: Anthropic-Guthaben aufgebraucht' -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = 'NO_CREDIT'; hint = 'Anthropic-Guthaben aufgebraucht — im Anthropic-Konto unter Plans & Billing aufladen. Der John-Server läuft weiter, ein Neustart ist nicht nötig.' } 402 }
+            $f = Get-JohnFehler $m
+            if ($f) { Write-Host "  Stapel: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $f.code; hint = $f.hint } $f.status }
             else { Write-Host "  Stapel-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 500 }
           }
           continue
@@ -4087,8 +4273,8 @@ try {
         try { $out = John-Chat $msgs $in.context; Send-Json $ctx $out }
         catch {
           $m = $_.Exception.Message
-          if ($m -eq 'NO_KEY') { Send-Json $ctx @{ error = 'NO_KEY'; hint = 'ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann Server neu starten.' } 503 }
-          elseif ($m -eq 'NO_CREDIT') { Write-Host '  John: Anthropic-Guthaben aufgebraucht' -ForegroundColor Red; Send-Json $ctx @{ error = 'NO_CREDIT'; hint = 'Anthropic-Guthaben aufgebraucht — im Anthropic-Konto unter Plans & Billing aufladen. Der John-Server läuft weiter, ein Neustart ist nicht nötig.' } 402 }
+          $f = Get-JohnFehler $m
+          if ($f) { Write-Host "  John: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ error = $f.code; hint = $f.hint } $f.status }
           else { Write-Host "  Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ error = $m } 502 }
         }
         continue

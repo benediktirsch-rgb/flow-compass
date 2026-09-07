@@ -183,6 +183,7 @@
     { id: 'person', icon: '👤', titel: 'Du' },
     { id: 'kontext', icon: '🎛️', titel: 'Deine Kontexte' },
     { id: 'quellen', icon: '🔌', titel: 'Deine Quellen' },
+    { id: 'ki', icon: '🤵', titel: 'Dein Coach' },
     { id: 'board', icon: '🧭', titel: 'Dein Board' },
     { id: 'fertig', icon: '🚀', titel: 'Fertig' }
   ];
@@ -211,6 +212,10 @@
     oeffnen: function (schritt) {
       this.entwurf = {
         name: INST.name || '', mail: INST.mail || '', api: INST.api || '',
+        /* KI-Anbindung des Coachs (07.09.2026): 'abo' (Claude-Abo über Claude Code), 'schluessel'
+           (eigener API-Schlüssel) oder 'ohne' (Datei-Modus). Immer auf dem Konto der Person,
+           nie auf dem des Anbieters (Vorgabe vom 07.09.2026). */
+        ki: INST.ki || '',
         kontexte: (INST.kontexte && INST.kontexte.length ? INST.kontexte : INST.ctx).map(function (c, i) {
           return { slot: i + 1, name: c.name || '', icon: c.icon || '', farbe: c.farbe || STD_FARBE[SLOTS[i]], worte: (c.worte || []).slice(), jira: c.jira || '', trello: c.trello || '' };
         }),
@@ -258,6 +263,13 @@
         }
         if (d.kontexte[2] && !d.kontexte[2].trello && d.trello.privat.url) d.kontexte[2].trello = 'privat';
       }
+      const ki = document.querySelector('input[name="suKi"]:checked');
+      if (ki) {
+        d.ki = ki.value;
+        /* Abo oder Schlüssel heißt: ein Compass-Server läuft auf dem eigenen Rechner — Standardadresse
+           setzen, falls noch keine da ist. „Ohne" lässt eine vorhandene Adresse stehen (Trello/Jira). */
+        if (d.ki !== 'ohne' && !d.api) d.api = 'http://localhost:8787';
+      }
       if (v('suWip') !== undefined) d.board = { wip: Math.max(1, Math.min(19, parseInt(v('suWip'), 10) || 3)) };
     },
 
@@ -268,7 +280,7 @@
       let alt = {};
       try { alt = JSON.parse(localStorage.getItem('compassInstanz') || '{}'); } catch (e) { alt = {}; }
       const neu = Object.assign(alt, {
-        name: d.name, mail: d.mail, api: d.api, kontexte: d.kontexte,
+        name: d.name, mail: d.mail, api: d.api, ki: d.ki || '', kontexte: d.kontexte,
         trello: d.trello, jira: d.jira,
         team: Object.assign({}, INST.team, d.team),
         board: Object.assign({}, INST.board, { wip: d.board.wip })
@@ -290,11 +302,11 @@
       if (s === 'start') return '' +
         '<p class="sub">Der Compass beantwortet jeden Morgen eine Frage: <b>Was ist jetzt dran?</b> Er zieht die Arbeit aus deinen ' +
         'Werkzeugen zusammen, macht sie sichtbar und begrenzt sie — Personal Kanban nach Jim Benson, kein weiteres To-do-Grab.</p>' +
-        '<p class="sub">Die nächsten vier Schritte dauern etwa fünf Minuten. Alles ist danach änderbar (⚙️ oben im Kopf). ' +
+        '<p class="sub">Die nächsten fünf Schritte dauern etwa fünf Minuten. Alles ist danach änderbar (⚙️ oben im Kopf). ' +
         'Deine Antworten bleiben in diesem Browser; ohne Server verlässt nichts deinen Rechner.</p>' +
         '<ul class="sul"><li><b>Du</b> — Name und wohin Erinnerungen gehen</li>' +
         '<li><b>Kontexte</b> — die Lebensbereiche, zwischen denen du umschaltest</li>' +
-        '<li><b>Quellen</b> — Trello, Jira, Team-Cockpit</li><li><b>Board</b> — dein WIP-Limit</li></ul>';
+        '<li><b>Quellen</b> — Trello, Jira, Team-Cockpit</li><li><b>Coach</b> — deine KI, auf deinem Konto (oder ohne)</li><li><b>Board</b> — dein WIP-Limit</li></ul>';
 
       if (s === 'person') return '' +
         '<p class="sub">Der Compass spricht dich an — dafür braucht er einen Namen. Die E-Mail nutzen die „schick mir …“-Knöpfe; sie geht an niemanden sonst.</p>' +
@@ -332,6 +344,20 @@
         '<label class="sf"><span>Adresse des Team-Cockpits</span><input id="suTeamUrl" value="' + E(d.team.url) + '" placeholder="https://…/va/"></label>' +
         '<p class="shint">Zugangs-Token trägst du hier <b>nicht</b> ein — die liegen im Server, den wir für dich einrichten. Der Browser sieht sie nie.</p>';
 
+      if (s === 'ki') {
+        const r = function (wert, titel, text) {
+          return '<label class="sf sfc"><input type="radio" name="suKi" value="' + wert + '"' + (d.ki === wert ? ' checked' : '') + '><span><b>' + titel + '</b><br><small>' + text + '</small></span></label>';
+        };
+        return '' +
+          '<p class="sub">Der Coach im Compass ist eine KI. Sie läuft <b>auf deinem Konto</b> — nie auf unserem. Du entscheidest, wie:</p>' +
+          r('abo', '🪷 Mein Claude-Abo (empfohlen)', 'Claude Code auf deinem Rechner, einmal angemeldet. Der Compass-Server ruft es für dich auf; die Kosten deckt dein Abo (Pro oder Max), kein Guthaben nötig.') +
+          r('schluessel', '🔑 Eigener API-Schlüssel', 'Ein Schlüssel aus deiner Anthropic-Konsole, hinterlegt im Compass-Server auf deinem Rechner. Abrechnung nach Verbrauch, über dein Konto.') +
+          r('ohne', '📁 Ohne KI — aus deinen Dateien', 'Board, Rituale, Kennzahlen, Rückfragen und der Stapel als einfache Liste — alles aus deinen Quellen und Dateien. Den Coach klemmst du später an (⚙️).') +
+          '<p class="shint"><b>So klemmst du an:</b> 1) Den Compass-Server (Ordner von uns) auf deinem Rechner starten. ' +
+          '2) Bei „Abo“ einmalig im Terminal <code>claude auth login</code> ausführen — der Browser bestätigt die Anmeldung; bei „Schlüssel“ <code>ANTHROPIC_API_KEY</code> als Benutzer-Umgebungsvariable setzen. ' +
+          '3) Hier weiter — die Server-Adresse steht dann auf <code>http://localhost:8787</code>. Der Coach meldet sich, sobald der Compass den Server erreicht; bis dahin bleibt alles im Datei-Modus, nichts geht verloren.</p>';
+      }
+
       if (s === 'board') return '' +
         '<p class="sub">Ein Personal Kanban lebt von einer Regel: <b>Stoppe das Anfangen, starte das Beenden.</b> ' +
         'Das WIP-Limit ist die Zahl der Karten, die gleichzeitig in „In Arbeit“ liegen dürfen. Benson und Barry empfehlen drei.</p>' +
@@ -349,6 +375,7 @@
         '<li><b>' + E(d.name || 'Du') + '</b> · ' + E(d.mail || 'ohne E-Mail') + '</li>' +
         '<li>' + d.kontexte.length + ' Kontext' + (d.kontexte.length === 1 ? '' : 'e') + ': ' + E(d.kontexte.map(function (k) { return (k.icon || '') + ' ' + k.name; }).join(' · ')) + '</li>' +
         '<li>Quellen: ' + E(quellen || 'noch keine — eigene Karten reichen für den Anfang') + '</li>' +
+        '<li>Coach: ' + E(d.ki === 'abo' ? 'dein Claude-Abo (Claude Code)' : d.ki === 'schluessel' ? 'dein API-Schlüssel' : 'ohne KI — aus deinen Dateien') + '</li>' +
         '<li>WIP-Limit: ' + E(d.board.wip || 3) + '</li></ul>' +
         '<p class="shint">Danach zeigt dir der Compass den Morgencheck. Fünf Minuten, jeden Tag — mehr braucht es nicht.</p>';
     },
