@@ -7055,7 +7055,7 @@ async function johnStatus(){
     const r=await fetch(JOHN_API+'/api/john/status',{cache:'no-store'});
     const s=await r.json();
     johnOnline=!!s.ok;
-    if(s.ok && s.key){ johnStat.textContent=`Verbunden · ${s.backend==='cli'?'Claude Code (Abo) · ':''}${s.model} · ${(s.geladen||[]).length} Quellen geladen (Profil, Pipeline, Memory …)`; johnStat.classList.remove('bad'); johnFab.className='on'; }
+    if(s.ok && s.key){ johnStat.textContent=`Verbunden · ${s.backend==='cli'?'Claude Code (Abo) · ':s.backend==='openai'?'eigener Anbieter · ':''}${s.model} · ${(s.geladen||[]).length} Quellen geladen (Profil, Pipeline, Memory …)`; johnStat.classList.remove('bad'); johnFab.className='on'; }
     else if(s.ok){ johnStat.textContent='Server läuft, aber '+(s.hint||'kein API-Schlüssel: Hinterlege den API-Schlüssel im Compass-Server und starte ihn neu.'); johnStat.classList.add('bad'); johnFab.className='warn'; }
   }catch(e){
     johnOnline=false; johnFab.className='';
