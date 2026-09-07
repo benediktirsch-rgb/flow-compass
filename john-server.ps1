@@ -542,7 +542,10 @@ function Call-Claude($apiKey, $body) {
   $req.Content = New-Object System.Net.Http.StringContent ($json, [Text.Encoding]::UTF8, 'application/json')
   $res = $Http.SendAsync($req).GetAwaiter().GetResult()
   $txt = $res.Content.ReadAsStringAsync().GetAwaiter().GetResult()
-  if (-not $res.IsSuccessStatusCode) { throw "API $([int]$res.StatusCode): $txt" }
+  if (-not $res.IsSuccessStatusCode) {
+    # 400 mit „credit balance“ = Guthaben leer (07.09.2026): eigener Code statt rohem JSON, damit der Compass es sagen kann.
+    if ([int]$res.StatusCode -eq 400 -and $txt -match 'credit balance') { throw 'NO_CREDIT' }
+    throw "API $([int]$res.StatusCode): $txt" }
   return ($txt | ConvertFrom-Json)
 }
 function John-Chat($messages, $context) {
@@ -4019,6 +4022,7 @@ try {
         try { Send-Json $ctx (John-Summary $in) }
         catch { $m = $_.Exception.Message
           if ($m -eq 'NO_KEY') { Send-Json $ctx @{ error = 'NO_KEY'; hint = 'ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann Server neu starten.' } 503 }
+          elseif ($m -eq 'NO_CREDIT') { Write-Host '  Summary: Anthropic-Guthaben aufgebraucht' -ForegroundColor Red; Send-Json $ctx @{ error = 'NO_CREDIT'; hint = 'Anthropic-Guthaben aufgebraucht — im Anthropic-Konto unter Plans & Billing aufladen. Der John-Server läuft weiter, ein Neustart ist nicht nötig.' } 402 }
           else { Write-Host "  Summary-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ error = $m } 502 } }
         continue
       }
@@ -4039,6 +4043,7 @@ try {
           catch {
             $m = $_.Exception.Message
             if ($m -eq 'NO_KEY') { Send-Json $ctx @{ ok = $false; error = 'NO_KEY'; hint = 'ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann Server neu starten.' } 503 }
+            elseif ($m -eq 'NO_CREDIT') { Write-Host '  Stapel: Anthropic-Guthaben aufgebraucht' -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = 'NO_CREDIT'; hint = 'Anthropic-Guthaben aufgebraucht — im Anthropic-Konto unter Plans & Billing aufladen. Der John-Server läuft weiter, ein Neustart ist nicht nötig.' } 402 }
             else { Write-Host "  Stapel-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 500 }
           }
           continue
@@ -4057,6 +4062,7 @@ try {
         catch {
           $m = $_.Exception.Message
           if ($m -eq 'NO_KEY') { Send-Json $ctx @{ error = 'NO_KEY'; hint = 'ANTHROPIC_API_KEY setzen oder john-api-key.txt neben john-server.ps1 anlegen, dann Server neu starten.' } 503 }
+          elseif ($m -eq 'NO_CREDIT') { Write-Host '  John: Anthropic-Guthaben aufgebraucht' -ForegroundColor Red; Send-Json $ctx @{ error = 'NO_CREDIT'; hint = 'Anthropic-Guthaben aufgebraucht — im Anthropic-Konto unter Plans & Billing aufladen. Der John-Server läuft weiter, ein Neustart ist nicht nötig.' } 402 }
           else { Write-Host "  Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ error = $m } 502 }
         }
         continue

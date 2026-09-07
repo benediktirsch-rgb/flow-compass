@@ -5835,7 +5835,7 @@ async function summaryHolen(force){
   try{
     const r=await fetch(JOHN_API+'/api/john/summary',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(summaryDaten())});
     const j=await r.json();
-    if(!r.ok||j.error||!j.text){ const hint=j.error==='NO_KEY'?(j.hint||'API-Schlüssel fehlt.'):('John antwortet nicht: '+(j.error||r.status));
+    if(!r.ok||j.error||!j.text){ const hint=/^NO_(KEY|CREDIT)$/.test(j.error)?(j.hint||'API-Schlüssel fehlt.'):('John antwortet nicht: '+(j.error||r.status));
       if(t){ t.textContent=hint; t.className='lt warn'; } return; }
     S.summary={datum:heute(),text:j.text.trim().replace(/„([^"“”]{1,120})["”]/g,'„$1“'),stand:new Date().toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'}),model:j.model||''}; speichern();
     if(t){ t.textContent=S.summary.text; t.className='lt'; } if(wh) wh.textContent='Stand '+S.summary.stand;
@@ -6079,7 +6079,7 @@ async function stapelLaden(force){
     const r=await fetch(JOHN_API+'/api/john/stapel',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({kandidaten:kand,kontext:stapelKontext(),fresh:!!force}),signal:AbortSignal.timeout(180000)});
     const j=await r.json();
-    if(!r.ok||!j.ok){ STAPEL.fehler=j.error==='NO_KEY'?(j.hint||'API-Schlüssel fehlt.'):('John antwortet nicht: '+(j.error||r.status)); }
+    if(!r.ok||!j.ok){ STAPEL.fehler=/^NO_(KEY|CREDIT)$/.test(j.error)?(j.hint||'API-Schlüssel fehlt.'):('John antwortet nicht: '+(j.error||r.status)); }
     else { STAPEL.punkte=j.punkte||[]; stapelStandMischen(j.stand); STAPEL.hash=hash; STAPEL.datum=j.datum||heute(); STAPEL.model=j.model||''; STAPEL.standUm=j.stand_um||''; STAPEL.offline=false; stapelMerken(); }
   }catch(e){ STAPEL.offline=true; STAPEL.fehler=null; }
   STAPEL.geladen=true; STAPEL.laeuft=false; stapelMalen();
@@ -7082,7 +7082,7 @@ async function johnSend(){
     const r=await fetch(JOHN_API+'/api/john',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,context:johnKontext()})});
     const j=await r.json();
     if(!r.ok||j.error){
-      const hint = j.error==='NO_KEY' ? (j.hint||'API-Schlüssel fehlt.') : ('Fehler: '+(j.error||r.status));
+      const hint = /^NO_(KEY|CREDIT)$/.test(j.error) ? (j.hint||'API-Schlüssel fehlt.') : ('Fehler: '+(j.error||r.status));
       JOHN.push({role:'system',content:hint});
     } else {
       const meta=[j.model||'', (j.tools&&j.tools.length)?('✎ '+j.tools.join(', ')):'' , j.usage?`${j.usage.input_tokens||0}→${j.usage.output_tokens||0} tok`:''].filter(Boolean).join(' · ');
