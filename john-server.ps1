@@ -59,6 +59,8 @@
    13) GET  /api/wacht[?fresh=1] → Seiten-Wächter: sind deine öffentlichen Adressen erreichbar (Statuscode,
                                  Millisekunden) und wie lange laufen ihre TLS-Zertifikate noch. 15 Min Cache
                                  für die Erreichbarkeit, 12 h für die Zertifikate. Keine Zugangsdaten nötig.
+                                 Geschützte Adressen gelten als gut, wenn sie 401 (Basic Auth) liefern oder
+                                 auf der Anmeldeseite enden (Tür, -WachtLoginSeite); 200 mit Inhalt = Leck.
                                  Adressen stehen im Parameter -WachtSeiten; GET /api/wacht/status zeigt sie.
    19) GET  /api/deploy[?fresh=1] → Deploy-Wächter (03.09.): steht live das, was du freigegeben hast?
                                  Je Paar ein Abruf der Live-Adresse; verglichen wird der Git-Blob-SHA
@@ -169,12 +171,18 @@ param(
   [string]$ArbeitszeitBis = '18:00',
   # Seiten-Wächter (23.08.): welche öffentlichen Adressen überwacht werden. `typ` gruppiert nur in der Anzeige.
   # Neue Adresse aufnehmen = eine Zeile hier; Zertifikate werden je Host automatisch abgeleitet.
-  # `geschuetzt = $true` heisst: hinter Basic Auth. Dort ist HTTP 401 die RICHTIGE Antwort auf einen Abruf
-  # ohne Zugangsdaten — und umgekehrt ist eine offen erreichbare Seite dann die Störung (28.08.).
-  # /compass/ ist seit dem 31.08. ebenfalls geschützt (VA-13560, site/compass/.htaccess: derselbe Realm
-  # und dieselbe .htpasswd-va wie /va/). Bis diese Zeile nachgezogen war, meldete der Wächter genau den
-  # Erfolg als Störung: "Flow Compass antwortet nicht sauber · HTTP 401". Wer einen Ordner serverseitig
-  # schützt, trägt hier `geschuetzt = $true` nach — sonst steht die eigene Härtung als roter Banner da.
+  # `geschuetzt = $true` heisst: nur mit Anmeldung. Der Wächter hat keine Zugangsdaten und soll auch keine
+  # haben — gewertet wird umgekehrt: Schutz da = gut, Seite offen = Störung (28.08.). Zwei Arten Schutz:
+  #   · Basic Auth (.htaccess + .htpasswd-va, noch auf vishnu-artists.de/va/ und /compass/, VA-13483/13560):
+  #     die richtige Antwort ist HTTP 401 mit WWW-Authenticate.
+  #   · die Tür (gate.php, Konto von vishnuartists.com, seit 04.09. auf den Subdomains bene./va./…): die
+  #     richtige Antwort ist 302 → weiter.php → 302 → $WachtLoginSeite (anmelden.php), und DORT kommt die
+  #     200. Der Wächter folgt der Kette und sieht nach, wo er landet — 200 mit dem Compass selbst als
+  #     Endstation heißt: die Tür steht offen.
+  # Bis diese Unterscheidung drin war (07.09.), meldete der Wächter genau den Erfolg als Störung — erst
+  # "Flow Compass antwortet nicht sauber · HTTP 401" (31.08., /compass/ frisch geschützt), dann
+  # "Flow Compass (bene.) (200)" nach dem Umzug auf die Tür. Wer einen Ordner serverseitig schützt,
+  # trägt hier `geschuetzt = $true` nach — sonst steht die eigene Härtung als roter Banner da.
   [object[]]$WachtSeiten = @(
     @{ name = 'vishnu-artists.de';   url = 'https://vishnu-artists.de/';          typ = 'Vishnu' }
     @{ name = 'Flow Compass';        url = 'https://vishnu-artists.de/compass/';  typ = 'Vishnu'; geschuetzt = $true }
@@ -187,6 +195,10 @@ param(
     @{ name = 'vaikuntha.eu';        url = 'https://vaikuntha.eu/';               typ = 'Vaikuntha' }
     @{ name = 'naturnah-lernen.de';  url = 'https://naturnah-lernen.de/';         typ = 'Vaikuntha' }
   ),
+  # Wohin die Tür unangemeldete Aufrufe schickt. Endet ein geschützter Abruf hier (Vergleich per Präfix —
+  # die Query `?ziel=weiter` darf sich ändern), gilt die Adresse als geschützt. Endet ein ÖFFENTLICHER
+  # Abruf hier, ist die Seite für Besucher weg, auch wenn sie 200 sagt.
+  [string]$WachtLoginSeite = 'https://vishnuartists.com/anmelden.php',
   # Routinen-Waechter (31.08.2026, Rueckfrage `routinen-waechter`, Bene: "Ja, bau es").
   # WOZU: das Scheitern einer geplanten Routine ist still. Bleibt compass-postfach weg, zeigt die
   # Karte "Wartet auf Antwort" dieselben Absender mit sauber hochgezaehlten Tagen weiter und sieht
@@ -1559,13 +1571,16 @@ function Test-WachtSeite($seite) {
   # PS 5.1 wirft bei 4xx/5xx eine Exception — den echten Statuscode holen wir aus der Antwort im Fehler,
   # sonst stünde in der Karte "Fehler" statt "500", und man wüsste nicht, ob der Server lebt oder schweigt.
   $sw = [Diagnostics.Stopwatch]::StartNew()
-  $status = $null; $fehler = $null; $laenge = $null; $server = $null; $authKopf = $null
+  $status = $null; $fehler = $null; $laenge = $null; $server = $null; $authKopf = $null; $ziel = $null
   try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
     $r = Invoke-WebRequest -Uri $seite.url -Method Get -UseBasicParsing -TimeoutSec $WachtTimeoutSec `
                            -MaximumRedirection 5 -UserAgent 'Vishnu-Flow-Compass-Waechter/1.0'
     $status = [int]$r.StatusCode; $laenge = [int]$r.RawContentLength
     $server = [string]$r.Headers['Server']
+    # Endstation nach Weiterleitungen (bene. → weiter.php → anmelden.php): PS 5.1 folgt bis
+    # -MaximumRedirection selbst, ResponseUri sagt, wo die Antwort wirklich herkam.
+    try { $ziel = [string]$r.BaseResponse.ResponseUri.AbsoluteUri } catch {}
   } catch {
     $resp = $null
     try { $resp = $_.Exception.Response } catch {}
@@ -1586,15 +1601,25 @@ function Test-WachtSeite($seite) {
   # Dort ist 401 mit WWW-Authenticate die richtige Antwort — der Wächter hat keine Zugangsdaten und
   # soll auch keine haben. Gewertet wird deshalb umgekehrt: Schutz da = gut, Seite offen = Störung.
   # Ein 401 OHNE WWW-Authenticate bleibt eine Störung: dann antwortet da etwas anderes als ein Login.
-  $geschuetzt = $false; $schutzOffen = $false
+  # Seit dem 04.09. gibt es die zweite Form, die Tür (gate.php): unangemeldet 302 → weiter.php → 302 →
+  # anmelden.php, dort 200. Die 200 gehört der Anmeldeseite, nicht dem Compass — deshalb entscheidet die
+  # Endstation ($ziel gegen $WachtLoginSeite), nicht der Statuscode. Bis 07.09. stand hier nur der
+  # Code, und der Wächter meldete "Flow Compass (bene.) (200)" als Störung — den Erfolg.
+  $geschuetzt = $false; $schutzOffen = $false; $schutz = $null
+  $anmeldung = [bool]($ziel -and $WachtLoginSeite -and $ziel.StartsWith($WachtLoginSeite, [StringComparison]::OrdinalIgnoreCase))
   if ($seite.geschuetzt) {
-    if ($status -eq 401 -and $authKopf) { $ok = $true; $geschuetzt = $true; $fehler = $null }
+    if ($status -eq 401 -and $authKopf) { $ok = $true; $geschuetzt = $true; $schutz = 'basic'; $fehler = $null }
+    elseif ($ok -and $anmeldung) { $geschuetzt = $true; $schutz = 'login'; $fehler = $null }
     elseif ($ok) { $ok = $false; $schutzOffen = $true; $fehler = 'ohne Zugangsdaten erreichbar — der Schutz greift nicht' }
+  } elseif ($ok -and $anmeldung) {
+    # Eine öffentliche Adresse, die auf dem Login endet, ist für Besucher weg — auch wenn sie 200 sagt.
+    $ok = $false; $fehler = 'landet auf der Anmeldeseite — für Besucher nicht erreichbar'
   }
   return @{
     name = $seite.name; url = $seite.url; typ = $seite.typ
     ok = $ok; status = $status; ms = $ms; laenge = $laenge; server = $server
-    geschuetzt = $geschuetzt; schutzOffen = $schutzOffen
+    geschuetzt = $geschuetzt; schutzOffen = $schutzOffen; schutz = $schutz
+    ziel = $(if ($ziel -and $ziel -ne $seite.url) { $ziel } else { $null })
     langsam = ($ok -and -not $geschuetzt -and $ms -ge $WachtLangsamMs)
     fehler = $(if ($ok) { $null } else { $(if ($fehler) { $fehler } else { 'keine Antwort' }) })
   }
@@ -3845,6 +3870,7 @@ try {
         Send-Json $ctx @{ ok = $true
           seiten = @($WachtSeiten | ForEach-Object { @{ name = $_.name; url = $_.url; typ = $_.typ; geschuetzt = [bool]$_.geschuetzt } })
           schwellen = @{ langsamMs = $WachtLangsamMs; zertWarnTage = $WachtZertWarnTage; timeoutSec = $WachtTimeoutSec }
+          loginSeite = $WachtLoginSeite
           cacheSec = $WachtCacheSec; tlsCacheSec = $WachtTlsCacheSec
           gemessen = $(if ($script:WachtCache.zeit) { $script:WachtCache.zeit.ToString('o') } else { $null }) }
         continue
