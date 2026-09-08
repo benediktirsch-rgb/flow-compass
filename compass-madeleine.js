@@ -12,7 +12,19 @@
   if(typeof window.johnKachel!=='function' || typeof JOHN_API==='undefined') return;
   const API=()=>JOHN_API;
   const H=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const MAD={ status:null, statusZeit:0, runden:null, anzahl:0, busy:false, chatBusy:false };
+  const MAD={ status:null, statusZeit:0, runden:null, anzahl:0, busy:false, chatBusy:false, briefe:[], briefPuls:'', briefTimer:0 };
+  /* Der Briefkasten (08.09.2026, Bene: „klemm Madelene auch an den Briefkasten an").
+     Madeleine denkt auf Benes Rechner. Läuft der nicht — oder sitzt er am Handy, wo 'localhost' das
+     Handy selbst ist —, kam bisher nur „nicht erreichbar" und die Frage war weg. Die Tür der
+     Subdomain steht dagegen immer: dort wird die Frage eingeworfen, madeleine-abholen.ps1 legt sie
+     Madeleine vor und schreibt die Antwort in denselben Brief zurück.
+     Auf localhost gibt es keine Tür und braucht es auch keine: läuft der Server dort nicht, lädt
+     die Seite gar nicht erst. */
+  const lokal=(()=>{ try{ return !!LOKAL; }catch(e){ return /^(localhost|127\.0\.0\.1)$/.test(location.hostname); } })();
+  const BRIEF = (lokal || location.protocol!=='https:') ? '' : '/gate.php?briefkasten=';
+  /* Welche Briefe hier schon im Chat gelandet sind. Nur die letzten 50 — der Kasten räumt selbst auf. */
+  const ERLEDIGT=(()=>{ try{ return new Set(JSON.parse(localStorage.getItem('beneMadeleineBriefe')||'[]')); }catch(e){ return new Set(); } })();
+  const erledigtSpeichern=()=>{ try{ localStorage.setItem('beneMadeleineBriefe', JSON.stringify([...ERLEDIGT].slice(-50))); }catch(e){} };
   let VERLAUF=(()=>{ try{ return JSON.parse(localStorage.getItem('beneMadeleine')||'[]'); }catch(e){ return []; } })();
   const save=()=>{ try{ localStorage.setItem('beneMadeleine', JSON.stringify(VERLAUF.slice(-60))); }catch(e){} };
   const kontext=()=>{ try{ return typeof johnKontext==='function' ? johnKontext() : ''; }catch(e){ return ''; } };
@@ -92,17 +104,92 @@
       clearTimeout(tm); const j=await r.json();
       if(!r.ok||j.error){ VERLAUF.push({role:'system',content:/^(CODEX_[A-Z_]+|NO_[A-Z]+|LIMIT)$/.test(j.error)?(j.hint||j.error):('Fehler: '+(j.error||r.status))}); }
       else { const meta=[j.model||'', (j.tools&&j.tools.length)?'✎ Notiz festgehalten':''].filter(Boolean).join(' · '); VERLAUF.push({role:'assistant',content:j.text||'(keine Antwort)',meta}); }
-    }catch(e){ VERLAUF.push({role:'system',content:'Madeleine ist nicht erreichbar. Läuft john-server.cmd? ('+e.message+')'}); }
+    }catch(e){
+      /* Der Server ist nicht da. Statt die Frage zu verlieren: in den Briefkasten damit — und das
+         ehrlich sagen, samt der Wartezeit, die das bedeutet. */
+      const gelegt = await briefWerfen(t);
+      VERLAUF.push({role:'system',content: gelegt
+        ? '✉ Dein Rechner ist gerade nicht erreichbar — die Frage liegt im Briefkasten. Madeleine beantwortet sie, sobald er wieder läuft; die Antwort erscheint hier von selbst.'
+        : 'Madeleine ist nicht erreichbar, und der Briefkasten nimmt gerade auch nichts an. Läuft john-server.cmd? ('+e.message+')'});
+    }
     MAD.chatBusy=false; btn.disabled=false; save(); madRender(); inp.focus();
+  }
+
+  /* ---------- Briefkasten: einwerfen, nachsehen, Antwort übernehmen ---------- */
+  async function briefWerfen(frage){
+    if(!BRIEF) return false;
+    try{
+      const r=await fetch(BRIEF+'1',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',
+        body:JSON.stringify({art:'madeleine', datum:new Date().toLocaleDateString('sv-SE'), frage:frage, kontext:kontext()}),
+        signal:AbortSignal.timeout(15000)});
+      const d=await r.json().catch(()=>null);
+      if(!r.ok||!d||!d.ok){ if(d&&d.error==='ZU_VIELE') sag('Drei Fragen warten schon im Briefkasten','bad'); return false; }
+      briefTakt(true); return true;
+    }catch(e){ return false; }
+  }
+  /* Was liegt drüben? Fertige Antworten wandern in den Verlauf und der Brief wird weggenommen —
+     der Briefkasten bleibt Durchgang, das Gedächtnis ist der Chat. */
+  async function briefeHolen(){
+    if(!BRIEF) return;
+    let d=null;
+    try{ const r=await fetch(BRIEF+'meine',{credentials:'same-origin',cache:'no-store'}); d=await r.json(); }
+    catch(e){ return; }
+    if(!d||!d.ok) return;
+    MAD.briefPuls=d.abgeholt||''; MAD.briefe=(d.fragen||[]);
+    let neu=false;
+    for(const f of MAD.briefe){
+      if(f.status!=='fertig' && f.status!=='fehler') continue;
+      /* Zweimal übernehmen wäre schlimmer als einmal zu spät: schlägt das Wegnehmen fehl (Netz weg,
+         Tür kurz nicht da), stünde die Antwort beim nächsten Blick ein zweites Mal im Chat. Also
+         merken wir uns den Brief hier, nicht drüben. */
+      if(ERLEDIGT.has(f.brief)) continue;
+      ERLEDIGT.add(f.brief); erledigtSpeichern();
+      if(f.status==='fertig'){
+        /* Die Frage steht schon im Verlauf, wenn sie aus diesem Browser kam — dann nicht doppeln.
+           Kam sie vom Handy, fehlt sie hier und gehört dazu. */
+        if(!VERLAUF.some(x=>x.role==='user'&&x.content===f.frage)) VERLAUF.push({role:'user',content:f.frage});
+        VERLAUF.push({role:'assistant',content:f.antwort,meta:[f.modell||'','aus dem Briefkasten'].filter(Boolean).join(' · ')});
+      } else {
+        VERLAUF.push({role:'system',content:'✖ Diese Frage kam nicht durch: „'+f.frage+'" — '+(f.letzterFehler||'Grund unbekannt')+'. Stell sie noch einmal, wenn dein Rechner läuft.'});
+      }
+      neu=true;
+      try{ await fetch(BRIEF+'weg&brief='+encodeURIComponent(f.brief),{credentials:'same-origin'}); }catch(e){}
+    }
+    if(neu){
+      MAD.briefe=MAD.briefe.filter(f=>f.status==='offen');
+      save(); madRender(); statusMalen();
+      const el=document.getElementById('madeleine');
+      if(!el||!el.classList.contains('on')) sag('👩‍💼 Madeleine hat aus dem Briefkasten geantwortet');
+    }
+    briefTakt(MAD.briefe.some(f=>f.status==='offen'));
+    madMalen();
+  }
+  /* Nachsehen, solange etwas liegt — und aufhören, sobald nichts mehr wartet. Im Hintergrundtab
+     wird nicht geklopft; dafür sofort wieder, wenn der Tab zurückkommt. */
+  function briefTakt(an){
+    if(an && !MAD.briefTimer){ MAD.briefTimer=setInterval(()=>{ if(!document.hidden) briefeHolen(); },30000); }
+    if(!an && MAD.briefTimer){ clearInterval(MAD.briefTimer); MAD.briefTimer=0; }
   }
 
   /* ---------- Status und Runden ---------- */
   function statusText(){
     const s=MAD.status;
-    if(s===null) return 'verbinde …';
-    if(s===false) return 'Server aus — john-server.cmd starten';
-    if(s.ok && s.key) return `verbunden · ${s.model||'GPT'} · ${(s.geladen||[]).length} Quellen (Wissen, Finanzlauf, Johns Notizen …)`;
-    return 'Server läuft, aber '+(s.hint||'Codex nicht angemeldet');
+    const wartet=MAD.briefe.filter(f=>f.status==='offen').length;
+    /* Ein liegender Brief ist die wichtigere Nachricht als „Server aus": er sagt, dass die Frage
+       nicht verloren ist. Deshalb steht er vorn. */
+    let brief = wartet ? `✉ ${wartet} Frage${wartet===1?'':'n'} im Briefkasten` : '';
+    /* Ein Brief, den seit einer halben Stunde niemand abgeholt hat, heißt etwas anderes als einer,
+       der gerade erst dort liegt: dann läuft drüben nicht nur der Server nicht, sondern auch die
+       Aufgabe nicht, die ihn holen soll. Der Abholer geht alle 10 Minuten. */
+    if(wartet && MAD.briefPuls){
+      const min=Math.floor((Date.now()-new Date(MAD.briefPuls).getTime())/60000);
+      if(isFinite(min) && min>30) brief += ` (seit ${min<120?min+' Min':Math.round(min/60)+' Std'} holt sie niemand ab)`;
+    }
+    if(s===null) return brief || 'verbinde …';
+    if(s===false) return brief ? brief+' — dein Rechner ist aus, sie wird beantwortet, sobald er läuft'
+                               : (BRIEF ? 'Server aus — Fragen gehen so lange in den Briefkasten' : 'Server aus — john-server.cmd starten');
+    if(s.ok && s.key) return (brief ? brief+' · ' : '')+`verbunden · ${s.model||'GPT'} · ${(s.geladen||[]).length} Quellen (Wissen, Finanzlauf, Johns Notizen …)`;
+    return (brief ? brief+' · ' : '')+'Server läuft, aber '+(s.hint||'Codex nicht angemeldet');
   }
   async function madStatus(frisch){
     if(!frisch && MAD.status && Date.now()-MAD.statusZeit<120000){ statusMalen(); return; }
@@ -192,6 +279,10 @@
   /* Live-Zeile für den Einstieg in der Focus View (compass-focus.js › KATALOG › madeleine) */
   window.madZeile=function(){ return { t: statusText(), live: !!(MAD.status&&MAD.status.ok&&MAD.status.key), warn: MAD.status===false }; };
   css(); dialog(); einhaengen(); madStatus(); madRundenLaden();
+  /* Einmal beim Laden in den Briefkasten sehen — eine Antwort, die über Nacht kam, soll morgens
+     im Chat stehen und nicht erst nach dem nächsten Fehlversuch. */
+  briefeHolen();
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden && MAD.briefe.some(f=>f.status==='offen')) briefeHolen(); });
   /* Danach hängt die Karte am Layout-Speicher von compass-edit.js über ihren h3-Schlüssel „👩‍💼 Madeleine"
      wie jede andere: verschieben, oben andocken, ausblenden. */
 })();

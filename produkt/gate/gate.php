@@ -217,7 +217,19 @@ if ( ! file_exists( $KONFIG ) ) {
    der john-server holt sie ab, sobald er wieder da ist (briefkasten-abholen.ps1, Maschinen-
    schlüssel X-Vf-Key).
    Der Briefkasten ist Durchgang, kein Archiv: abgeholt heißt gelöscht. Ausgeliefert wird er
-   nie als Datei (siehe die Sperre in Schritt 3) — nur über diese vier Handgriffe. */
+   nie als Datei (siehe die Sperre in Schritt 3) — nur über diese Handgriffe.
+
+   ————— Madeleine hängt seit dem 08.09.2026 mit dran (Bene: „klemm Madelene auch an den
+   Briefkasten an") —————
+   Sie denkt auf Benes Rechner, also gilt für sie dasselbe wie für eine Übergabe: läuft der
+   gerade nicht, oder sitzt Bene am Handy, kommt der Compass nicht zu ihr durch. Ein Brief mit
+   art='madeleine' geht deshalb denselben Weg — nur muss bei ihm etwas zurückkommen. Er wird
+   darum nicht beim Abholen gelöscht, sondern bekommt die Antwort hineingeschrieben; weg ist er,
+   wenn der Compass sie übernommen hat, spätestens nach $MD_TAGE Tagen.
+       GET  ?briefkasten=meine                → die eigenen Madeleine-Briefe samt Antwort
+       POST ?briefkasten=antwort&brief=…      → Antwort bzw. gescheiterter Versuch (nur Maschine) */
+$MD_TAGE     = 7;   /* so lange darf eine beantwortete Frage auf ihre Abholung warten */
+$MD_VERSUCHE = 3;   /* danach gibt der Brief auf, statt für immer „wartet" zu zeigen */
 if ( isset( $_GET['briefkasten'] ) ) {
 	g_cors();
 	header( 'Content-Type: application/json; charset=utf-8' );
@@ -228,19 +240,93 @@ if ( isset( $_GET['briefkasten'] ) ) {
 	$brief = isset( $_GET['brief'] ) ? strtolower( (string) $_GET['brief'] ) : '';
 	if ( $brief !== '' && ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z]{1,20}-[0-9a-f]{8}\.json$/', $brief ) ) { $brief = ''; }
 
+	/* Aufräumen bei jedem Zugriff: beantwortete Madeleine-Briefe, die niemand mehr abgeholt hat.
+	   Ohne das wäre der einzige Brief, der nicht beim Abholen verschwindet, auch der einzige, der
+	   den Kasten volllaufen lassen kann. */
+	foreach ( (array) glob( $BRIEFE . '/*-madeleine-*.json' ) as $alt ) {
+		if ( is_file( $alt ) && ( time() - (int) filemtime( $alt ) ) > $MD_TAGE * 86400 ) { @unlink( $alt ); }
+	}
+
 	if ( $tun === 'liste' ) {
 		$aus = array();
 		if ( is_dir( $BRIEFE ) ) {
 			$namen = scandir( $BRIEFE );
 			sort( $namen );
 			foreach ( $namen as $n ) {
-				if ( ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z]{1,20}-[0-9a-f]{8}\.json$/', $n ) ) { continue; }
+				if ( ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}-([a-z]{1,20})-[0-9a-f]{8}\.json$/', $n, $m ) ) { continue; }
 				$f = $BRIEFE . '/' . $n;
-				$aus[] = array( 'brief' => $n, 'groesse' => (int) filesize( $f ), 'zeit' => gmdate( 'c', filemtime( $f ) ) );
+				$e = array( 'brief' => $n, 'art' => $m[1], 'groesse' => (int) filesize( $f ), 'zeit' => gmdate( 'c', filemtime( $f ) ) );
+				/* Der Abholer soll einen schon beantworteten Madeleine-Brief nicht noch einmal
+				   Madeleine vorlegen — also steht der Stand hier dran. */
+				if ( $m[1] === 'madeleine' ) {
+					$j = json_decode( (string) @file_get_contents( $f ), true );
+					$e['status'] = is_array( $j ) ? (string) ( $j['status'] ?? 'offen' ) : 'kaputt';
+				}
+				$aus[] = $e;
 				if ( count( $aus ) >= 100 ) { break; }
 			}
 		}
+		/* Herzschlag: dass überhaupt jemand nachgesehen hat. Ohne ihn kann der Compass nicht
+		   unterscheiden zwischen „Madeleine rechnet noch" und „niemand holt gerade ab". */
+		if ( g_schluessel_ok() && is_dir( $BRIEFE ) ) { @file_put_contents( $BRIEFE . '/zuletzt-abgeholt.txt', gmdate( 'c' ) ); }
 		echo json_encode( array( 'ok' => true, 'briefe' => $aus ), JSON_UNESCAPED_UNICODE );
+		exit;
+	}
+
+	/* Die eigenen Madeleine-Briefe — das ist die Seite, die der Compass liest. */
+	if ( $tun === 'meine' ) {
+		$aus = array();
+		foreach ( (array) glob( $BRIEFE . '/*-madeleine-*.json' ) as $f ) {
+			$j = json_decode( (string) @file_get_contents( $f ), true );
+			if ( ! is_array( $j ) ) { continue; }
+			/* Auf einer persönlichen Instanz ist das immer dieselbe Person; auf einer geteilten
+			   nicht — deshalb wird gefiltert und nicht darauf vertraut. */
+			if ( $ich && isset( $j['person'] ) && (int) $j['person'] !== (int) $ich['p'] ) { continue; }
+			$aus[] = array(
+				'brief' => basename( $f ), 'frage' => (string) ( $j['frage'] ?? '' ),
+				'status' => (string) ( $j['status'] ?? 'offen' ), 'antwort' => (string) ( $j['antwort'] ?? '' ),
+				'modell' => (string) ( $j['modell'] ?? '' ), 'gestellt' => (string) ( $j['gestellt'] ?? '' ),
+				'beantwortet' => (string) ( $j['beantwortet'] ?? '' ), 'letzterFehler' => (string) ( $j['letzterFehler'] ?? '' ),
+			);
+		}
+		usort( $aus, fn( $a, $b ) => strcmp( $a['gestellt'], $b['gestellt'] ) );
+		$puls = @file_get_contents( $BRIEFE . '/zuletzt-abgeholt.txt' );
+		echo json_encode( array( 'ok' => true, 'fragen' => $aus, 'abgeholt' => (string) $puls, 'jetzt' => gmdate( 'c' ) ), JSON_UNESCAPED_UNICODE );
+		exit;
+	}
+
+	/* Antwort eintragen — nur die Maschine. Eine Antwort, die die Seite selbst schreiben könnte,
+	   wäre keine Antwort von Madeleine, sondern eine Behauptung. */
+	if ( $tun === 'antwort' ) {
+		if ( ! g_schluessel_ok() ) { http_response_code( 403 ); echo json_encode( array( 'ok' => false, 'error' => 'NUR_MASCHINE' ) ); exit; }
+		if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || strtoupper( $_SERVER['REQUEST_METHOD'] ) !== 'POST' ) {
+			http_response_code( 405 ); echo json_encode( array( 'ok' => false, 'error' => 'NUR_POST' ) ); exit;
+		}
+		$f = $BRIEFE . '/' . $brief;
+		if ( $brief === '' || ! is_file( $f ) ) { http_response_code( 404 ); echo json_encode( array( 'ok' => false, 'error' => 'KEIN_BRIEF' ) ); exit; }
+		$j = json_decode( (string) @file_get_contents( $f ), true );
+		if ( ! is_array( $j ) || ( $j['art'] ?? '' ) !== 'madeleine' ) { http_response_code( 400 ); echo json_encode( array( 'ok' => false, 'error' => 'FALSCHE_ART' ) ); exit; }
+		$in = json_decode( (string) file_get_contents( 'php://input' ), true );
+		$antwort = is_array( $in ) ? trim( (string) ( $in['antwort'] ?? '' ) ) : '';
+		$fehler  = is_array( $in ) ? trim( (string) ( $in['fehler'] ?? '' ) ) : '';
+		if ( $antwort === '' && $fehler === '' ) { http_response_code( 400 ); echo json_encode( array( 'ok' => false, 'error' => 'LEER' ) ); exit; }
+		if ( ( $j['status'] ?? '' ) !== 'fertig' ) {   /* zweimal geliefert ist kein Fehler */
+			if ( $antwort !== '' ) {
+				$j['antwort']     = mb_substr( $antwort, 0, 12000 );
+				$j['modell']      = mb_substr( (string) ( $in['modell'] ?? '' ), 0, 60 );
+				$j['status']      = 'fertig';
+				$j['beantwortet'] = gmdate( 'c' );
+				unset( $j['letzterFehler'] );
+			} else {
+				$j['versuche']      = (int) ( $j['versuche'] ?? 0 ) + 1;
+				$j['letzterFehler'] = mb_substr( $fehler, 0, 300 );
+				if ( $j['versuche'] >= $MD_VERSUCHE ) { $j['status'] = 'fehler'; }
+			}
+			if ( file_put_contents( $f, json_encode( $j, JSON_UNESCAPED_UNICODE ), LOCK_EX ) === false ) {
+				http_response_code( 500 ); echo json_encode( array( 'ok' => false, 'error' => 'NICHT_GESCHRIEBEN' ) ); exit;
+			}
+		}
+		echo json_encode( array( 'ok' => true, 'status' => (string) $j['status'] ) );
 		exit;
 	}
 
@@ -275,18 +361,43 @@ if ( isset( $_GET['briefkasten'] ) ) {
 	$d = json_decode( (string) $roh, true );
 	$art = is_array( $d ) && isset( $d['art'] ) ? strtolower( (string) $d['art'] ) : '';
 	$datum = is_array( $d ) && isset( $d['datum'] ) ? (string) $d['datum'] : '';
-	if ( ! in_array( $art, array( 'morgen', 'abend', 'wochenstart', 'wochenreview', 'fragen', 'checkin' ), true )
+	if ( ! in_array( $art, array( 'morgen', 'abend', 'wochenstart', 'wochenreview', 'fragen', 'checkin', 'madeleine' ), true )
 	  || ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/', $datum ) ) {
 		http_response_code( 400 ); echo json_encode( array( 'ok' => false, 'error' => 'UNBRAUCHBAR' ) ); exit;
+	}
+	if ( $art === 'madeleine' ) {
+		$frage = trim( (string) ( $d['frage'] ?? '' ) );
+		if ( $frage === '' ) { http_response_code( 400 ); echo json_encode( array( 'ok' => false, 'error' => 'LEER' ) ); exit; }
+		/* Höchstens drei offene Fragen: Madeleine rechnet Minuten je Antwort, und ein Kasten voller
+		   Fragen, die alle gleichzeitig warten, hilft niemandem. */
+		$warten = 0;
+		foreach ( (array) glob( $BRIEFE . '/*-madeleine-*.json' ) as $x ) {
+			$y = json_decode( (string) @file_get_contents( $x ), true );
+			if ( is_array( $y ) && ( $y['status'] ?? '' ) === 'offen' ) { $warten++; }
+		}
+		if ( $warten >= 3 ) { http_response_code( 429 ); echo json_encode( array( 'ok' => false, 'error' => 'ZU_VIELE' ) ); exit; }
+		$d = array(
+			'art' => 'madeleine', 'datum' => $datum,
+			'frage'   => mb_substr( $frage, 0, 3000 ),
+			'kontext' => mb_substr( (string) ( $d['kontext'] ?? '' ), 0, 8000 ),
+			'status'  => 'offen', 'antwort' => '', 'gestellt' => gmdate( 'c' ),
+			/* Wer fragt, sagt die Tür — nicht der Browser. */
+			'person'  => $ich ? (int) $ich['p'] : 0,
+			'wer'     => $ich ? (string) ( $ich['n'] ?? '' ) : '',
+		);
 	}
 	if ( ! is_dir( $BRIEFE ) ) { @mkdir( $BRIEFE, 0700, true ); }
 	if ( ! is_dir( $BRIEFE ) || ! is_writable( $BRIEFE ) ) { http_response_code( 500 ); echo json_encode( array( 'ok' => false, 'error' => 'KEIN_ORDNER' ) ); exit; }
 	/* Ein Briefkasten, der volllaufen kann, ist ein Loch im Webspace. */
 	$da = glob( $BRIEFE . '/*.json' );
 	if ( is_array( $da ) && count( $da ) >= 200 ) { http_response_code( 507 ); echo json_encode( array( 'ok' => false, 'error' => 'VOLL' ) ); exit; }
-	/* Dieselbe art+datum ersetzt sich selbst — sonst sammelt ein hartnäckiger Wächter Dubletten. */
-	foreach ( (array) $da as $alt ) {
-		if ( strpos( basename( $alt ), $datum . '-' . $art . '-' ) === 0 ) { @unlink( $alt ); }
+	/* Dieselbe art+datum ersetzt sich selbst — sonst sammelt ein hartnäckiger Wächter Dubletten.
+	   Für Madeleine gilt das ausdrücklich NICHT: an einem Tag darf man mehr als eine Frage stellen,
+	   und die zweite darf die erste nicht verschlucken. */
+	if ( $art !== 'madeleine' ) {
+		foreach ( (array) $da as $alt ) {
+			if ( strpos( basename( $alt ), $datum . '-' . $art . '-' ) === 0 ) { @unlink( $alt ); }
+		}
 	}
 	$name = $datum . '-' . $art . '-' . bin2hex( random_bytes( 4 ) ) . '.json';
 	if ( file_put_contents( $BRIEFE . '/' . $name, json_encode( $d, JSON_UNESCAPED_UNICODE ), LOCK_EX ) === false ) {
