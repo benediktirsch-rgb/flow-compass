@@ -424,12 +424,15 @@ em.acc{font-style:italic;color:var(--vk-d)}
 #johnFab .in{width:100%;height:100%;border-radius:50%;background:var(--panel);display:flex;align-items:center;justify-content:center;
   font-family:var(--serif);font-size:28px;color:var(--ink);font-style:italic;position:relative}
 /* Status-Punkt = kleine Uhr: Ring als Zifferblatt, zwei Zeiger mit echter Zeit (johnUhr) */
-#johnFab .st{position:absolute;right:2px;bottom:2px;width:14px;height:14px;border-radius:50%;background:var(--dim);border:2px solid var(--panel);
+#johnFab .st{position:absolute;right:2px;bottom:2px;width:16px;height:16px;border-radius:50%;background:var(--dim);border:2px solid var(--panel);
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)}
-#johnFab .st::before,#johnFab .st::after{content:"";position:absolute;left:50%;bottom:50%;width:1px;margin-left:-.5px;border-radius:1px;
-  background:rgba(0,0,0,.55);transform-origin:50% 100%}
-#johnFab .st::before{height:3px;transform:rotate(var(--uh,300deg))}
-#johnFab .st::after{height:4px;transform:rotate(var(--um,60deg))}
+/* Zwei klar unterschiedliche Zeiger (08.09.2026): Stunde kurz und dick, Minute lang und dünn bis
+   fast an den Rand. Vorher waren sie 3 und 4 px lang und beide 1 px breit — auf 14 px Zifferblatt
+   war nicht zu erkennen, welcher welcher ist, und die Uhr las sich falsch. */
+#johnFab .st::before,#johnFab .st::after{content:"";position:absolute;left:50%;bottom:50%;border-radius:1px;
+  background:rgba(0,0,0,.7);transform-origin:50% 100%}
+#johnFab .st::before{width:1.5px;margin-left:-.75px;height:4px;transform:rotate(var(--uh,300deg))}
+#johnFab .st::after{width:1px;margin-left:-.5px;height:6px;transform:rotate(var(--um,60deg))}
 #johnFab.on .st{background:var(--ok)}#johnFab.warn .st{background:var(--bene)}
 #johnFab .tip{position:absolute;right:68px;top:50%;transform:translateY(-50%);background:var(--panel);border:1px solid var(--line);color:var(--sub);
   font-size:12px;font-weight:700;padding:6px 10px;border-radius:10px;white-space:nowrap;opacity:0;pointer-events:none;transition:.2s}
@@ -7184,6 +7187,14 @@ function johnUhr(){ const d=new Date(), m=d.getMinutes(), h=d.getHours()%12, lan
   johnUhrDatum.textContent=d.toLocaleDateString(lang,{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
   johnUhrName.textContent=johnTip.textContent; }
 johnUhr(); setInterval(johnUhr,1000);
+/* Aufwachen (08.09.2026): im Hintergrund hält der Browser den Takt an — die installierte App
+   auf dem Handy friert die Seite ganz ein, Chrome lässt setInterval im Hintergrundtab höchstens
+   einmal pro Minute laufen. Beim Zurückkommen stand die Uhr deshalb noch auf der Zeit von vorhin
+   (die Nutzerin sah 4, während es kurz vor 8 war). Jedes Sichtbarwerden stellt Zeiger, Kopfzeile,
+   Begrüßung und Tagesphase sofort nach, statt auf den nächsten Takt zu warten. */
+function zeitNachstellen(){ johnUhr(); try{ tick(); }catch(e){} }   /* kostet nichts, darum ohne Bedingung */
+document.addEventListener('visibilitychange',zeitNachstellen);
+addEventListener('pageshow',zeitNachstellen); addEventListener('focus',zeitNachstellen);
 </script>
 
 <!-- Editier-Modus fuers Layout (24.08.2026): Karten verschieben, Breite aendern,
