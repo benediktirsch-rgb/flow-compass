@@ -13,8 +13,9 @@
     Get-JiraKpi + Get-JiraMeine, Get-Verein (vaikuntha.eu), vishnuartists.com/stats.php, Get-Postfach,
     Get-Slack, Get-Routinen, Get-Wetter, rhythmus-data.js › rueckfragen (Wortlaut der offenen Fragen).
     Die zwei erzählenden Teile („Das fällt mir auf", Weisheit, erster Schritt) kommen über EINEN
-    Claude-Aufruf in Johns Stimme (Build-System + Call-Claude aus john-server.ps1) als JSON. Fällt er
-    aus, steht das Board trotzdem — ohne Kommentar, mit einer ehrlichen Zeile dazu.
+    Claude-Aufruf in Johns Stimme (Build-System + Get-Backend aus john-server.ps1: Abo-CLI, eigener
+    Anbieter oder API-Schlüssel — derselbe Weg wie Chat und Stapel) als JSON. Fällt er aus, steht das
+    Board trotzdem — ohne Kommentar, mit einer ehrlichen Zeile dazu.
 
   Ablage
     boards\ neben diesem Skript, gitignored (Telefonnummern, Namen). Ausgeliefert unter
@@ -200,10 +201,7 @@ function Get-BoardDaten([string]$art, [string]$datum) {
 
 # ---------- Die erzählenden Teile: ein Claude-Aufruf in Johns Stimme, Antwort als JSON ----------
 function Get-BoardErzaehlung($d) {
-  $apiKey = Get-ApiKey
-  if (-not $apiKey) { throw 'NO_KEY' }
   $sys = Build-System
-  $system = @(@{ type = 'text'; text = $sys.text; cache_control = @{ type = 'ephemeral' } })
   # Nur das Nötige in den Datenblock — keine Rohtexte der Mails, keine Adressen.
   $kurz = @{
     art = $d.art; datum = $d.datum; wochentag = $script:BoardWt[[int]$d.tag.DayOfWeek]
@@ -253,11 +251,29 @@ $weRegel
 Datenblock (JSON, vom john-server erzeugt):
 $daten
 "@
-  $body = @{ model = $Model; max_tokens = 1600; system = $system; messages = @(@{ role = 'user'; content = $auftrag })
-             output_config = @{ effort = 'medium' }; fallbacks = 'default' }
-  $r = Call-Claude $apiKey $body
-  if ($r.stop_reason -eq 'refusal') { throw 'refusal' }
-  $text = (($r.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join ' ').Trim()
+  # Derselbe Weg zur KI wie Chat, Summary und Stapel (Get-Backend, 08.09.2026): 'cli' = Claude Code auf
+  # Benes Abo, 'openai' = eigener Anbieter, sonst der API-Schlüssel. Bis hierher rief nur das Board direkt
+  # die API — darum stand auf dem Morgenboard "Kein Kommentar in diesem Lauf: NO_CREDIT", während der
+  # Chat im Compass längst über das Abo lief.
+  $backend = Get-Backend
+  if ($backend -eq 'cli') {
+    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisText) $auftrag @{ tools = $false; maxTurns = 1; effort = 'medium'; timeout = 300 }
+    $text = [string]$c.text; $model = $c.model; $usage = $c.usage
+  } elseif ($backend -eq 'openai') {
+    $c = John-TextOpenAI $sys $auftrag
+    $text = [string]$c.text; $model = $c.model; $usage = $c.usage
+  } else {
+    $apiKey = Get-ApiKey
+    if (-not $apiKey) { throw 'NO_KEY' }
+    $system = @(@{ type = 'text'; text = $sys.text; cache_control = @{ type = 'ephemeral' } })
+    $body = @{ model = $Model; max_tokens = 1600; system = $system; messages = @(@{ role = 'user'; content = $auftrag })
+               output_config = @{ effort = 'medium' }; fallbacks = 'default' }
+    $r = Call-Claude $apiKey $body
+    if ($r.stop_reason -eq 'refusal') { throw 'refusal' }
+    $text = (($r.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join ' ')
+    $model = $r.model; $usage = $r.usage
+  }
+  $text = ([string]$text).Trim()
   $text = $text -replace '^\s*```(?:json)?\s*', '' -replace '\s*```\s*$', ''
   $a = $text.IndexOf('{'); $z = $text.LastIndexOf('}')
   if ($a -lt 0 -or $z -le $a) { throw 'Antwort ohne JSON' }
@@ -265,7 +281,7 @@ $daten
   return @{ schritt = [string]$o.schritt; lage = [string]$o.lage
             auffall = @(@($o.auffall) | Where-Object { $_ } | ForEach-Object { [string]$_ })
             weisheit = @(@($o.weisheit) | Where-Object { $_ -and $_.zitat } | ForEach-Object { @{ zitat = [string]$_.zitat; quelle = [string]$_.quelle; bezug = [string]$_.bezug } })
-            model = $r.model; usage = $r.usage }
+            model = $model; usage = $usage; backend = $backend }
 }
 
 # ---------- HTML ----------
@@ -579,7 +595,7 @@ function ConvertTo-BoardHtml($d, $erz, [string]$erzFehler) {
 
   # Fuß
   $quellen = @('Jira ' + $(if ($j -and $j.site) { $j.site } else { 'vishnuartists.atlassian.net' }), 'vaikuntha.eu KPI-API', 'vishnuartists.com/stats.php', ('Kalender ' + (@($d.kalQuellen | ForEach-Object { $_.name }) -join '+')), 'Postfach', 'Slack', 'Routinen', 'open-meteo')
-  [void]$sb.AppendLine(('<footer>Quellen: {0}<br>Stand {1} · john-server.ps1 → john-board.ps1{2}{3}' -f (& $esc ($quellen -join ' · ')), $jetzt.ToString('dd.MM.yyyy, HH:mm'), $(if ($erz -and $erz.model) { ' · Kommentar: ' + (& $esc $erz.model) } else { '' }), $(if ($d.fehler.Count) { '<br>Nicht erreichbar in diesem Lauf: ' + (& $esc ($d.fehler -join ' · ')) } else { '' })))
+  [void]$sb.AppendLine(('<footer>Quellen: {0}<br>Stand {1} · john-server.ps1 → john-board.ps1{2}{3}' -f (& $esc ($quellen -join ' · ')), $jetzt.ToString('dd.MM.yyyy, HH:mm'), $(if ($erz -and $erz.model) { ' · Kommentar: ' + (& $esc $erz.model) + $(switch ([string]$erz.backend) { 'cli' { ' über das Claude-Abo' } 'openai' { ' über den eigenen Anbieter' } default { '' } }) } else { '' }), $(if ($d.fehler.Count) { '<br>Nicht erreichbar in diesem Lauf: ' + (& $esc ($d.fehler -join ' · ')) } else { '' })))
   [void]$sb.AppendLine('<div class="nav"><a href="/dashboard.html">← Flow Compass</a><a href="/api/board">Alle Boards</a></div></footer>')
   [void]$sb.AppendLine('</div></body></html>')
   return $sb.ToString()
