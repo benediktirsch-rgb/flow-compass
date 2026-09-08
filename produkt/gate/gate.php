@@ -52,6 +52,7 @@ $GEHEIM = '';
 $KONFIG = $WURZEL . '/gate-config.php';
 $SECRET = $WURZEL . '/gate-secret.php';
 $PRUEFE = 'https://vishnuartists.com/weiter.php';
+$BRIEFE = $WURZEL . '/briefkasten';   /* liegengebliebene Übergaben aus dem Compass (07.09.2026) */
 $STUNDEN = 4;
 
 $GATE_MAIL = ''; $GATE_ROLLEN = array( 'gruender' ); $GATE_TITEL = 'Vishnu Artists'; $GATE_KEY = '';
@@ -207,6 +208,94 @@ if ( ! file_exists( $KONFIG ) ) {
 	g_seite( 503, 'Tür noch nicht eingerichtet', 'Auf dieser Adresse fehlt gate-config.php — wer hier hereindarf, ist damit nicht festgelegt. Bis das steht, bleibt die Tür zu.' );
 }
 
+/* ————— 2b. Briefkasten: eine Übergabe, die den john-server nicht erreicht hat —————
+   Wozu: der Compass schickt jeden Checkin an Benes john-server auf seinem Rechner. Läuft der
+   gerade nicht (am 07.09.2026 den ganzen Vormittag), blieb die Übergabe im Browser liegen und
+   war für jedes andere Gerät unsichtbar; wer den Checkin auf dem Handy machte, wartete für
+   immer, weil dort 'localhost' das Handy selbst ist. Diese Tür steht auf einem Server, der
+   immer läuft, und kennt die Person schon — also wirft der Compass die Übergabe hier ein und
+   der john-server holt sie ab, sobald er wieder da ist (briefkasten-abholen.ps1, Maschinen-
+   schlüssel X-Vf-Key).
+   Der Briefkasten ist Durchgang, kein Archiv: abgeholt heißt gelöscht. Ausgeliefert wird er
+   nie als Datei (siehe die Sperre in Schritt 3) — nur über diese vier Handgriffe. */
+if ( isset( $_GET['briefkasten'] ) ) {
+	g_cors();
+	header( 'Content-Type: application/json; charset=utf-8' );
+	header( 'Cache-Control: no-store' );
+	$tun = (string) $_GET['briefkasten'];
+
+	/* Der Name kommt von außen: nur das selbst vergebene Muster zählt, nie ein Pfad. */
+	$brief = isset( $_GET['brief'] ) ? strtolower( (string) $_GET['brief'] ) : '';
+	if ( $brief !== '' && ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z]{1,20}-[0-9a-f]{8}\.json$/', $brief ) ) { $brief = ''; }
+
+	if ( $tun === 'liste' ) {
+		$aus = array();
+		if ( is_dir( $BRIEFE ) ) {
+			$namen = scandir( $BRIEFE );
+			sort( $namen );
+			foreach ( $namen as $n ) {
+				if ( ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z]{1,20}-[0-9a-f]{8}\.json$/', $n ) ) { continue; }
+				$f = $BRIEFE . '/' . $n;
+				$aus[] = array( 'brief' => $n, 'groesse' => (int) filesize( $f ), 'zeit' => gmdate( 'c', filemtime( $f ) ) );
+				if ( count( $aus ) >= 100 ) { break; }
+			}
+		}
+		echo json_encode( array( 'ok' => true, 'briefe' => $aus ), JSON_UNESCAPED_UNICODE );
+		exit;
+	}
+
+	if ( $tun === 'hol' ) {
+		if ( $brief === '' || ! is_file( $BRIEFE . '/' . $brief ) ) { http_response_code( 404 ); echo json_encode( array( 'ok' => false, 'error' => 'KEIN_BRIEF' ) ); exit; }
+		$roh = file_get_contents( $BRIEFE . '/' . $brief );
+		$d = json_decode( (string) $roh, true );
+		if ( ! is_array( $d ) ) { http_response_code( 500 ); echo json_encode( array( 'ok' => false, 'error' => 'KAPUTT' ) ); exit; }
+		echo json_encode( array( 'ok' => true, 'brief' => $brief, 'nutzlast' => $d ), JSON_UNESCAPED_UNICODE );
+		exit;
+	}
+
+	if ( $tun === 'weg' ) {
+		if ( $brief === '' ) { http_response_code( 400 ); echo json_encode( array( 'ok' => false, 'error' => 'KEIN_BRIEF' ) ); exit; }
+		$f = $BRIEFE . '/' . $brief;
+		if ( is_file( $f ) ) { @unlink( $f ); }
+		echo json_encode( array( 'ok' => true, 'brief' => $brief ) );
+		exit;
+	}
+
+	/* Einwerfen. Nur POST — ein GET, das schreibt, wäre über einen Link auslösbar. */
+	if ( ! isset( $_SERVER['REQUEST_METHOD'] ) || strtoupper( $_SERVER['REQUEST_METHOD'] ) !== 'POST' ) {
+		http_response_code( 405 ); echo json_encode( array( 'ok' => false, 'error' => 'NUR_POST' ) ); exit;
+	}
+	/* Ohne Maschinenschlüssel holt niemand den Brief je ab — dann nimmt der Kasten auch nichts an.
+	   Sonst sammelte eine Instanz ohne john-server Briefe, die bis zum Anschlag liegen bleiben. */
+	if ( ! is_string( $GATE_KEY ) || strlen( $GATE_KEY ) < 16 ) {
+		http_response_code( 503 ); echo json_encode( array( 'ok' => false, 'error' => 'KEIN_ABHOLER' ) ); exit;
+	}
+	$roh = file_get_contents( 'php://input' );
+	if ( strlen( (string) $roh ) > 262144 ) { http_response_code( 413 ); echo json_encode( array( 'ok' => false, 'error' => 'ZU_GROSS' ) ); exit; }
+	$d = json_decode( (string) $roh, true );
+	$art = is_array( $d ) && isset( $d['art'] ) ? strtolower( (string) $d['art'] ) : '';
+	$datum = is_array( $d ) && isset( $d['datum'] ) ? (string) $d['datum'] : '';
+	if ( ! in_array( $art, array( 'morgen', 'abend', 'wochenstart', 'wochenreview', 'fragen', 'checkin' ), true )
+	  || ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/', $datum ) ) {
+		http_response_code( 400 ); echo json_encode( array( 'ok' => false, 'error' => 'UNBRAUCHBAR' ) ); exit;
+	}
+	if ( ! is_dir( $BRIEFE ) ) { @mkdir( $BRIEFE, 0700, true ); }
+	if ( ! is_dir( $BRIEFE ) || ! is_writable( $BRIEFE ) ) { http_response_code( 500 ); echo json_encode( array( 'ok' => false, 'error' => 'KEIN_ORDNER' ) ); exit; }
+	/* Ein Briefkasten, der volllaufen kann, ist ein Loch im Webspace. */
+	$da = glob( $BRIEFE . '/*.json' );
+	if ( is_array( $da ) && count( $da ) >= 200 ) { http_response_code( 507 ); echo json_encode( array( 'ok' => false, 'error' => 'VOLL' ) ); exit; }
+	/* Dieselbe art+datum ersetzt sich selbst — sonst sammelt ein hartnäckiger Wächter Dubletten. */
+	foreach ( (array) $da as $alt ) {
+		if ( strpos( basename( $alt ), $datum . '-' . $art . '-' ) === 0 ) { @unlink( $alt ); }
+	}
+	$name = $datum . '-' . $art . '-' . bin2hex( random_bytes( 4 ) ) . '.json';
+	if ( file_put_contents( $BRIEFE . '/' . $name, json_encode( $d, JSON_UNESCAPED_UNICODE ), LOCK_EX ) === false ) {
+		http_response_code( 500 ); echo json_encode( array( 'ok' => false, 'error' => 'NICHT_GESCHRIEBEN' ) ); exit;
+	}
+	echo json_encode( array( 'ok' => true, 'brief' => $name ) );
+	exit;
+}
+
 /* ————— 3. Datei ausliefern ————— */
 $pfad = parse_url( isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '/', PHP_URL_PATH );
 $pfad = rawurldecode( (string) $pfad );
@@ -224,6 +313,11 @@ $endung = strtolower( pathinfo( $echt, PATHINFO_EXTENSION ) );
 /* Nie ausliefern: die Tür selbst, ihre Konfiguration, ihr Geheimnis, Serverdateien. */
 if ( $endung === 'php' || $name === '.htaccess' || strpos( $name, '.htpasswd' ) === 0 || strpos( $name, '.publish-state' ) === 0 ) {
 	g_seite( 403, 'Nicht abrufbar', 'Diese Datei gehört zur Tür, nicht zum Haus.' );
+}
+/* Der Briefkasten ist kein Ordner zum Blättern — an seinen Inhalt kommt man nur über Schritt 2b. */
+$briefe_echt = realpath( $BRIEFE );
+if ( $briefe_echt !== false && strpos( $echt, $briefe_echt ) === 0 ) {
+	g_seite( 403, 'Nicht abrufbar', 'Der Briefkasten wird nicht ausgeliefert.' );
 }
 
 $typen = array(
