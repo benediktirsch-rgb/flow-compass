@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zwei Varianten für den Compass</title>
+<style>
+  :root{ --bg:#f6f5f2; --panel:#fff; --ink:#1c1e1a; --sub:#6b7065; --line:#e3e1d9; --akzent:#4f7418;
+         --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+         --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  @media (prefers-color-scheme:dark){ :root{ --bg:#14160f; --panel:#1c1f18; --ink:#eceade; --sub:#9aa091;
+         --line:#2e3327; --akzent:#93c25a; } }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 var(--sans)}
+  .wrap{max-width:860px;margin:0 auto;padding:44px 20px 80px}
+  h1{font:400 30px/1.25 var(--serif);margin:0 0 6px} h1 em{font-style:italic;color:var(--akzent)}
+  .unter{color:var(--sub);margin:0 0 30px}
+  .paar{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:760px){ .paar{grid-template-columns:1fr} }
+  a.karte{display:block;text-decoration:none;color:inherit;background:var(--panel);border:1px solid var(--line);
+          border-radius:16px;padding:22px 22px 18px;transition:border-color .15s,transform .15s}
+  a.karte:hover{border-color:var(--akzent);transform:translateY(-2px)}
+  .marke{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--sub)}
+  h2{font:400 22px/1.3 var(--serif);margin:6px 0 10px}
+  ul{margin:10px 0 0;padding-left:18px;font-size:13.5px;color:var(--sub)} li{margin-bottom:5px}
+  .los{margin-top:16px;font-size:13px;color:var(--akzent);font-weight:600}
+  .fuss{margin-top:32px;font-size:13px;color:var(--sub)}
+  code{font-size:12.5px;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Zwei Wege, denselben <em>Compass</em> zu ordnen</h1>
+  <p class="unter">Beide Seiten zeigen deine echten Zahlen vom john-server — nichts ist gestellt.
+     Geschrieben wird nichts: die Tasten sagen nur, wo die Aktion hinginge.</p>
+
+  <div class="paar">
+    <a class="karte" href="./flow.html">
+      <div class="marke">Variante A</div>
+      <h2>Flow — entscheidungsgetrieben</h2>
+      <div>Die Seite fragt: <b>Was braucht dich jetzt?</b> Eine Spalte, eine Sache nach der anderen.</div>
+      <ul>
+        <li>Das Eine ganz oben, groß, ohne Konkurrenz</li>
+        <li>Ein Stapel „Jetzt entscheiden“: eine Frage sichtbar, Antworttasten daneben, Rest dahinter</li>
+        <li>Menschen, die warten — nach Alter, drei sichtbar</li>
+        <li>Alles Laufende (Seiten, Sicherungen, Routinen, Zahlen) als eine ruhige Zeile mit Ampelpunkten</li>
+      </ul>
+      <div class="los">Ansehen →</div>
+    </a>
+
+    <a class="karte" href="./cockpit.html">
+      <div class="marke">Variante B</div>
+      <h2>Cockpit — Design und Funktion</h2>
+      <div>Die Seite antwortet: <b>Wie steht alles?</b> Sechs thematische Felder in einem Raster.</div>
+      <ul>
+        <li>Jede Kopfzeile trägt schon die Hauptinformation: Kernzahl und Ampel</li>
+        <li>Details klappen im Feld auf, Seltenes erst danach</li>
+        <li>Bereichsnavigation, die beim Scrollen mitläuft</li>
+        <li>Zwei Dichten, Hell und Dunkel, tabellarische Ziffern, ein Verlauf als Linie</li>
+      </ul>
+      <div class="los">Ansehen →</div>
+    </a>
+  </div>
+
+  <div class="fuss">Beide liegen unter <code>persoenliches-dashboard/varianten/</code> und teilen sich
+    die Datenschicht <code>vd.js</code>. Was eine Quelle nicht hergibt, sagen sie im Klartext —
+    „nicht geprüft“ ist nicht dasselbe wie „in Ordnung“.</div>
+</div>
+</body>
+</html>

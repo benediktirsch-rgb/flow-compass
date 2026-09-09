@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="de" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Variante B · Cockpit — Vishnu Flow Compass</title>
+<!-- Variante B „Cockpit“ (09.09.2026) — Design und Funktion.
+     Leitfrage der Seite: Wie steht alles? Sechs thematische Felder, jedes mit seiner
+     Hauptinformation in der Kopfzeile (Kernzahl + Ampel). Details liegen im Feld darunter
+     und klappen auf; was selten gebraucht wird, kommt erst hinter „Alles zeigen“.
+     Ein Raster, eine Typo-Skala, zwei Dichten, Hell und Dunkel. Prototyp: schreibt nichts. -->
+<style>
+  :root{
+    --bg:#f4f5f3; --flaeche:#fff; --flaeche2:#f9faf8; --ink:#171a16; --sub:#6d7368; --schwach:#9aa094;
+    --line:#e4e6e0; --linie-stark:#d2d5cb;
+    --gruen:#4f7418; --gruen-w:#eef4e4; --gelb:#a8790c; --gelb-w:#faf1dc; --rot:#b3402f; --rot-w:#fbeae7;
+    --blau:#2f5c8f; --violet:#6544ea;
+    --r:14px; --pad:18px; --luft:16px;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --schatten:0 1px 1px rgba(23,26,22,.04),0 6px 18px rgba(23,26,22,.05);
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme=light]){
+    --bg:#111310; --flaeche:#191c17; --flaeche2:#1f231c; --ink:#e9eae2; --sub:#98a08f; --schwach:#767d70;
+    --line:#2a2f26; --linie-stark:#3a4034;
+    --gruen:#93c25a; --gruen-w:#20301a; --gelb:#d9a441; --gelb-w:#2f2717; --rot:#e0705c; --rot-w:#331d19;
+    --blau:#7fa8d8; --violet:#a08bff;
+    --schatten:0 1px 1px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.35);
+  }}
+  :root[data-theme=dark]{
+    --bg:#111310; --flaeche:#191c17; --flaeche2:#1f231c; --ink:#e9eae2; --sub:#98a08f; --schwach:#767d70;
+    --line:#2a2f26; --linie-stark:#3a4034;
+    --gruen:#93c25a; --gruen-w:#20301a; --gelb:#d9a441; --gelb-w:#2f2717; --rot:#e0705c; --rot-w:#331d19;
+    --blau:#7fa8d8; --violet:#a08bff;
+    --schatten:0 1px 1px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.35);
+  }
+  :root[data-dichte=kompakt]{ --pad:12px; --luft:10px; --r:12px }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14.5px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
+
+  /* Kopf + Bereichsnavigation, klebt beim Scrollen */
+  header{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);
+         backdrop-filter:blur(8px);border-bottom:1px solid var(--line);margin:0 -20px 22px;padding:14px 20px 0}
+  .kopf{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  h1{font-size:16px;margin:0;font-weight:650;letter-spacing:-.01em}
+  h1 span{color:var(--sub);font-weight:400}
+  .kopf .rechts{margin-left:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--sub)}
+  .kopf button{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--flaeche);color:var(--sub);
+               border-radius:99px;padding:4px 11px;cursor:pointer}
+  .kopf button:hover{border-color:var(--linie-stark);color:var(--ink)}
+  nav{display:flex;gap:2px;overflow-x:auto;margin-top:10px}
+  nav a{font-size:12.5px;color:var(--sub);text-decoration:none;padding:8px 12px;border-bottom:2px solid transparent;white-space:nowrap}
+  nav a:hover{color:var(--ink)} nav a.an{color:var(--ink);border-bottom-color:var(--gruen);font-weight:600}
+  nav a .n{display:inline-block;margin-left:6px;font-size:11px;background:var(--flaeche2);border:1px solid var(--line);
+           border-radius:99px;padding:0 6px;color:var(--sub)}
+
+  /* Raster */
+  .feldgruppe{margin:0 0 var(--luft)}
+  .gruppentitel{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--schwach);margin:22px 0 8px}
+  .raster{display:grid;grid-template-columns:repeat(12,1fr);gap:var(--luft)}
+  .feld{grid-column:span 6;background:var(--flaeche);border:1px solid var(--line);border-radius:var(--r);
+        box-shadow:var(--schatten);overflow:hidden}
+  .feld.breit{grid-column:span 12} .feld.schmal{grid-column:span 4}
+  @media (max-width:900px){ .feld,.feld.schmal{grid-column:span 12} }
+
+  /* Kopfzeile eines Feldes: Titel links, Kernzahl rechts — die Hauptinformation ohne Aufklappen */
+  .fkopf{display:flex;align-items:center;gap:12px;padding:var(--pad);cursor:pointer;user-select:none}
+  .fkopf:hover{background:var(--flaeche2)}
+  .fkopf .ic{font-size:16px;width:22px;text-align:center;flex:none}
+  .fkopf .titel{font-weight:650;font-size:14px}
+  .fkopf .unter{font-size:12px;color:var(--sub);margin-top:1px}
+  .fkopf .wert{margin-left:auto;text-align:right;flex:none;display:flex;align-items:center;gap:10px}
+  .zahl{font-size:22px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+  .zahl small{font-size:12px;font-weight:500;color:var(--sub);margin-left:3px}
+  .ampel{width:9px;height:9px;border-radius:99px;background:var(--schwach);flex:none}
+  .ampel.gruen{background:var(--gruen)} .ampel.gelb{background:var(--gelb)} .ampel.rot{background:var(--rot)}
+  .pfeil{color:var(--schwach);font-size:12px;transition:transform .15s;flex:none}
+  .feld.offen .pfeil{transform:rotate(90deg)}
+  .fkoerper{display:none;padding:0 var(--pad) var(--pad);border-top:1px solid var(--line)}
+  .feld.offen .fkoerper{display:block}
+
+  /* Inhalte */
+  .zeile{display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+  .zeile:last-child{border-bottom:0}
+  .zeile .zic{width:20px;text-align:center;flex:none;color:var(--sub)}
+  .zeile .zt{font-size:13.5px;font-weight:550}
+  .zeile .zm{font-size:12.5px;color:var(--sub);margin-top:2px}
+  .zeile .zr{margin-left:auto;flex:none;font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .zeile .zr.warn{color:var(--rot);font-weight:600}
+  .kacheln{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;padding-top:12px}
+  .kachel{background:var(--flaeche2);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  .kachel .kl{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.06em}
+  .kachel .kv{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:3px}
+  .kachel .kn{font-size:11.5px;color:var(--schwach);margin-top:2px}
+  .band{display:flex;gap:6px;flex-wrap:wrap;padding-top:12px}
+  .marke{font-size:11.5px;border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--sub);background:var(--flaeche2)}
+  .marke.gruen{color:var(--gruen);background:var(--gruen-w);border-color:transparent}
+  .marke.gelb{color:var(--gelb);background:var(--gelb-w);border-color:transparent}
+  .marke.rot{color:var(--rot);background:var(--rot-w);border-color:transparent}
+  .mehrlink{margin-top:10px;font-size:12.5px}
+  .mehrlink button{font:inherit;background:none;border:0;color:var(--gruen);cursor:pointer;text-decoration:underline;padding:0}
+  .leer{font-size:13px;color:var(--sub);padding:12px 0}
+  .fehl{font-size:12.5px;color:var(--gelb);padding:10px 0}
+  .knopf{font:inherit;font-size:12.5px;border:1px solid var(--line);background:var(--flaeche2);color:var(--ink);
+         border-radius:99px;padding:6px 13px;cursor:pointer;margin:10px 8px 0 0}
+  .knopf:hover{border-color:var(--gruen);color:var(--gruen)}
+  .knopf.stark{background:var(--gruen);border-color:var(--gruen);color:#fff;font-weight:600}
+  .spark{display:block;width:100%;height:44px;margin-top:12px}
+  .fuss{margin-top:30px;font-size:12px;color:var(--sub);text-align:center}
+  .fuss a{color:var(--gruen)}
+  .hinweis{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:var(--bg);
+           font-size:13px;padding:9px 16px;border-radius:99px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+  .hinweis.an{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kopf">
+      <h1>Flow Compass <span id="datum"></span></h1>
+      <div class="rechts">
+        <span id="stand">lädt …</span>
+        <button onclick="dichteWechseln()" id="bDichte">Kompakt</button>
+        <button onclick="themeWechseln()">Hell / Dunkel</button>
+        <button onclick="alleAuf()">Alles aufklappen</button>
+      </div>
+    </div>
+    <nav id="nav"></nav>
+  </header>
+
+  <div id="felder"></div>
+
+  <div class="fuss">Variante B · <b>Cockpit</b> — Design und Funktion. Prototyp, schreibt nichts.
+    <a href="./flow.html">← Variante A ansehen</a></div>
+</div>
+<div class="hinweis" id="hinweis"></div>
+
+<script src="/rhythmus-data.js"></script>
+<script src="./vd.js"></script>
+<script>
+const H=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const EUR=n=>n==null?'—':n.toLocaleString('de-DE',{maximumFractionDigits:0})+' €';
+
+function themeWechseln(){ const r=document.documentElement; r.dataset.theme = r.dataset.theme==='dark'?'light':'dark'; }
+function dichteWechseln(){
+  const r=document.documentElement; const k=r.dataset.dichte==='kompakt';
+  r.dataset.dichte = k?'':'kompakt'; document.getElementById('bDichte').textContent = k?'Kompakt':'Komfortabel';
+}
+function alleAuf(){ document.querySelectorAll('.feld').forEach(f=>f.classList.add('offen')); }
+function klapp(el){ el.closest('.feld').classList.toggle('offen'); }
+function sagen(t){ const h=document.getElementById('hinweis'); h.textContent=t; h.classList.add('an');
+  clearTimeout(sagen._t); sagen._t=setTimeout(()=>h.classList.remove('an'),2600); }
+function tun(){ sagen('Prototyp — hier ginge die Aktion an den john-server.'); }
+
+/* Ein Feld: Kopfzeile trägt die Hauptinformation, der Körper das Detail. */
+function feld(o){
+  return `<section class="feld ${o.klasse||''} ${o.offen?'offen':''}" id="feld-${o.id}">
+    <div class="fkopf" onclick="klapp(this)" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();klapp(this)}">
+      <div class="ic">${o.ic}</div>
+      <div><div class="titel">${H(o.titel)}</div><div class="unter">${o.unter||''}</div></div>
+      <div class="wert">
+        <div class="zahl"${o.klein?' style="font-size:13px;font-weight:550"':''}>${o.wert}${o.einheit?`<small>${H(o.einheit)}</small>`:''}</div>
+        <span class="ampel ${o.stufe||''}"></span><span class="pfeil">›</span>
+      </div>
+    </div>
+    <div class="fkoerper">${o.koerper}</div>
+  </section>`;
+}
+const zeile=(ic,t,m,r,warn)=>`<div class="zeile"><div class="zic">${ic}</div><div>
+  <div class="zt">${H(t)}</div>${m?`<div class="zm">${H(m)}</div>`:''}</div>
+  ${r?`<div class="zr${warn?' warn':''}">${H(r)}</div>`:''}</div>`;
+
+function malen(){
+  const d=new Date();
+  document.getElementById('datum').textContent = '· '+d.toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('stand').textContent = 'Stand '+(VD.stand?VD.stand.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—');
+
+  const g=[];
+  g.push({t:'Heute',   id:'heute',   felder:[fHeute(), fEntscheidungen()]});
+  g.push({t:'Menschen',id:'menschen',felder:[fMenschen(), fBeratung()]});
+  g.push({t:'Arbeit',  id:'arbeit',  felder:[fArbeit()]});
+  g.push({t:'Zahlen',  id:'zahlen',  felder:[fGeld()]});
+  g.push({t:'Betrieb', id:'betrieb', felder:VD.systeme.map(fSystem)});
+
+  document.getElementById('felder').innerHTML = g.map(x=>
+    `<div class="feldgruppe" id="gr-${x.id}"><div class="gruppentitel">${H(x.t)}</div>
+     <div class="raster">${x.felder.join('')}</div></div>`).join('');
+  document.getElementById('nav').innerHTML = g.map((x,i)=>
+    `<a href="#gr-${x.id}" class="${i===0?'an':''}" onclick="navAn(this)">${H(x.t)}</a>`).join('');
+}
+function navAn(a){ document.querySelectorAll('nav a').forEach(x=>x.classList.remove('an')); a.classList.add('an'); }
+
+/* Heute: Fokus in der Kopfzeile, Termine im Körper */
+function fHeute(){
+  const t=VD.tag;
+  const koerper = t.fehler ? `<div class="fehl">${H(t.fehler)}</div>`
+    : (t.termine.length ? t.termine.map(x=>zeile('🕘', x.titel||'Belegt',
+        (x.zeit||'')+(x.kal?' · '+x.kal:'')+(x.ohneTitel?' · Titel nicht freigegeben':''), '')).join('')
+      : `<div class="leer">Keine Termine mehr heute.</div>`)
+    + `<div class="kacheln">
+        <div class="kachel"><div class="kl">Frei</div><div class="kv">${t.frei!=null?t.frei+' h':'—'}</div><div class="kn">im Arbeitsfenster</div></div>
+        <div class="kachel"><div class="kl">Belegt</div><div class="kv">${t.belegt!=null?t.belegt+' h':'—'}</div><div class="kn">durch Termine</div></div>
+        <div class="kachel"><div class="kl">Fokus</div><div class="kv" style="font-size:13px;font-weight:550">${t.eine?H(t.eine.slice(0,60)):'nicht gesetzt'}</div><div class="kn">${H(t.eineArt||'kein Checkin heute')}</div></div>
+      </div>`;
+  return feld({ id:'heute', ic:'🪷', titel:'Dein Tag', offen:true,
+    unter: t.eine ? H(t.eine.slice(0,70)) : 'Kein „das Eine“ gesetzt',
+    wert: t.naechster ? H(t.naechster.zeit.split('–')[0]) : (t.termine.length?'frei':'—'),
+    einheit: t.naechster?'nächster Termin':'', stufe: t.fehler?'':'gruen', koerper });
+}
+
+/* Entscheidungen: die Zahl ist die Hauptinformation, die Liste das Detail */
+function fEntscheidungen(){
+  const L=VD.entscheid;
+  const koerper = L.length ? L.slice(0,6).map(e=>
+      `<div class="zeile"><div class="zic">${e.ic}</div><div>
+        <div class="zt">${H(e.titel.length>110?e.titel.slice(0,110)+' …':e.titel)}</div>
+        <div class="zm">${H(e.quelle)}${e.wer?' · '+H(e.wer.slice(0,60)):''}</div>
+        <div><button class="knopf stark" onclick="tun()">${H(e.optionen[0]||'Ja')}</button>
+          ${e.optionen[1]?`<button class="knopf" onclick="tun()">${H(e.optionen[1])}</button>`:''}</div>
+        </div><div class="zr${(e.alter||0)>=7?' warn':''}">${e.alter!=null?e.alter+' T':''}</div></div>`).join('')
+      + (L.length>6?`<div class="mehrlink">${L.length-6} weitere im Stapel</div>`:'')
+    : `<div class="leer">Nichts offen — keine Rückfrage, keine Freigabe, keine Frage aus der Beraterrunde.</div>`;
+  return feld({ id:'ent', ic:'⚖️', titel:'Entscheidungen', offen:true,
+    unter: L.length?'aus Rückfragen, Finanzen, Beraterrunde und Freigaben':'alles beantwortet',
+    wert:L.length, einheit:'offen', stufe:L.length>4?'rot':L.length?'gelb':'gruen', koerper });
+}
+
+/* Menschen: Anzahl und das älteste Warten oben */
+function fMenschen(){
+  const L=VD.wartende; const alt=L.length?L[0].tage:null;
+  const koerper = L.length ? L.slice(0,5).map(w=>zeile(w.ic, w.wer||'', w.worum||'', w.tage!=null?w.tage+' T':'', (w.tage||0)>=30)).join('')
+      + (L.length>5?`<div class="mehrlink"><button onclick="this.parentElement.nextElementSibling.hidden=false;this.parentElement.remove()">+ ${L.length-5} weitere zeigen</button></div>
+         <div hidden>${L.slice(5).map(w=>zeile(w.ic,w.wer||'',w.worum||'',w.tage!=null?w.tage+' T':'',(w.tage||0)>=30)).join('')}</div>`:'')
+      + `<div class="band">${['Mail','Slack','Pool'].map(k=>{const n=L.filter(x=>x.kanal===k).length;
+          return `<span class="marke${n?' gelb':' gruen'}">${k}: ${n}</span>`;}).join('')}</div>`
+    : `<div class="leer">Niemand wartet — Postfach, Slack und Pool sind beantwortet.</div>`;
+  return feld({ id:'menschen', ic:'📬', titel:'Wartet auf dich', offen:true,
+    unter: alt!=null?`ältestes Warten: ${alt} Tage`:'nichts liegt',
+    wert:L.length, einheit:'Menschen', stufe:(alt||0)>=30?'rot':L.length?'gelb':'gruen', koerper });
+}
+
+/* Arbeit: WIP ist die Hauptzahl. Was seit 90 Tagen liegt und was in drei Tagen fällig ist,
+   steht daneben — beides sagt mehr über den Fluss als die Gesamtzahl offener Vorgänge. */
+function fArbeit(){
+  const a=VD.arbeit;
+  if(a.fehler) return feld({id:'arbeit',ic:'🎫',titel:'Arbeit',unter:'Jira nicht erreichbar',wert:'—',stufe:'',
+    koerper:`<div class="fehl">${H(a.fehler)}</div>`});
+  const koerper = (a.inArbeit.length
+      ? a.inArbeit.slice(0,6).map(x=>zeile('▶', x.titel, x.key+' · '+x.status, x.due?('fällig '+new Date(x.due).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})):'')).join('')
+      : `<div class="leer">Nichts in Arbeit — der nächste Zug ist frei.</div>`)
+    + `<div class="kacheln">
+        <div class="kachel"><div class="kl">In Arbeit</div><div class="kv">${a.inArbeit.length}</div><div class="kn">WIP-Grenze im Compass: 3</div></div>
+        <div class="kachel"><div class="kl">Liegt &gt; 90 Tage</div><div class="kv">${a.liegt.length}</div><div class="kn">unbewegt</div></div>
+        <div class="kachel"><div class="kl">Fällig ≤ 3 Tage</div><div class="kv">${a.faellig.length}</div><div class="kn">mit Datum</div></div>
+        <div class="kachel"><div class="kl">Offen gesamt</div><div class="kv">${a.gesamt}</div><div class="kn">dir zugewiesen</div></div>
+      </div>`;
+  return feld({ id:'arbeit', ic:'🎫', titel:'Arbeit', klasse:'breit', offen:true,
+    unter:`${a.gesamt} offene Vorgänge, ${a.liegt.length} davon seit über 90 Tagen unbewegt`,
+    wert:a.inArbeit.length, einheit:'in Arbeit',
+    stufe:a.inArbeit.length>3?'rot':a.inArbeit.length?'gruen':'gelb', koerper });
+}
+
+/* Geld: vier Kennzahlen und der Verlauf als Linie */
+function fGeld(){
+  const g=VD.geld;
+  if(g.fehler) return feld({id:'geld',ic:'💶',titel:'Finanzen',unter:'nicht angebunden',wert:'—',stufe:'',
+    koerper:`<div class="fehl">${H(g.fehler)}</div>`});
+  const v=(g.verlauf||[]).slice(-12);
+  let spark='';
+  if(v.length>1){
+    const w=v.map(x=>x.kontostand||0), min=Math.min(...w), max=Math.max(...w), sp=(max-min)||1;
+    const pts=w.map((y,i)=>`${(i/(w.length-1)*100).toFixed(1)},${(38-(y-min)/sp*34).toFixed(1)}`).join(' ');
+    spark=`<svg class="spark" viewBox="0 0 100 40" preserveAspectRatio="none" aria-label="Kontostand der letzten Monate">
+      <polyline points="${pts}" fill="none" stroke="var(--gruen)" stroke-width="1.4" vector-effect="non-scaling-stroke"/>
+    </svg><div class="kn" style="font-size:11.5px;color:var(--schwach)">Kontostand ${v[0].monat} bis ${v[v.length-1].monat}</div>`;
+  }
+  const koerper=`<div class="kacheln">
+      <div class="kachel"><div class="kl">Kontostand</div><div class="kv">${EUR(g.kontostand)}</div><div class="kn">${H(g.stand||'')}</div></div>
+      <div class="kachel"><div class="kl">Deckung</div><div class="kv">${g.deckung!=null?g.deckung:'—'}</div><div class="kn">Monatsausgaben</div></div>
+      <div class="kachel"><div class="kl">Ergebnis</div><div class="kv">${EUR(g.ergebnis)}</div><div class="kn">letzter Monat</div></div>
+      <div class="kachel"><div class="kl">Belege offen</div><div class="kv">${g.belege!=null?g.belege:'—'}</div><div class="kn">für den Finanzlauf</div></div>
+    </div>${spark}`;
+  return feld({ id:'geld', ic:'💶', titel:'Finanzen', klasse:'breit', offen:true,
+    unter:`Deckung ${g.deckung!=null?g.deckung:'—'} Monate — Ziel sind drei`,
+    wert:EUR(g.kontostand), stufe:(g.deckung>=2?'gruen':g.deckung>=1?'gelb':'rot'), koerper });
+}
+
+/* Betrieb: je Wächter ein schmales Feld */
+function fSystem(s){
+  return feld({ id:'sys-'+s.name, ic:s.ic, titel:s.name, klasse:'schmal', klein:true,
+    unter:H(s.nebensatz||''), wert:H(s.wert), stufe:s.stufe,
+    koerper:`<div class="leer" style="padding-top:12px">${(s.detail||[]).map(H).join('<br>')}</div>` });
+}
+
+/* Beratung: John und Madeleine, die letzte Runde und ihre offene Frage */
+function fBeratung(){
+  const b=VD.beratung;
+  if(b.fehler) return feld({id:'ber',ic:'🤝',titel:'Beraterrunde',unter:'nicht erreichbar',wert:'—',stufe:'',
+    koerper:`<div class="fehl">${H(b.fehler)}</div>`});
+  const r=b.runde;
+  const frage=(VD.entscheid.find(e=>e.quelle==='Beraterrunde')||{}).titel;
+  const koerper = r ? (r.beitraege||[]).map(x=>
+      `<div class="zeile"><div class="zic">${x.wer==='Madeleine'?'👩‍💼':x.wer==='John'?'🤵':'🙋'}</div><div>
+        <div class="zt">${H(x.wer)}</div><div class="zm">${H(String(x.text||'').replace(/\*\*/g,'').slice(0,240))}${String(x.text||'').length>240?' …':''}</div></div></div>`).join('')
+      + (frage?`<div style="padding-top:12px"><div class="zt">${H(frage)}</div>
+         <button class="knopf stark" onclick="tun()">Ja</button><button class="knopf" onclick="tun()">Nein</button></div>`:'')
+    : `<div class="leer">Noch keine Beraterrunde.</div>`;
+  return feld({ id:'ber', ic:'🤝', titel:'Beraterrunde', unter: r?H((r.thema||'').slice(0,60)):'John und Madeleine',
+    wert:b.anzahl, einheit:'Runden', stufe:frage?'gelb':'gruen', koerper });
+}
+
+VD.laden().then(malen).catch(e=>{
+  document.getElementById('felder').innerHTML='<div class="feld"><div class="fkoerper" style="display:block">Der john-server antwortet nicht: '+H(e.message)+'</div></div>';
+});
+</script>
+</body>
+</html>

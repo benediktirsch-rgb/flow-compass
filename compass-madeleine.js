@@ -53,6 +53,13 @@
     out.push('.mk .mb b{display:block;font-size:11px;color:var(--sub);margin-bottom:2px}');
     out.push('.mk .mb.m{border-left:3px solid #b06ab3}.mk .mb.j{border-left:3px solid var(--va)}');
     out.push('.mk .mmehr{font-size:11px;color:var(--sub);margin-top:4px}');
+    out.push('.mk .ment{margin:2px 0 10px;padding:10px 12px;border-radius:12px;border:1px solid var(--va);background:var(--panel2)}');
+    out.push('.mk .mfrage{font-size:13px;font-weight:700;line-height:1.4;margin-bottom:8px}');
+    out.push('.mk .mtasten{display:flex;gap:6px;flex-wrap:wrap;align-items:center}');
+    out.push('.mk .mtasten input{flex:1 1 150px;min-width:110px;font:inherit;font-size:12px;padding:5px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}');
+    out.push('.mk .mtasten .ja{border-color:var(--va);font-weight:700}');
+    out.push('.mk .mb.du{border-left:3px solid var(--ok)}');
+    out.push('.mk .mfehl{font-size:11.5px;color:var(--bad);margin-top:6px}');
     const st=document.createElement('style'); st.id='madCss'; st.textContent=out.join('\n'); document.head.appendChild(st);
   }
 
@@ -208,20 +215,91 @@
     madMalen();
   }
   const kurz=(t,n)=>{ t=String(t||''); return t.length>n ? t.slice(0,n).replace(/\s+\S*$/,'')+' …' : t; };
-  function rundeHtml(r,voll){
+  /* John und Madeleine schreiben Markdown. Fett bleibt fett; verwaiste Sternchen — etwa weil kurz()
+     mitten in einer Hervorhebung geschnitten hat — fallen weg, statt als ** dazustehen. */
+  const md=t=>H(t).replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/\*\*/g,'');
+  function rundeHtml(r,voll,ohne){
     if(!r) return '';
     const n=voll?1600:320;
+    /* Steht die Schlussfrage schon oben über der Runde, gehört sie hier nicht noch einmal hin. */
+    const raus=t=>ohne ? String(t||'').split('\n').filter(z=>z.replace(/\*\*/g,'').trim()!==ohne).join('\n').trim() : String(t||'');
     return `<div class="mrunde"><div class="mth">🤝 ${H(r.datum||'')} · ${H(r.thema||'')}</div>`+
-      (r.beitraege||[]).map(b=>`<div class="mb ${b.wer==='Madeleine'?'m':'j'}"><b>${H(b.wer)}</b>${H(kurz(b.text,n))}</div>`).join('')+`</div>`;
+      (r.beitraege||[]).map(b=>{ const t=raus(b.text);
+        return t ? `<div class="mb ${BERATER.has(b.wer)?(b.wer==='Madeleine'?'m':'j'):'du'}"><b>${H(b.wer)}</b>${md(kurz(t,n))}</div>` : ''; }).join('')+`</div>`;
+  }
+  /* ---------- Die Entscheidung: Johns Schlussfrage, direkt beantwortbar (09.09.2026) ----------
+     Bene: „hier muss man die Frage auch beantworten können." John endet jede Runde mit einer Ja/Nein-Frage;
+     sie steht jetzt über der Runde statt am Ende eines langen Textes, mit zwei Tasten und einem Feld daneben.
+     Die Antwort geht in dieselbe Datei — sonst steht die Entscheidung nirgends und beide Berater fragen
+     morgen wieder dasselbe. */
+  const BERATER=new Set(['John','Madeleine']);
+  function frageAus(r){
+    const j=((r&&r.beitraege)||[]).filter(b=>b.wer==='John').pop();
+    if(!j) return '';
+    const z=String(j.text||'').split('\n').map(x=>x.replace(/\*\*/g,'').trim()).filter(x=>x&&x.includes('?'));
+    return z.length ? z[z.length-1] : '';
+  }
+  const beantwortet=r=>((r&&r.beitraege)||[]).some(b=>!BERATER.has(b.wer));
+  function entscheidungHtml(r){
+    if(!r||beantwortet(r)) return '';
+    const f=frageAus(r); if(!f) return '';
+    if(MAD.entBusy) return `<div class="ment"><div class="mfrage">${H(f)}</div><div class="muted">John nimmt deine Entscheidung auf …</div></div>`;
+    return `<div class="ment"><div class="mfrage">❓ ${H(f)}</div>
+      <div class="mtasten">
+        <button class="jm2 ja" onclick="madEntscheiden('Ja')">Ja</button>
+        <button class="jm2" onclick="madEntscheiden('Nein')">Nein</button>
+        <input id="madEnt" type="text" value="${H(MAD.entText||'')}" placeholder="… oder in eigenen Worten (Enter)" onkeydown="if(event.key==='Enter'){event.preventDefault();madEntscheiden();}">
+        <button class="jm2" onclick="madEntscheiden()">Festhalten</button>
+      </div>`+
+      (MAD.entFehler?`<div class="mfehl">${H(MAD.entFehler)}</div>`:'')+
+      `<div class="mmehr">Deine Antwort landet in john/coaching/beraterrunde.md — John und Madeleine lesen sie beide.</div></div>`;
+  }
+  async function madEntscheiden(wert){
+    if(MAD.entBusy) return;
+    const feld=document.getElementById('madEnt');
+    const t=String(wert||(feld?feld.value:'')||'').trim();
+    if(!t){ if(feld) feld.focus(); return; }
+    MAD.entBusy=true; MAD.entFehler=''; MAD.entText=t; madMalen();
+    try{
+      const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),300000);
+      const r=await fetch(API()+'/api/beraterrunde/antwort',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({antwort:t,context:kontext()}),signal:ctrl.signal});
+      clearTimeout(tm); const j=await r.json();
+      MAD.entBusy=false;
+      if(!r.ok||!j.ok){ MAD.entFehler=j.hint||j.error||('Fehler '+r.status); madMalen(); sag('Entscheidung nicht festgehalten','bad'); return; }
+      MAD.entText=''; MAD.voll=true;
+      MAD.runden=[{datum:j.datum,thema:j.thema,beitraege:j.beitraege}].concat((MAD.runden||[]).slice(1));
+      madMalen();
+      sag(j.johnFehler ? '✓ Entscheidung festgehalten — Johns Antwort kam nicht durch' : '✓ Entscheidung festgehalten — John und Madeleine kennen sie jetzt beide');
+    }catch(e){
+      /* Ohne Server keine Datei: die Entscheidung gehört in john/coaching/beraterrunde.md, und die liegt auf
+         Benes Rechner. Statt sie zu verlieren, bleibt der Text im Feld stehen. */
+      MAD.entBusy=false;
+      MAD.entFehler='Dein Rechner ist gerade nicht erreichbar — die Entscheidung wird bei ihm festgehalten. Dein Text bleibt stehen; sobald john-server.cmd läuft, noch einmal drücken.';
+      madMalen();
+    }
   }
   function bodyHtml(){
     if(MAD.busy) return '<div class="muted">🤝 John spricht … dann Madeleine … dann John. Das dauert bis zu vier Minuten; der Server ist so lange belegt.</div>';
     if(MAD.runden===null) return '<div class="muted">lade die letzte Beraterrunde …</div>';
     if(!MAD.runden.length) return '<div class="muted">Noch keine Beraterrunde. Starte eine — John und Madeleine beraten sich zu deinem Thema, du liest mit. Alles landet in john/coaching/beraterrunde.md, beide kennen es danach.</div>';
     const r=MAD.runden[0];
-    return rundeHtml(r, MAD.voll)+`<div class="mmehr">${MAD.anzahl} Runde${MAD.anzahl===1?'':'n'} bisher · <a href="#" onclick="madVoll(event)">${MAD.voll?'kürzer':'ganz lesen'}</a></div>`;
+    /* Die offene Frage steht über der Runde — sie ist das, was von Bene noch gebraucht wird. */
+    const ent=entscheidungHtml(r);
+    return ent+rundeHtml(r, MAD.voll, ent?frageAus(r):'')+`<div class="mmehr">${MAD.anzahl} Runde${MAD.anzahl===1?'':'n'} bisher · <a href="#" onclick="madVoll(event)">${MAD.voll?'kürzer':'ganz lesen'}</a></div>`;
   }
-  function madMalen(){ const b=document.getElementById('madBody'); if(b) b.innerHTML=bodyHtml(); statusMalen(); }
+  function madMalen(){ const b=document.getElementById('madBody'); if(b) b.innerHTML=bodyHtml(); statusMalen(); vornHolen(); }
+  /* Eine offene Entscheidung nützt nichts, wenn sie unten im Raster steht (Bene 09.09.2026:
+     „bitte auch etwas höher einbauen"). Solange Johns Schlussfrage unbeantwortet ist, rückt die
+     Karte an den Anfang ihrer Sektion; ist sie beantwortet, bleibt die Karte, wo sie war. Ein
+     eigenes Layout aus compass-edit.js gewinnt ohnehin beim nächsten Render. */
+  function vornHolen(){
+    const k=document.getElementById('madKachel'); const p=k&&k.parentElement; if(!p) return;
+    const r=(MAD.runden||[])[0];
+    if(!r||beantwortet(r)||!frageAus(r)) return;
+    if(p.firstElementChild===k) return;
+    p.insertBefore(k,p.firstElementChild);
+  }
   function madVoll(ev){ if(ev) ev.preventDefault(); MAD.voll=!MAD.voll; madMalen(); }
   async function madRunde(thema){
     if(MAD.busy) return;
@@ -275,7 +353,7 @@
     madMalen();
   }
 
-  window.madOpen=madOpen; window.madToggle=madToggle; window.madRunde=madRunde; window.madVoll=madVoll; window.madRundenLaden=madRundenLaden; window.madStatus=madStatus;
+  window.madOpen=madOpen; window.madToggle=madToggle; window.madRunde=madRunde; window.madVoll=madVoll; window.madEntscheiden=madEntscheiden; window.madRundenLaden=madRundenLaden; window.madStatus=madStatus;
   /* Live-Zeile für den Einstieg in der Focus View (compass-focus.js › KATALOG › madeleine) */
   window.madZeile=function(){ return { t: statusText(), live: !!(MAD.status&&MAD.status.ok&&MAD.status.key), warn: MAD.status===false }; };
   css(); dialog(); einhaengen(); madStatus(); madRundenLaden();

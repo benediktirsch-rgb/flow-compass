@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="de" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Variante A · Flow — Vishnu Flow Compass</title>
+<!-- Variante A „Flow“ (09.09.2026) — entscheidungsgetrieben.
+     Leitfrage der Seite: Was braucht dich jetzt? Nicht: Was gibt es alles?
+     Reihenfolge = Handlungsdruck, nicht Thema. Zahlen erscheinen nur, wo sie eine
+     Entscheidung tragen. Alles Nachschlagbare liegt hinter einem Aufklapper.
+     Prototyp: die Tasten schreiben nichts. -->
+<style>
+  :root{
+    --bg:#f6f5f2; --panel:#fff; --panel2:#faf9f6; --ink:#1c1e1a; --sub:#6b7065; --line:#e3e1d9;
+    --akzent:#4f7418; --akzent-w:#eaf2dd; --warn:#b8860b; --bad:#b3402f; --violet:#6544ea;
+    --schatten:0 1px 2px rgba(28,30,26,.05),0 8px 24px rgba(28,30,26,.06);
+    --r:16px; --serif:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme=light]){
+    --bg:#14160f; --panel:#1c1f18; --panel2:#212418; --ink:#eceade; --sub:#9aa091; --line:#2e3327;
+    --akzent:#93c25a; --akzent-w:#22301a; --warn:#d9a441; --bad:#e0705c; --violet:#a08bff;
+    --schatten:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }}
+  :root[data-theme=dark]{
+    --bg:#14160f; --panel:#1c1f18; --panel2:#212418; --ink:#eceade; --sub:#9aa091; --line:#2e3327;
+    --akzent:#93c25a; --akzent-w:#22301a; --warn:#d9a441; --bad:#e0705c; --violet:#a08bff;
+    --schatten:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--sans);
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:780px;margin:0 auto;padding:28px 18px 90px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:26px}
+  .gruss{font:400 26px/1.2 var(--serif)}
+  .gruss em{font-style:italic;color:var(--akzent)}
+  .stand{font-size:12px;color:var(--sub);text-align:right}
+  .stand button{font:inherit;color:var(--sub);background:none;border:0;cursor:pointer;text-decoration:underline;padding:0}
+
+  section{margin:0 0 26px}
+  .kicker{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--sub);
+          margin:0 0 8px;display:flex;align-items:center;gap:8px}
+  .kicker .zahl{background:var(--akzent-w);color:var(--akzent);border-radius:99px;padding:1px 8px;
+                font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:none}
+  .karte{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+         box-shadow:var(--schatten);padding:18px 20px}
+
+  /* 1 · Das Eine */
+  .eine{font:400 25px/1.35 var(--serif);margin:0 0 6px}
+  .eine.leer{color:var(--sub);font-size:19px}
+  .eineQ{font-size:12.5px;color:var(--sub)}
+  .tagzeile{margin-top:14px;padding-top:13px;border-top:1px solid var(--line);
+            display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--sub)}
+  .tagzeile b{color:var(--ink);font-weight:600}
+
+  /* 2 · Der Entscheidungsstapel */
+  .ent{border-left:3px solid var(--akzent)}
+  .entkopf{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .chip{font-size:11px;font-weight:700;letter-spacing:.03em;background:var(--akzent-w);color:var(--akzent);
+        border-radius:99px;padding:3px 9px}
+  .chip.alt{background:transparent;color:var(--sub);border:1px solid var(--line);font-weight:500}
+  .frage{font:400 20px/1.4 var(--serif);margin:0 0 4px}
+  .woher{font-size:12.5px;color:var(--sub);margin-bottom:14px}
+  .tasten{display:flex;flex-wrap:wrap;gap:8px}
+  button.opt{font:inherit;font-size:13.5px;padding:8px 14px;border-radius:99px;cursor:pointer;
+             border:1px solid var(--line);background:var(--panel2);color:var(--ink)}
+  button.opt:hover{border-color:var(--akzent);color:var(--akzent)}
+  button.opt.erste{background:var(--akzent);border-color:var(--akzent);color:#fff;font-weight:600}
+  button.opt.erste:hover{filter:brightness(1.08);color:#fff}
+  .entfuss{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;
+           padding-top:12px;border-top:1px solid var(--line);font-size:12.5px;color:var(--sub)}
+  .entfuss button{font:inherit;background:none;border:0;color:var(--sub);cursor:pointer;text-decoration:underline;padding:0}
+  details.warum{margin-top:12px}
+  details.warum>summary{cursor:pointer;font-size:12.5px;color:var(--sub);list-style:none}
+  details.warum>summary::-webkit-details-marker{display:none}
+  details.warum>summary::before{content:"▸ ";color:var(--akzent)}
+  details.warum[open]>summary::before{content:"▾ "}
+  details.warum .txt{margin-top:8px;font-size:13px;color:var(--sub);white-space:pre-wrap;max-height:260px;overflow:auto;
+                     padding:10px 12px;background:var(--panel2);border-radius:10px;border:1px solid var(--line)}
+
+  /* 3 · Wartet auf dich */
+  .zeile{display:flex;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+  .zeile:first-child{border-top:0}
+  .zeile .ic{width:22px;text-align:center;flex:none;font-size:15px}
+  .zeile .t{font-size:14px;font-weight:600}
+  .zeile .m{font-size:12.5px;color:var(--sub);margin-top:2px}
+  .zeile .alter{margin-left:auto;flex:none;font-size:12px;color:var(--sub);white-space:nowrap;padding-top:2px}
+  .zeile .alter.lang{color:var(--bad);font-weight:600}
+  .mehr{margin-top:10px;font-size:12.5px}
+  .mehr button{font:inherit;background:none;border:0;color:var(--akzent);cursor:pointer;text-decoration:underline;padding:0}
+
+  /* 5 · Läuft von selbst */
+  .ruhig{display:flex;flex-wrap:wrap;gap:8px}
+  .ruhig .pille{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--sub);
+                border:1px solid var(--line);border-radius:99px;padding:5px 12px;background:var(--panel)}
+  .punkt{width:8px;height:8px;border-radius:99px;flex:none;background:var(--sub)}
+  .punkt.gruen{background:var(--akzent)} .punkt.gelb{background:var(--warn)} .punkt.rot{background:var(--bad)}
+  details.system{margin-top:12px}
+  details.system>summary{cursor:pointer;font-size:12.5px;color:var(--sub)}
+  details.system ul{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--sub)}
+  .leerzeile{font-size:13.5px;color:var(--sub)}
+  .fehlbox{margin-top:24px;font-size:12px;color:var(--sub);border-top:1px solid var(--line);padding-top:12px}
+  .fehlbox b{color:var(--warn)}
+  .hinweis{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--ink);color:var(--bg);
+           font-size:13px;padding:9px 16px;border-radius:99px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+  .hinweis.an{opacity:1}
+  .fuss{margin-top:34px;font-size:12px;color:var(--sub);text-align:center}
+  .fuss a{color:var(--akzent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="gruss" id="gruss">Guten Tag, <em>Bene</em></div>
+      <div class="eineQ" id="datum"></div>
+    </div>
+    <div class="stand">
+      <div id="stand">lädt …</div>
+      <button onclick="themeWechseln()">Hell / Dunkel</button>
+    </div>
+  </header>
+
+  <section id="sEine"></section>
+  <section id="sEnt"></section>
+  <section id="sWartet"></section>
+  <section id="sArbeit"></section>
+  <section id="sTag"></section>
+  <section id="sRuhig"></section>
+
+  <div class="fehlbox" id="fehler" hidden></div>
+  <div class="fuss">Variante A · <b>Flow</b> — entscheidungsgetrieben. Prototyp, schreibt nichts.
+    <a href="./cockpit.html">Variante B ansehen →</a></div>
+</div>
+<div class="hinweis" id="hinweis"></div>
+
+<script src="/rhythmus-data.js"></script>
+<script src="./vd.js"></script>
+<script>
+const H=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let STAPEL=0;
+
+function themeWechseln(){
+  const r=document.documentElement;
+  r.dataset.theme = r.dataset.theme==='dark' ? 'light' : 'dark';
+}
+function sagen(t){
+  const h=document.getElementById('hinweis'); h.textContent=t; h.classList.add('an');
+  clearTimeout(sagen._t); sagen._t=setTimeout(()=>h.classList.remove('an'),2600);
+}
+function entscheiden(){ sagen('Prototyp — hier ginge die Antwort an den john-server.'); }
+
+function malen(){
+  const d=new Date(); const st=d.getHours();
+  document.getElementById('gruss').innerHTML =
+    (st<11?'Guten Morgen, ':st<18?'Guten Tag, ':'Guten Abend, ')+'<em>Bene</em>';
+  document.getElementById('datum').textContent =
+    d.toLocaleDateString('de-DE',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('stand').textContent = 'Stand '+ (VD.stand? VD.stand.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '—');
+
+  eineMalen(); entMalen(); wartetMalen(); arbeitMalen(); tagMalen(); ruhigMalen();
+
+  const f=document.getElementById('fehler');
+  if(VD.fehler.length){ f.hidden=false; f.innerHTML='<b>Nicht geprüft in diesem Lauf:</b> '+VD.fehler.map(H).join(' · ')+
+    '<br>Was hier fehlt, ist nicht „in Ordnung“ — es ist ungesehen.'; }
+}
+
+/* 1 · Das Eine — die einzige Sache, die heute wirklich zählt */
+function eineMalen(){
+  const t=VD.tag;
+  const eine = t.eine
+    ? `<div class="eine">${H(t.eine)}</div><div class="eineQ">Dein Fokus ${H(t.eineArt||'')}${t.eineWann?' vom '+H(t.eineWann):''}</div>`
+    : `<div class="eine leer">Heute ist noch nichts als „das Eine“ gesetzt — der Morgencheck fragt danach.</div>`;
+  let tagzeile='';
+  if(t.fehler){ tagzeile=`<div class="tagzeile">${H(t.fehler)}</div>`; }
+  else{
+    const n=t.naechster;
+    tagzeile=`<div class="tagzeile">
+      <span>Nächster Termin: <b>${n?H(n.zeit+' · '+n.titel):'nichts mehr heute'}</b></span>
+      ${t.frei!=null?`<span>Frei: <b>${t.frei} h</b></span>`:''}
+      ${t.termine.length?`<span>Termine heute: <b>${t.termine.length}</b></span>`:''}
+    </div>`;
+  }
+  document.getElementById('sEine').innerHTML =
+    `<div class="kicker">Das Eine</div><div class="karte">${eine}${tagzeile}</div>`;
+}
+
+/* 2 · Der Stapel — eine Entscheidung nach der anderen, nie alle auf einmal */
+function entMalen(){
+  const L=VD.entscheid; const box=document.getElementById('sEnt');
+  if(!L.length){
+    box.innerHTML=`<div class="kicker">Jetzt entscheiden</div>
+      <div class="karte"><div class="leerzeile">Nichts offen — keine Rückfrage, keine Freigabe, keine Frage aus der Beraterrunde.</div></div>`;
+    return;
+  }
+  if(STAPEL>=L.length) STAPEL=0;
+  const e=L[STAPEL];
+  box.innerHTML=`<div class="kicker">Jetzt entscheiden <span class="zahl">${L.length}</span></div>
+  <div class="karte ent">
+    <div class="entkopf"><span class="chip">${e.ic} ${H(e.quelle)}</span>
+      ${e.alter!=null?`<span class="chip alt">liegt seit ${e.alter} Tag${e.alter===1?'':'en'}</span>`:''}</div>
+    <div class="frage">${H(e.titel)}</div>
+    <div class="woher">${H(e.wer||'')}</div>
+    <div class="tasten">${e.optionen.map((o,i)=>`<button class="opt${i===0?' erste':''}" onclick="entscheiden()">${H(o)}</button>`).join('')}</div>
+    ${e.warum?`<details class="warum"><summary>Warum das jetzt kommt</summary><div class="txt">${H(e.warum)}</div></details>`:''}
+    <div class="entfuss">
+      <span>${STAPEL+1} von ${L.length}</span>
+      <span>${L.length>1?`<button onclick="weiter()">Diese überspringen →</button>`:''}</span>
+    </div>
+  </div>`;
+}
+function weiter(){ STAPEL++; entMalen(); document.getElementById('sEnt').scrollIntoView({block:'nearest'}); }
+
+/* 3 · Menschen, die warten — nach Alter, drei sichtbar, der Rest auf Zuruf */
+function wartetMalen(){
+  const L=VD.wartende; const box=document.getElementById('sWartet');
+  if(!L.length){ box.innerHTML=`<div class="kicker">Wartet auf dich</div>
+    <div class="karte"><div class="leerzeile">Niemand wartet — Postfach, Slack und Pool sind beantwortet.</div></div>`; return; }
+  const zeile=w=>`<div class="zeile"><div class="ic">${w.ic}</div><div>
+      <div class="t">${H(w.wer||'')}</div><div class="m">${H(w.worum||'')}</div></div>
+      <div class="alter${(w.tage||0)>=30?' lang':''}">${w.tage!=null?w.tage+' T':''}</div></div>`;
+  const oben=L.slice(0,3).map(zeile).join('');
+  const rest=L.slice(3);
+  box.innerHTML=`<div class="kicker">Wartet auf dich <span class="zahl">${L.length}</span></div>
+  <div class="karte">${oben}
+    ${rest.length?`<div class="mehr"><button onclick="this.closest('.karte').querySelector('.rest').hidden=false;this.parentElement.remove()">+ ${rest.length} weitere zeigen</button></div>
+      <div class="rest" hidden>${rest.map(zeile).join('')}</div>`:''}
+  </div>`;
+}
+
+/* 3b · In Arbeit — nur, was wirklich angefangen ist. Die Gesamtzahl offener Tickets steht
+   bewusst nicht hier: sie ändert nichts an dem, was du heute tust. */
+function arbeitMalen(){
+  const a=VD.arbeit; const box=document.getElementById('sArbeit');
+  if(a.fehler){ box.innerHTML=`<div class="kicker">In Arbeit</div><div class="karte"><div class="leerzeile">Jira: ${H(a.fehler)}</div></div>`; return; }
+  if(!a.inArbeit.length){
+    box.innerHTML=`<div class="kicker">In Arbeit</div><div class="karte"><div class="leerzeile">Nichts angefangen — der nächste Zug ist frei.
+      ${a.liegt.length?`<br>${a.liegt.length} Vorgänge liegen seit über 90 Tagen unbewegt.`:''}</div></div>`;
+    return;
+  }
+  box.innerHTML=`<div class="kicker">In Arbeit <span class="zahl">${a.inArbeit.length}</span></div>
+  <div class="karte">${a.inArbeit.slice(0,5).map(x=>`<div class="zeile"><div class="ic">▶</div><div>
+      <div class="t">${H(x.titel)}</div><div class="m">${H(x.key+' · '+x.status)}</div></div>
+      ${x.due?`<div class="alter">fällig ${new Date(x.due).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</div>`:''}</div>`).join('')}
+    ${a.liegt.length?`<div class="mehr">${a.liegt.length} Vorgänge liegen seit über 90 Tagen unbewegt.</div>`:''}</div>`;
+}
+
+/* 4 · Der Rest des Tages — Termine, absichtlich klein und hinter einem Aufklapper */
+function tagMalen(){
+  const t=VD.tag; const box=document.getElementById('sTag');
+  if(t.fehler||!t.termine.length){ box.innerHTML=''; return; }
+  box.innerHTML=`<div class="kicker">Der Rest des Tages</div>
+  <div class="karte">${t.termine.map(x=>`<div class="zeile"><div class="ic">🕘</div><div>
+      <div class="t">${H(x.titel||'Belegt')}</div><div class="m">${H(x.zeit||'')}${x.kal?' · '+H(x.kal):''}${x.ohneTitel?' · Titel nicht freigegeben':''}</div></div></div>`).join('')}</div>`;
+}
+
+/* 5 · Läuft von selbst — Zustand in einer Zeile, Details nur auf Wunsch */
+function ruhigMalen(){
+  const S=VD.systeme; const g=VD.geld; const b=VD.beratung;
+  const pillen=S.map(s=>`<span class="pille"><span class="punkt ${s.stufe}"></span>${H(s.name)}: ${H(s.wert)}</span>`).join('');
+  const geld = g.fehler ? `<span class="pille"><span class="punkt grau"></span>Finanzen: ${H(g.fehler)}</span>`
+    : `<span class="pille"><span class="punkt ${g.deckung>=2?'gruen':g.deckung>=1?'gelb':'rot'}"></span>Konto: ${g.kontostand!=null?g.kontostand.toLocaleString('de-DE',{maximumFractionDigits:0})+' €':'—'} · Deckung ${g.deckung!=null?g.deckung.toLocaleString('de-DE'):'—'} Monate</span>`;
+  const ber = b.runde ? `<span class="pille"><span class="punkt gruen"></span>Beraterrunde: ${H(b.runde.thema||'').slice(0,40)}…</span>` : '';
+  document.getElementById('sRuhig').innerHTML=`<div class="kicker">Läuft von selbst</div>
+  <div class="karte"><div class="ruhig">${pillen}${geld}${ber}</div>
+    <details class="system"><summary>Was dahinter steht</summary>
+      <ul>${S.map(s=>`<li><b>${H(s.name)}</b> — ${(s.detail||[]).map(H).join('; ')}${s.nebensatz?'; '+H(s.nebensatz):''}</li>`).join('')}
+      ${g.fehler?'':`<li><b>Finanzen</b> — Ergebnis ${g.ergebnis!=null?g.ergebnis.toLocaleString('de-DE',{maximumFractionDigits:0})+' €':'—'}, offene Belege ${g.belege!=null?g.belege:'—'}</li>`}
+      ${b.runde?`<li><b>Beraterrunde</b> — ${H(b.runde.datum||'')}, ${b.anzahl} Runde${b.anzahl===1?'':'n'} bisher</li>`:''}</ul>
+    </details>
+  </div>`;
+}
+
+VD.laden().then(malen).catch(e=>{
+  document.getElementById('sEine').innerHTML='<div class="karte">Der john-server antwortet nicht: '+H(e.message)+'</div>';
+});
+</script>
+</body>
+</html>

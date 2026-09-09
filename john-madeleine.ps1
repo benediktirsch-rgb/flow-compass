@@ -87,6 +87,8 @@ function Get-MadeleineFehler([string]$m) {
     'CODEX_LIMIT'   { return @{ code = 'CODEX_LIMIT';   status = 429; hint = 'Das Nutzungsfenster deines ChatGPT-Abos ist gerade ausgeschöpft (5-Stunden-Fenster, geteilt mit der ChatGPT-App) — es öffnet sich von selbst wieder.' } }
     'CODEX_TIMEOUT' { return @{ code = 'CODEX_TIMEOUT'; status = 504; hint = 'Codex hat nicht rechtzeitig geantwortet — noch einmal versuchen.' } }
     'KEIN_THEMA'    { return @{ code = 'KEIN_THEMA';    status = 400; hint = 'Die Beraterrunde braucht ein Thema.' } }
+    'KEINE_ANTWORT' { return @{ code = 'KEINE_ANTWORT'; status = 400; hint = 'Ohne Antwort gibt es nichts festzuhalten.' } }
+    'KEINE_RUNDE'   { return @{ code = 'KEINE_RUNDE';   status = 409; hint = 'Es gibt noch keine Beraterrunde, auf die eine Antwort passt.' } }
   }
   return $null
 }
@@ -242,7 +244,11 @@ function Read-Beraterrunde([int]$n = 3) {
     $zeilen = $b -split "`n"; $kopf = $zeilen[0].Trim()
     $body = ($zeilen | Select-Object -Skip 1) -join "`n"
     $beitraege = @()
-    foreach ($m in [regex]::Matches($body, '(?s)\*\*(John|Madeleine):\*\*\s*(.+?)(?=\n\*\*(?:John|Madeleine):\*\*|\z)')) {
+    # Seit 09.09.2026 steht in einer Runde auch $NutzerName selbst — seine Antwort auf Johns Schlussfrage.
+    # Nur diese Namen gelten als Sprecher, und nur am Zeilenanfang: ein fettes „**Hinweis:**" mitten im
+    # Text ist kein neuer Beitrag.
+    $wer = (@('John','Madeleine',$NutzerName) | Select-Object -Unique | ForEach-Object { [regex]::Escape($_) }) -join '|'
+    foreach ($m in [regex]::Matches($body, "(?sm)^\*\*($wer):\*\*[ \t]*(.+?)(?=\r?\n\*\*(?:$wer):\*\*|\z)")) {
       $beitraege += @{ wer = $m.Groups[1].Value; text = $m.Groups[2].Value.Trim() }
     }
     $datum = ''; $thema = $kopf
@@ -282,4 +288,51 @@ function Beraterrunde($in) {
   $dauer = [int]((Get-Date) - $t0).TotalSeconds
   Write-Host ("  Beraterrunde fertig: {0} s" -f $dauer) -ForegroundColor DarkGray
   return @{ ok = $true; thema = $thema; datum = (Get-Date).ToString('yyyy-MM-dd HH:mm'); beitraege = $beitraege; dauer = $dauer; datei = (Get-BeraterrundeDatei) }
+}
+
+# ---------- Die Antwort auf Johns Schlussfrage (09.09.2026) ----------
+# Bene: „hier muss man die Frage auch beantworten können." John schließt jede Runde mit einer Ja/Nein-Frage —
+# bisher lief sie ins Leere: die Entscheidung stand nirgends, und beim nächsten Mal fragten beide dasselbe.
+# Jetzt geht sie in dieselbe Datei. Erst festhalten, dann John antworten lassen: geht sein Aufruf schief,
+# ist die Entscheidung trotzdem sicher.
+function Get-JaNeinFrage([string]$text) {
+  if (-not $text) { return '' }
+  $zeilen = @(($text -split "`n") | ForEach-Object { ($_ -replace '\*\*', '').Trim() } | Where-Object { $_ })
+  $mitFrage = @($zeilen | Where-Object { $_ -like '*?*' })
+  if (-not $mitFrage.Count) { return '' }
+  return $mitFrage[-1]
+}
+function Add-BeraterrundeBeitraege($beitraege) {
+  $f = Get-BeraterrundeDatei
+  if (-not (Test-Path $f)) { throw 'KEINE_RUNDE' }
+  $sb = New-Object Text.StringBuilder
+  foreach ($b in $beitraege) { [void]$sb.AppendLine(); [void]$sb.AppendLine("**$($b.wer):** $(([string]$b.text).Trim())") }
+  [IO.File]::AppendAllText($f, $sb.ToString(), $script:Utf8NoBom)
+}
+function BeraterrundeAntwort($in) {
+  $antwort = ([string]$in.antwort).Trim(); if (-not $antwort) { throw 'KEINE_ANTWORT' }
+  $letzte = Read-Beraterrunde 1
+  $r = @($letzte.runden)[0]; if (-not $r) { throw 'KEINE_RUNDE' }
+  $t0 = Get-Date
+  $johnTexte = @(@($r.beitraege) | Where-Object { $_.wer -eq 'John' } | ForEach-Object { [string]$_.text })
+  $frage = $(if ($johnTexte.Count) { Get-JaNeinFrage $johnTexte[-1] } else { '' })
+  Write-Host ("[{0}] Beraterrunde-Antwort: {1}" -f (Get-Date -Format 'HH:mm:ss'), $antwort)
+  Add-BeraterrundeBeitraege @(@{ wer = $NutzerName; text = $antwort })
+  $p = @"
+Beraterrunde vom $($r.datum) — Thema: $($r.thema)
+Deine Schlussfrage war: $frage
+$NutzerName antwortet: $antwort
+
+Nimm die Entscheidung an, ohne sie zu wiederholen, und nenne in höchstens 60 Wörtern den einen nächsten Schritt mit Termin — was, bis wann. Sagt er Nein oder etwas Eigenes, sag, was daraus jetzt folgt. Keine neue Frage, kein Gruß. Halte die Entscheidung fest, wenn du ein Werkzeug dafür hast.
+"@
+  $schluss = ''; $fehler = ''; $modell = ''
+  try { $j = John-Chat @(@{ role = 'user'; content = $p }) ([string]$in.context); $schluss = [string]$j.text; $modell = [string]$j.model }
+  catch { $fehler = $_.Exception.Message; Write-Host "  John nach der Antwort: $fehler" -ForegroundColor DarkYellow }
+  if ($schluss.Trim()) { Add-BeraterrundeBeitraege @(@{ wer = 'John'; text = $schluss }) }
+  $beitraege = @(@($r.beitraege) + @(@{ wer = $NutzerName; text = $antwort; model = '' }))
+  if ($schluss.Trim()) { $beitraege += @{ wer = 'John'; text = $schluss; model = $modell } }
+  $dauer = [int]((Get-Date) - $t0).TotalSeconds
+  Write-Host ("  Antwort festgehalten: {0} s" -f $dauer) -ForegroundColor DarkGray
+  return @{ ok = $true; thema = $r.thema; datum = $r.datum; beitraege = $beitraege; antwort = $antwort
+            johnFehler = $fehler; dauer = $dauer; datei = (Get-BeraterrundeDatei) }
 }
