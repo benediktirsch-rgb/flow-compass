@@ -1556,13 +1556,29 @@ function trafficZeile(){
   const s=K.snapshot||{};
   const va=s.va, vk=s.vk;
   if(!va && !vk) return '<b style="color:var(--dim);font-size:12px">noch kein Snapshot</b>';
-  const t=[];
-  /* Marke ausschreiben, nicht nur als Emoji: 🌿 und 🏢 sind die Kontext-Kürzel aus
-     der Tab-Leiste, aber in einer Zahlenzeile hat niemand sie im Kopf (ihren Frage
-     am 01.09.: „welcher Traffic ist das — Projekt oder Team?“). */
-  if(vk) t.push(`🌿 Projekt ${vk.aufrufe} gestern${vk.abweichung!=null?` (${vk.abweichung>0?'+':''}${vk.abweichung} % ggü. Ø 7 T)`:''}`);
-  if(va) t.push(`🏢 Team ${va.aufrufe} am ${String(va.tag||'').slice(8,10)}.${String(va.tag||'').slice(5,7)}.`);
+  const t=[trafficTeil('🌿','Projekt',vk), trafficTeil('🏢','Team',va)].filter(Boolean);
   return `<b style="font-size:12.5px">${esc(t.join(' · '))}</b>`;
+}
+/* Ein Zähler als Satzstück. Zwei Dinge, die vorher fehlten (09.09., ihren Meldung, der
+   Traffic der zweiten Marke werde nicht angezeigt):
+   1. „gestern“ stand fest hinter Projekt — auch wenn der Snapshot acht Tage alt war. Genau
+      daran hat niemand gemerkt, dass die Zahl steht. Jetzt steht „gestern“ nur da, wenn der
+      gemessene Tag wirklich gestern ist, sonst das Datum.
+   2. Team hatte nie die Abweichung, obwohl der Zähler sie hergibt — eine nackte Zahl ohne
+      Vergleich sagt nichts. Beide Marken lesen sich jetzt gleich.
+   Marke ausschreiben, nicht nur als Emoji: 🌿 und 🏢 sind die Kontext-Kürzel aus der Tab-Leiste,
+   aber in einer Zahlenzeile hat niemand sie im Kopf (ihren Frage am 01.09.: „welcher Traffic
+   ist das — Projekt oder Team?“). */
+function trafficWann(s,praep){
+  const tag=String((s||{}).tag||''); if(!tag) return '';
+  const d=new Date(); d.setDate(d.getDate()-1);
+  const gs=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return tag===gs ? 'gestern' : `${praep||'am '}${tag.slice(8,10)}.${tag.slice(5,7)}.`;
+}
+function trafficTeil(ic,name,s){
+  if(!s||s.aufrufe==null) return null;
+  const abw = s.abweichung!=null ? ` (${s.abweichung>0?'+':''}${s.abweichung} % ggü. Ø 7 T)` : '';
+  return `${ic} ${name} ${s.aufrufe} ${trafficWann(s)}${abw}`;
 }
 
 function koerper(s){
@@ -4978,6 +4994,24 @@ function vereinUebernehmen(){
       +` · Trichter: ${c.gesamt} Kontakte → ${c.mitglieder} Mitglieder (${c.konversion} %)`];
   }
 }
+
+/* Team-Zähler (09.09.2026, ihren Meldung, der Traffic werde nicht angezeigt). Bis hierher hing die
+   Blüte „Aufrufe Kontext 1“ und die Traffic-Zeile allein am Hand-Snapshot in
+   kennzahlen-data.js — den trägt eine Cloud-Routine nach, und die stand seit dem 03.09. still:
+   der Morgencheck zeigte am 09.09. noch „31 am 01.09.“, während der eigene Zähler für den
+   08.09. längst 43 Aufrufe kannte. Jetzt holt der john-server sie (GET /api/vishnu), und die
+   Live-Zahl legt sich über den Snapshot — dieselbe Behandlung wie beim Vereins-Puls, aus
+   demselben Grund: sonst müsste jede Karte lernen, dass es zwei Wahrheiten gibt.
+   Ohne Server bleibt der Snapshot stehen, und die Zeile schreibt sein Datum hin statt
+   „gestern“ — ein alter Stand darf nie wie ein frischer aussehen. */
+const VTRAF={ data:null, fehler:null, geladen:false };
+function vishnuUebernehmen(){
+  const v=VTRAF.data; if(!v) return;
+  const t=v.traffic||{}; if(t.aufrufe==null) return;
+  SNAP.va=Object.assign({},SNAP.va||{},{ tag:t.tag, aufrufe:t.aufrufe, schnitt7:t.schnitt7, abweichung:t.abweichung,
+    reihe7:(t.reihe7&&t.reihe7.length)?{von:t.reihe7[0].tag,bis:t.reihe7[t.reihe7.length-1].tag,werte:t.reihe7.map(r=>r.n)}:null,
+    topSeiten:(t.topSeiten||[]).map(s=>({path:s.path,views:s.views})), live:true });
+}
 /* Liegengebliebene Arbeit (23.08.): GET /api/git buendelt alles Uncommittete aus den vier
    Repos unter C:\dev zu Paketen — mit Kontext (welche Dateien, wie viel, wie alt) und Ziel
    (aus der Session-Lease, die eine Claude-Session beim Start setzt: _tools\git-flow.ps1
@@ -5395,8 +5429,9 @@ const LOTUS_KATALOG={
             quelle:'Analytics-Plugin auf projekt.example (live über john-server) — Kontakte, die Mitglied geworden sind',
             wert:d=>{ const c=d.verein&&d.verein.crm; if(!c||c.konversion==null) return null;
                       return {heute:c.konversion,gestern:histWert('trichter'),sub:`${c.gesamt} Kontakte → ${c.mitglieder} Mitglieder · +${c.neu7||0} in 7 T`}; }},
-  trafficVa:{icon:'🌐',label:'Aufrufe Kontext 1',besser:'mehr',ziele:[5,20,50],vgl:'Ø 7 T',quelle:'Tages-Snapshot (kennzahlen-data.js, eigener Zähler seit 17.08.)',
-            wert:()=>(SNAP.va?{heute:SNAP.va.aufrufe,gestern:SNAP.va.schnitt7!=null?Math.round(SNAP.va.schnitt7):(SNAP.va.gestern??null),sub:`gemessen ${String(SNAP.va.tag).slice(8,10)}.${String(SNAP.va.tag).slice(5,7)}.`}:null)},
+  trafficVa:{icon:'🌐',label:'Aufrufe Kontext 1',besser:'mehr',ziele:[5,20,50],vgl:'Ø 7 T',
+            quelle:'Eigener Zähler auf example.com (live über john-server, GET /api/vishnu) · ohne Server der Tages-Snapshot aus kennzahlen-data.js',
+            wert:()=>(SNAP.va?{heute:SNAP.va.aufrufe,gestern:SNAP.va.schnitt7!=null?Math.round(SNAP.va.schnitt7):(SNAP.va.gestern??null),sub:`gemessen ${String(SNAP.va.tag).slice(8,10)}.${String(SNAP.va.tag).slice(5,7)}.${SNAP.va.live?' · live':''}`}:null)},
   streak:  {icon:'🔥',label:'Tage in Folge',besser:'mehr',ziele:[2,5,10],quelle:'Rhythmus (lokal)',wert:()=>({heute:S.streak,gestern:histWert('streak'),sub:'Morgenchecks'})},
   xp:      {icon:'⭐',label:'XP gesamt',besser:'mehr',quelle:'Rhythmus (lokal) · kein Zielband (wächst immer)',wert:()=>({heute:S.xp,gestern:histWert('xp'),sub:`Level ${levelInfo().stufe} · ${levelInfo().name}`})}
 };
@@ -5672,7 +5707,7 @@ function lotusRender(neuChips){
 }
 async function lotusLaden(){
   const jget=async u=>{ try{ const r=await fetch(u,{cache:'no-store'}); const j=await r.json(); return (j&&j.ok!==false)?j:null; }catch(e){ return null; } };
-  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter,ausschr]=await Promise.all([
+  const [arbeit,jira,porsche,kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,vtraf,finanz,nutzer,trichter,ausschr]=await Promise.all([
     jget(JOHN_API+'/api/arbeit'),
     jget(JOHN_API+'/api/kpi/jira'),
     Promise.resolve(null), /* Kundenzahlen: im Produkt gibt es kein Kundenportal */
@@ -5700,6 +5735,10 @@ async function lotusLaden(){
     /* Vereins-Puls (31.08.): ohne Token antwortet projekt.example mit NO_KEY — das muss die Karte sagen
        dürfen, sonst sieht ein fehlender Schlüssel aus wie ein Verein ohne Mitglieder. */
     (async()=>{ try{ const r=await fetch(JOHN_API+'/api/vaikuntha',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
+    /* Team-Zähler (09.09.): braucht keinen Token, kann also nur „Server aus“ oder „Zähler
+       nicht erreichbar“ sein. Beides muss sichtbar bleiben — sonst hält der Morgencheck die
+       Zahl vom 01.09. weiter für gestern, genau wie am 09.09. geschehen. */
+    (async()=>{ try{ const r=await fetch(JOHN_API+'/api/vishnu',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
     /* Finanzen (02.09.): ohne Token antwortet der Server mit NO_KEY — das muss die Karte sagen dürfen,
        sonst sieht ein fehlender Schlüssel aus wie eine Firma ohne Konto. */
     (async()=>{ try{ const r=await fetch(JOHN_API+'/api/finanzen',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })(),
@@ -5728,6 +5767,8 @@ async function lotusLaden(){
   ROUT.data=(rout&&rout.ok)?rout:null; ROUT.fehler=(rout&&rout.ok===false)?rout:null; ROUT.geladen=true;
   VEREIN.data=(verein&&verein.ok)?verein:null; VEREIN.fehler=(verein&&verein.ok===false)?verein:null; VEREIN.geladen=true;
   vereinUebernehmen();                      /* Live-Zahlen über den Snapshot legen, BEVOR gerendert wird */
+  VTRAF.data=(vtraf&&vtraf.ok)?vtraf:null; VTRAF.fehler=(vtraf&&vtraf.ok===false)?vtraf:null; VTRAF.geladen=true;
+  vishnuUebernehmen();                      /* dasselbe für den Team-Zähler (09.09.) */
   rhythmMalen();                            /* Website-Zugänge: die Zeile „🔐“ hängt am Vereins-Stand (03.09.) */
   FIN.data=(finanz&&finanz.ok)?finanz:null; FIN.fehler=(finanz&&finanz.ok===false)?finanz:null; FIN.geladen=true;
   finUebernehmen();
@@ -5736,13 +5777,13 @@ async function lotusLaden(){
   AUS.data=(ausschr&&ausschr.ok)?ausschr:null; AUS.fehler=(ausschr&&ausschr.ok===false)?ausschr:null; AUS.geladen=true;
   ausUebernehmen();                         /* gemessene Zahlen über die Neukunden-Karte legen, BEVOR gerendert wird */
   rhythmMalen();                            /* die Zeile „🫂 Menschen im Trichter“ hängt am Trichter-Stand */
-  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,finanz:FIN.data,nutzer:NUTZ.data,trichter:TRI.data,ausschr:AUS.data}; LOT.geladen=true;
+  LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,vtraf:VTRAF.data,finanz:FIN.data,nutzer:NUTZ.data,trichter:TRI.data,ausschr:AUS.data}; LOT.geladen=true;
   /* Verbindungszustand für die Verbindungswacht. Unterschieden wird streng: null = der Abruf kam
      gar nicht durch (Server weg), ein Objekt = der Server hat geantwortet — auch {ok:false}, denn
      das heißt „diese eine Quelle fehlt", nicht „der Server ist tot". Nur so kann die Wacht den
      Takt richtig wählen, statt bei einer fehlenden Kalenderadresse dauernd nachzuklopfen. */
   if(typeof SRV!=='undefined'&&SRV){
-    const erreicht=[kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,finanz,nutzer,trichter,ausschr].some(x=>x!==null&&x!==undefined);
+    const erreicht=[kal,git,wacht,dep,postf,slack,sich,wetter,rout,verein,vtraf,finanz,nutzer,trichter,ausschr].some(x=>x!==null&&x!==undefined);
     SRV.ok=erreicht;
     if(erreicht){ SRV.stand=Date.now(); SRV.fehl=0; } else { SRV.fehl++; }
     if(typeof srvStandMalen==='function') srvStandMalen();
