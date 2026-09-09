@@ -361,9 +361,21 @@ if ( isset( $_GET['briefkasten'] ) ) {
 	$d = json_decode( (string) $roh, true );
 	$art = is_array( $d ) && isset( $d['art'] ) ? strtolower( (string) $d['art'] ) : '';
 	$datum = is_array( $d ) && isset( $d['datum'] ) ? (string) $d['datum'] : '';
-	if ( ! in_array( $art, array( 'morgen', 'abend', 'wochenstart', 'wochenreview', 'fragen', 'checkin', 'madeleine' ), true )
-	  || ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/', $datum ) ) {
+	if ( ! preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/', $datum ) ) {
 		http_response_code( 400 ); echo json_encode( array( 'ok' => false, 'error' => 'UNBRAUCHBAR' ) ); exit;
+	}
+	/* Die Art wird nur zum Dateinamen — deshalb eine Liste und kein Durchreichen. Was nicht darauf
+	   steht, wird trotzdem angenommen und heißt 'checkin' (09.09.2026): bis heute wies der Kasten
+	   eine Freigaben-Übergabe mit 400 zurück, weil ihre Art hier fehlte — der Abschluss sagte dann
+	   „Noch nicht übergeben“ statt „Im Briefkasten“, und die fertige Übergabe lag nur im Browser.
+	   Eine neue Ritual-Art darf nie wieder dazu führen, dass eine Übergabe nirgends liegt. Nur
+	   'madeleine' zählt wörtlich: an ihr hängt der andere Weg (Antwort hinein statt Löschen). */
+	if ( ! in_array( $art, array( 'morgen', 'abend', 'wochenstart', 'wochenreview', 'fragen', 'freigaben', 'trichter', 'checkin', 'madeleine' ), true ) ) { $art = 'checkin'; }
+	/* Ein Brief ohne Inhalt wäre nur Müll, den der Abholer bis zum Ablauf immer wieder
+	   dem john-server anbietet (der lehnt leeren Text mit 'LEER' ab). Madeleine trägt ihre
+	   Frage statt eines Textes — sie wird gleich darunter geprüft. */
+	if ( $art !== 'madeleine' && trim( (string) ( $d['text'] ?? '' ) ) === '' ) {
+		http_response_code( 400 ); echo json_encode( array( 'ok' => false, 'error' => 'LEER' ) ); exit;
 	}
 	if ( $art === 'madeleine' ) {
 		$frage = trim( (string) ( $d['frage'] ?? '' ) );

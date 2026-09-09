@@ -4703,7 +4703,11 @@ try {
       if ($path -eq '/api/checkin') {
         $dir = Join-Path $RootFull 'checkins'
         if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
-        $arten = @('morgen','abend','wochenstart','wochenreview','fragen')
+        # 'freigaben' und 'trichter' gehoeren seit dem 09.09.2026 dazu: der Compass schickt sie
+        # laengst, hier fielen sie auf 'checkin' zurueck - zwei solche Uebergaben am selben Tag
+        # verdraengten sich gegenseitig, und der Compass fand seine eigene nie wieder (er sucht
+        # in GET /api/checkin nach art+datum) und schickte sie darum immer wieder neu.
+        $arten = @('morgen','abend','wochenstart','wochenreview','fragen','freigaben','trichter')
         if ($req.HttpMethod -eq 'POST') {
           $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
           $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })

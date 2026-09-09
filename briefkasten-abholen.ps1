@@ -61,7 +61,11 @@ try {
   Log "Briefkasten nicht erreichbar: $($_.Exception.Message)"; return
 }
 if (-not $liste -or -not $liste.ok) { Log 'Tuer antwortet, aber nicht mit ok — VA_GATE_KEY gegen gate-config.php pruefen.'; return }
-$briefe = @($liste.briefe)
+# Madeleine geht diesen Weg nicht: ihre Briefe holt madeleine-abholen.ps1 ab, bekommen eine
+# Antwort hineingeschrieben und werden erst danach geloescht. Wer sie hier mitnimmt, legt eine
+# offene Frage als Checkin ab und loescht sie drueben - die Frage waere weg, bevor sie jemand
+# beantwortet hat (Fund 09.09.2026, beide Aufgaben liefen nebeneinander).
+$briefe = @(@($liste.briefe) | Where-Object { $_ -and $_.art -ne 'madeleine' })
 if ($briefe.Count -eq 0) { if (-not $Leise) { Log 'Briefkasten leer.' }; return }
 
 # 2) Jeden Brief holen, an den john-server geben, erst dann drueben loeschen.
