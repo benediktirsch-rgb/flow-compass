@@ -283,6 +283,14 @@ param(
   [string]$VereinUrl = 'https://vaikuntha.eu/wp-json/vaikuntha/v1/stats',
   [int]$VereinCacheSec = 3600,       # Tageszahlen aendern sich in Stunden, nicht in Minuten
   [int]$VereinTimeoutSec = 12,
+  # Vishnu-Zaehler (09.09.2026, Bene: "Vishnuartists traffic not shown"): der eigene cookiefreie
+  # Zaehler auf vishnuartists.com (f/stats.php) gibt seine Auswertung offen heraus — kein Token.
+  # Bis hierher hing die Bluete "Aufrufe Vishnu Artists" allein am Hand-Snapshot in
+  # kennzahlen-data.js und stand deshalb am 09.09. noch auf dem 01.09. Jetzt holt der Server sie
+  # selbst, genau wie beim Verein. Gleiche Cache-Zeit: Tageszahlen aendern sich in Stunden.
+  [string]$VishnuStatsUrl = 'https://vishnuartists.com/stats.php',
+  [int]$VishnuCacheSec = 3600,
+  [int]$VishnuTimeoutSec = 12,
   # Finanzlauf (02.09.2026): Kennzahlen, Entscheidungen und GF-Sync aus der Finanzverwaltung auf
   # vishnuartists.com. Ausweis ist der SHA-256 der User-Umgebungsvariable FINANZ_TOKEN — derselbe,
   # den kennzahlen.py und belege_abgleich.py benutzen. Stimmen gehen denselben Weg zurueck.
@@ -2912,6 +2920,70 @@ function Get-Verein([bool]$fresh) {
 }
 
 # ---------------------------------------------------------------------------
+# Vishnu-Zaehler — /api/vishnu (09.09.2026, Bene: "Vishnuartists traffic not shown")
+#   Die Bluete "Aufrufe Vishnu Artists" und die Traffic-Zeile im Zahlen-Blick lasen bis hierher
+#   NUR den Hand-Snapshot aus kennzahlen-data.js. Der wird von einer Cloud-Routine nachgetragen,
+#   und die stand seit dem 03.09. still: am 09.09. zeigte der Morgencheck "31 am 01.09.", waehrend
+#   der Zaehler selbst 43 Aufrufe fuer den 08.09. kannte. Dieselbe Krankheit wie beim Vereins-Puls
+#   am 31.08. — und dieselbe Behandlung: der Server holt die Zahl selbst.
+#   Quelle: der eigene cookiefreie Zaehler (f/stats.php auf vishnuartists.com). Er braucht keinen
+#   Token (STATS_KEY ist leer) und liefert Tagessummen, Seiten und Referrer als JSON. Uebertragen
+#   werden hier nur Summen — keine Pfade einzelner Menschen, keine Kennungen.
+#   Gemessen wird GESTERN, nie heute: ein angefangener Tag saehe neben einem vollen wie ein
+#   Einbruch aus (derselbe Grund wie bei Get-Verein).
+# ---------------------------------------------------------------------------
+$script:VishnuCache = @{ zeit = $null; out = $null }
+function Get-VishnuTraffic([bool]$fresh) {
+  $cc = $script:VishnuCache
+  if (-not $fresh -and $cc.out -and $cc.zeit -and ((Get-Date) - $cc.zeit).TotalSeconds -lt $VishnuCacheSec) { return $cc.out }
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $r = Invoke-RestMethod -Uri $VishnuStatsUrl -Method Get -TimeoutSec $VishnuTimeoutSec -UserAgent 'Vishnu-Flow-Compass-Zaehler/1.0'
+  } catch {
+    $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+    $code = $null; try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+    # Fehler NICHT cachen — der naechste Abruf darf es wieder versuchen.
+    return @{ ok = $false; error = 'UNREACHABLE'; status = $code
+              hint = 'stats.php auf vishnuartists.com nicht erreichbar: ' + $e.Message }
+  }
+  if (-not $r -or -not $r.days) {
+    return @{ ok = $false; error = 'NO_DATA'; hint = 'stats.php antwortet ohne Tagessummen — Ablage stats-data.php leer oder nicht lesbar?' }
+  }
+  # days ist ein Objekt Datum -> {v:Aufrufe, ...}; vor dem Ausbau am 21.08. stand dort eine blanke
+  # Zahl. Beides lesen, sonst faellt die Historie beim ersten alten Tag auf 0.
+  $tage = @()
+  foreach ($p in @($r.days.PSObject.Properties)) {
+    if (-not $p) { continue }
+    $n = 0
+    if ($p.Value -is [int] -or $p.Value -is [long] -or $p.Value -is [double]) { $n = [int]$p.Value }
+    elseif ($p.Value -and $p.Value.PSObject.Properties['v']) { $n = [int]$p.Value.v }
+    $tage += , @{ tag = [string]$p.Name; n = $n }
+  }
+  $tage = @($tage | Sort-Object { $_.tag })
+  $heuteStr = (Get-Date).ToString('yyyy-MM-dd')
+  $vollTage = @($tage | Where-Object { $_.tag -lt $heuteStr })
+  $gestern = $(if ($vollTage.Count) { $vollTage[-1] } else { $null })
+  $vor7 = @($vollTage | Select-Object -Last 8 | Select-Object -First 7)      # die 7 Tage VOR gestern
+  $schnitt7 = $null; $abweichung = $null
+  if ($vor7.Count) {
+    $schnitt7 = [Math]::Round((@($vor7 | ForEach-Object { $_.n }) | Measure-Object -Average).Average, 1)
+    if ($gestern -and $schnitt7 -gt 0) { $abweichung = [int][Math]::Round((($gestern.n - $schnitt7) / $schnitt7) * 100) }
+  }
+  # Top-Seiten sind Summen ueber den ganzen Messzeitraum, keine Tageswerte — der Compass schreibt
+  # das an die Karte, damit niemand sie fuer den gestrigen Tag haelt.
+  $top = @(@($r.pages) | Select-Object -First 5 | ForEach-Object { @{ path = [string]$_.path; titel = [string]$_.title; views = [int]$_.views } })
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); quelle = $VishnuStatsUrl; cacheSec = $VishnuCacheSec
+            seit = [string]$r.seit
+            traffic = @{ tag = $(if ($gestern) { $gestern.tag } else { $null }); aufrufe = $(if ($gestern) { $gestern.n } else { $null })
+                         heute = $(if (@($tage | Where-Object { $_.tag -eq $heuteStr }).Count) { @($tage | Where-Object { $_.tag -eq $heuteStr })[0].n } else { $null })
+                         schnitt7 = $schnitt7; abweichung = $abweichung
+                         reihe7 = @($vor7 | ForEach-Object { @{ tag = $_.tag; n = $_.n } })
+                         tageGemessen = $tage.Count; topSeiten = $top } }
+  $script:VishnuCache = @{ zeit = Get-Date; out = $out }
+  $out
+}
+
+# ---------------------------------------------------------------------------
 # Finanzlauf — /api/finanzen (02.09.2026, Bene: "da muss immer alles ankommen")
 #   Die Finanzverwaltung lebt auf vishnuartists.com/finanzlauf (Kontostand, Deckung, Monats-
 #   ergebnis, Belegstand, neun Entscheidungen des Strategiepapiers mit Stimmen von Bene und
@@ -4549,6 +4621,12 @@ try {
       if ($path -eq '/api/vaikuntha') {
         $v = Get-Verein ($req.QueryString['fresh'] -eq '1')
         Send-Json $ctx $v $(if ($v.ok) { 200 } else { 200 })   # {ok:false} ist eine Antwort, kein HTTP-Fehler
+        continue
+      }
+
+      if ($path -eq '/api/vishnu') {
+        $v = Get-VishnuTraffic ($req.QueryString['fresh'] -eq '1')
+        Send-Json $ctx $v 200                                   # auch {ok:false} ist eine Antwort
         continue
       }
 
