@@ -175,6 +175,7 @@ $CoachDir = $DatenDir
 # ---------- KI-Anbindung: Claude Code (Abo), API (Schlüssel) oder ohne ----------
 $script:ClaudeExe = $null
 $script:CliLogin  = $null
+$script:LoginFenster = $null
 $CliHinweisChat = @"
 Technischer Rahmen: Du läufst über Claude Code im Kopflos-Modus. Es gibt keine Dateiwerkzeuge und keine Shell —
 deine einzigen Werkzeuge sind notiz_speichern und aufgabe_anlegen (MCP-Server „coach“). Der Gesprächsverlauf
@@ -235,6 +236,38 @@ function Get-CliLoginHint {
   $exe = Find-ClaudeExe
   if (-not $exe) { return 'Keine Claude-Code-CLI gefunden — Claude Code installieren (PowerShell: irm https://claude.ai/install.ps1 | iex) oder COMPASS_CLAUDE_EXE auf die claude.exe zeigen lassen. Ohne Abo: backend "api" mit eigenem Schlüssel, oder "ohne".' }
   return "Claude Code ist nicht angemeldet — einmalig im Terminal ausführen: `"$exe`" auth login (öffnet den Browser, Anmeldung mit dem Claude-Abo), danach im Compass ↻ Neu laden."
+}
+# Anmeldung anstossen: oeffnet ein sichtbares Fenster mit „claude auth login“. Den Browser-Schritt macht
+# die Person selbst — der Server nimmt ihr nur das Suchen des Terminals und das Tippen des Pfades ab.
+function Start-CliLogin {
+  $exe = Find-ClaudeExe
+  if (-not $exe) { return @{ ok = $false; laeuft = $false; hint = (Get-CliLoginHint) } }
+  if ($script:LoginFenster -and -not $script:LoginFenster.HasExited) {
+    return @{ ok = $true; laeuft = $true; schon = $true; pid = $script:LoginFenster.Id
+              hint = 'Das Anmeldefenster ist schon offen — dort den Browser bestätigen.' }
+  }
+  $puf = Join-Path $Here '_puffer'; if (-not (Test-Path -LiteralPath $puf)) { New-Item -ItemType Directory -Force $puf | Out-Null }
+  $skript = Join-Path $puf 'claude-login.ps1'
+  $e = $exe.Replace("'", "''")
+  # Das Fenster erbt die Umgebung des Servers: API-Schlüssel und CLAUDECODE-Reste raus, sonst meldet sich
+  # die CLI über die API statt über das Abo an.
+  $text = @"
+`$Host.UI.RawUI.WindowTitle = 'Claude Code anmelden'
+foreach (`$k in @('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN')) { Remove-Item "Env:`$k" -ErrorAction SilentlyContinue }
+foreach (`$v in @(Get-ChildItem Env: | Where-Object { `$_.Name -match '^(CLAUDECODE|CLAUDE_CODE_)' })) { Remove-Item "Env:`$(`$v.Name)" -ErrorAction SilentlyContinue }
+Write-Host 'Claude Code anmelden — gleich öffnet sich der Browser. Mit dem Claude-Abo anmelden.' -ForegroundColor Cyan
+& '$e' auth login
+Write-Host ''
+& '$e' auth status
+Write-Host ''
+Write-Host 'Fertig — im Compass zeigt der Knopf gleich von selbst grün. Dieses Fenster schliesst in 30 s.' -ForegroundColor Green
+Start-Sleep 30
+"@
+  [IO.File]::WriteAllText($skript, $text, (New-Object Text.UTF8Encoding($true)))
+  $script:LoginFenster = Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$skript) -PassThru
+  $script:CliLogin = $null
+  return @{ ok = $true; laeuft = $true; pid = $script:LoginFenster.Id
+            hint = 'Anmeldefenster geöffnet — im Browser mit dem Claude-Abo anmelden.' }
 }
 # Anmeldestand von Claude Code, höchstens alle 10 Minuten neu gefragt (`claude auth status` liefert JSON).
 function Get-CliLogin([switch]$Frisch) {
@@ -1053,6 +1086,15 @@ try {
       if ($req.HttpMethod -eq 'OPTIONS') { $res.StatusCode = 204; $res.Close(); continue }
       if ($path -eq '/__stop') { Send-Json $ctx @{ ok = $true; msg = 'bye' }; break }
       if ($path -eq '/api/john/status') { Send-Json $ctx (Get-StatusObjekt ($req.QueryString['fresh'] -eq '1')); continue }
+      # Der Compass stoesst die Anmeldung an, statt nur den Befehl anzuzeigen. Der Endpunkt kommt sofort
+      # zurueck (das Fenster lebt weiter); den Erfolg holt der Compass ueber /api/john/status?fresh=1.
+      if ($path -eq '/api/john/login') {
+        if ($req.HttpMethod -ne 'POST') { Send-Json $ctx @{ ok = $false; error = 'nur POST' } 405; continue }
+        $lg = Start-CliLogin
+        Write-Host ("[{0}] Anmeldung: {1}" -f (Get-Date -Format 'HH:mm:ss'), $lg.hint) -ForegroundColor Cyan
+        Send-Json $ctx $lg $(if ($lg.ok) { 200 } else { 503 })
+        continue
+      }
       if ($path -eq '/api/john' -and $req.HttpMethod -eq 'POST') {
         $in = Read-Body $req
         $msgs = @($in.messages | Where-Object { $_.role -in @('user','assistant') -and [string]$_.content })

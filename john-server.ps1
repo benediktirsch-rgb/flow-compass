@@ -568,6 +568,7 @@ Du darfst ihn von dir aus rufen, aber selten — höchstens zweimal am Tag. „R
 $script:Utf8NoBom = New-Object Text.UTF8Encoding($false)
 $script:ClaudeExe = $null
 $script:CliLogin  = $null
+$script:LoginFenster = $null
 $CliHinweisChat = @"
 Technischer Rahmen: Du läufst über Claude Code im Kopflos-Modus. Es gibt keine Dateiwerkzeuge und keine Shell —
 deine einzigen Werkzeuge sind notiz_speichern und aufgabe_anlegen (MCP-Server „john"). Der Gesprächsverlauf
@@ -663,6 +664,38 @@ function Get-CliLoginHint {
   $exe = Find-ClaudeExe
   if (-not $exe) { return 'Keine Claude-Code-CLI gefunden — Claude Code installieren (PowerShell: irm https://claude.ai/install.ps1 | iex) oder JOHN_CLAUDE_EXE auf die claude.exe zeigen lassen. Ohne Abo: JOHN_BACKEND=api mit eigenem Schlüssel.' }
   return "Claude Code ist nicht angemeldet — einmalig im Terminal ausführen: `"$exe`" auth login (öffnet den Browser, Anmeldung mit dem Claude-Abo), danach hier ↻ Neu laden."
+}
+# Anmeldung anstossen: oeffnet ein sichtbares Fenster mit „claude auth login“. Den Browser-Schritt macht
+# Bene selbst — der Server nimmt ihm nur das Suchen des Terminals und das Tippen des Pfades ab.
+function Start-CliLogin {
+  $exe = Find-ClaudeExe
+  if (-not $exe) { return @{ ok = $false; laeuft = $false; hint = (Get-CliLoginHint) } }
+  if ($script:LoginFenster -and -not $script:LoginFenster.HasExited) {
+    return @{ ok = $true; laeuft = $true; schon = $true; pid = $script:LoginFenster.Id
+              hint = 'Das Anmeldefenster ist schon offen — dort den Browser bestätigen.' }
+  }
+  $puf = Join-Path $PSScriptRoot '_puffer'; if (-not (Test-Path $puf)) { New-Item -ItemType Directory -Force $puf | Out-Null }
+  $skript = Join-Path $puf 'claude-login.ps1'
+  $e = $exe.Replace("'", "''")
+  # Das Fenster erbt die Umgebung des Servers: API-Schlüssel und CLAUDECODE-Reste raus, sonst meldet sich
+  # die CLI über die API statt über das Abo an.
+  $text = @"
+`$Host.UI.RawUI.WindowTitle = 'Claude Code anmelden'
+foreach (`$k in @('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN')) { Remove-Item "Env:`$k" -ErrorAction SilentlyContinue }
+foreach (`$v in @(Get-ChildItem Env: | Where-Object { `$_.Name -match '^(CLAUDECODE|CLAUDE_CODE_)' })) { Remove-Item "Env:`$(`$v.Name)" -ErrorAction SilentlyContinue }
+Write-Host 'Claude Code anmelden — gleich öffnet sich der Browser. Mit dem Claude-Abo anmelden.' -ForegroundColor Cyan
+& '$e' auth login
+Write-Host ''
+& '$e' auth status
+Write-Host ''
+Write-Host 'Fertig — im Compass zeigt der Knopf gleich von selbst grün. Dieses Fenster schliesst in 30 s.' -ForegroundColor Green
+Start-Sleep 30
+"@
+  [IO.File]::WriteAllText($skript, $text, (New-Object Text.UTF8Encoding($true)))
+  $script:LoginFenster = Start-Process powershell.exe -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$skript) -PassThru
+  $script:CliLogin = $null
+  return @{ ok = $true; laeuft = $true; pid = $script:LoginFenster.Id
+            hint = 'Anmeldefenster geöffnet — im Browser mit dem Claude-Abo anmelden.' }
 }
 # Anmeldestand von Claude Code, höchstens alle 10 Minuten neu gefragt (`claude auth status` liefert JSON).
 function Get-CliLogin([switch]$Frisch) {
@@ -4165,6 +4198,15 @@ try {
                           model = $(if ($anb) { $anb.model } else { $Model }); effort = $Effort; geladen = $sys.geladen; johnDir = $JohnDir; memoryDirs = $MemoryDirs; systemChars = $sys.text.Length }
         continue
       }
+      # Der Compass stoesst die Anmeldung an, statt nur den Befehl anzuzeigen. Der Endpunkt kommt sofort
+      # zurueck (das Fenster lebt weiter); den Erfolg holt der Compass ueber /api/john/status?fresh=1.
+      if ($path -eq '/api/john/login') {
+        if ($req.HttpMethod -ne 'POST') { Send-Json $ctx @{ ok = $false; error = 'nur POST' } 405; continue }
+        $lg = Start-CliLogin
+        Write-Host ("[{0}] Anmeldung: {1}" -f (Get-Date -Format 'HH:mm:ss'), $lg.hint) -ForegroundColor Cyan
+        Send-Json $ctx $lg $(if ($lg.ok) { 200 } else { 503 })
+        continue
+      }
       if ($path -eq '/api/va') {
         try {
           $txt = Get-VaData ($req.QueryString['fresh'] -eq '1')
@@ -4450,6 +4492,20 @@ try {
           $f = Get-MadeleineFehler $m
           if ($f) { Write-Host "  Madeleine: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ error = $f.code; hint = $f.hint } $f.status }
           else { Write-Host "  Madeleine-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ error = $m } 502 }
+        }
+        continue
+      }
+      # Benes Antwort auf Johns Schlussfrage (09.09.2026) — sie gehoert in dieselbe Datei wie die Runde,
+      # sonst steht die Entscheidung nirgends und beide Berater fragen morgen wieder dasselbe.
+      if ($path -eq '/api/beraterrunde/antwort' -and $req.HttpMethod -eq 'POST') {
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        try { Send-Json $ctx (BeraterrundeAntwort $in) }
+        catch {
+          $m = $_.Exception.Message
+          $f = Get-MadeleineFehler $m; if (-not $f) { $f = Get-JohnFehler $m }
+          if ($f) { Write-Host "  Beraterrunde-Antwort: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $f.code; hint = $f.hint } $f.status }
+          else { Write-Host "  Beraterrunde-Antwort-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 502 }
         }
         continue
       }

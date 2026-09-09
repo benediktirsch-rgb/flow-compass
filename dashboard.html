@@ -6155,7 +6155,7 @@ let JK_MODUS=null;
    Der Stand (ok / Wiedervorlage) liegt auf dem john-server — ein Punkt, der hier abgeräumt
    ist, taucht auf dem Handy nicht wieder auf. localStorage hält nur eine Kopie für den
    ersten Aufbau, solange der Server noch antwortet.                                        */
-const STAPEL={ punkte:[], stand:{}, geladen:false, laeuft:false, fehler:null, hash:'', datum:null, model:'', standUm:'', offline:false };
+const STAPEL={ punkte:[], stand:{}, geladen:false, laeuft:false, fehler:null, fehlerCode:'', hash:'', datum:null, model:'', standUm:'', offline:false };
 (function(){ try{ const c=JSON.parse(localStorage.getItem('compassStapel')||'null'); if(c&&Array.isArray(c.punkte)){ STAPEL.punkte=c.punkte; STAPEL.stand=c.stand||{}; STAPEL.hash=c.hash||''; STAPEL.datum=c.datum||null; STAPEL.standUm=c.standUm||''; } }catch(e){} })();
 function stapelMerken(){ try{ localStorage.setItem('compassStapel',JSON.stringify({punkte:STAPEL.punkte,stand:STAPEL.stand,hash:STAPEL.hash,datum:STAPEL.datum,standUm:STAPEL.standUm})); }catch(e){} }
 const STAPEL_ART={entscheiden:['💬','Jetzt entscheiden'],karte:['🎫','Karte anlegen'],mail:['✉️','Mail entwerfen'],termin:['📅','Termin vorschlagen'],
@@ -6194,12 +6194,12 @@ async function stapelLaden(force){
   if(STAPEL.laeuft) return;
   const kand=stapelKandidaten(), hash=stapelHash(kand);
   if(!force&&STAPEL.geladen&&STAPEL.hash===hash) return;
-  STAPEL.laeuft=true; STAPEL.fehler=null; stapelMalen();
+  STAPEL.laeuft=true; STAPEL.fehler=null; STAPEL.fehlerCode=''; stapelMalen();
   try{
     const r=await fetch(JOHN_API+'/api/john/stapel',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({kandidaten:kand,kontext:stapelKontext(),fresh:!!force}),signal:AbortSignal.timeout(180000)});
     const j=await r.json();
-    if(!r.ok||!j.ok){ STAPEL.fehler=/^(NO_[A-Z]+|LIMIT|CLI_TIMEOUT)$/.test(j.error)?(j.hint||'API-Schlüssel fehlt.'):('John antwortet nicht: '+(j.error||r.status)); }
+    if(!r.ok||!j.ok){ STAPEL.fehlerCode=j.error||''; STAPEL.fehler=/^(NO_[A-Z]+|LIMIT|CLI_TIMEOUT)$/.test(j.error)?(j.hint||'API-Schlüssel fehlt.'):('John antwortet nicht: '+(j.error||r.status)); }
     else { STAPEL.punkte=j.punkte||[]; stapelStandMischen(j.stand); STAPEL.hash=hash; STAPEL.datum=j.datum||heute(); STAPEL.model=j.model||''; STAPEL.standUm=j.stand_um||''; STAPEL.offline=false; stapelMerken(); }
   }catch(e){ STAPEL.offline=true; STAPEL.fehler=null; }
   STAPEL.geladen=true; STAPEL.laeuft=false; stapelMalen();
@@ -6256,11 +6256,49 @@ function stapelZeile(p,i){
       <button class="btn g" onclick="stapelOk('${escA(p.key)}')" title="Erledigt oder erledigt genug — weg damit, der nächste rückt nach">✓ OK</button>
       <button class="btn" onclick="stapelSpaeter('${escA(p.key)}')" title="Morgen um diese Zeit wieder vorlegen">⏰ 24 h</button></div></div></div>`;
 }
+/* Fehlt die Anmeldung an Claude Code, hilft kein abgetippter Pfad: der Knopf öffnet das Fenster,
+   den Browser-Schritt macht Bene. Danach fragt der Compass von selbst nach, bis der Login steht. */
+function loginKnoepfe(){
+  if(!/^NO_(LOGIN|CLI)$/.test(STAPEL.fehlerCode||'')) return '';
+  return `<div class="spa" style="margin-top:8px">
+    <button class="btn a" onclick="claudeAnmelden(this)" title="Öffnet ein Fenster mit claude auth login — im Browser mit dem Claude-Abo bestätigen">🔐 Jetzt anmelden</button>
+    <button class="btn" onclick="claudeLoginPruefen(this)" title="Nachsehen, ob die Anmeldung inzwischen steht">↻ Erneut prüfen</button></div>`;
+}
+async function claudeAnmelden(btn){
+  if(btn){ btn.disabled=true; btn.textContent='… Fenster öffnet'; }
+  try{
+    const r=await fetch(JOHN_API+'/api/john/login',{method:'POST',signal:AbortSignal.timeout(20000)});
+    const j=await r.json();
+    if(!j.ok){ toast(j.hint||'Anmeldung ging nicht — ist Claude Code installiert?','bad'); if(btn){ btn.disabled=false; btn.textContent='🔐 Jetzt anmelden'; } return; }
+    toast('Anmeldefenster ist offen — im Browser mit dem Claude-Abo anmelden.','ok');
+    if(btn) btn.textContent='… wartet auf die Anmeldung';
+    /* Alle 5 s nachfragen, höchstens vier Minuten — danach entscheidet ↻ Erneut prüfen. */
+    for(let i=0;i<48;i++){
+      await new Promise(f=>setTimeout(f,5000));
+      if(await loginSteht()){ toast('Claude Code ist angemeldet — John sortiert neu.','ok'); stapelLaden(true); return; }
+    }
+    toast('Noch keine Anmeldung gesehen — im Fenster fertig machen, dann ↻ Erneut prüfen.','warn');
+  }catch(e){ toast('John-Server nicht erreichbar — john-server.cmd starten.','bad'); }
+  if(btn){ btn.disabled=false; btn.textContent='🔐 Jetzt anmelden'; }
+}
+async function loginSteht(){
+  try{
+    const r=await fetch(JOHN_API+'/api/john/status?fresh=1',{signal:AbortSignal.timeout(60000)});
+    const j=await r.json(); return !!(j&&j.key);
+  }catch(e){ return false; }
+}
+async function claudeLoginPruefen(btn){
+  if(btn){ btn.disabled=true; btn.textContent='… prüft'; }
+  const steht=await loginSteht();
+  if(btn){ btn.disabled=false; btn.textContent='↻ Erneut prüfen'; }
+  if(steht){ toast('Claude Code ist angemeldet — John sortiert neu.','ok'); stapelLaden(true); }
+  else toast('Noch nicht angemeldet — 🔐 Jetzt anmelden öffnet das Fenster.','warn');
+}
 function stapelInhalt(){
   const offen=stapelOffen(), n=(STAPEL.punkte||[]).filter(p=>{ const s=STAPEL.stand[p.key]; return !(s&&s.status==='ok'); }).length;
   let kopf='';
   if(STAPEL.laeuft&&!offen.length) kopf=`<div class="hint think">John sortiert deinen Stapel …</div>`;
-  else if(STAPEL.fehler) kopf=`<div class="hint warn">${esc(STAPEL.fehler)}</div>`;
+  else if(STAPEL.fehler) kopf=`<div class="hint warn">${esc(STAPEL.fehler)}${loginKnoepfe()}</div>`;
   else if(STAPEL.offline&&!STAPEL.punkte.length) kopf=`<div class="hint warn">John ist offline — starte john-server.cmd, dann liegt der Stapel hier.</div>`;
   let liste='';
   if(offen.length) liste=`<div class="stapel">${offen.map(stapelZeile).join('')}</div>`;
