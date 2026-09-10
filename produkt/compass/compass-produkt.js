@@ -167,7 +167,7 @@
     return '<div class="card s6 tone-none"><h3>🔌 Verbundene Werkzeuge <span class="cnt">' + aktiv.length + ' nutzbar · ' + kommt.length + ' auf der Karte</span></h3>' +
       '<div class="mini">Der Compass sammelt dort ein, wo deine Arbeit ohnehin liegt — er ersetzt kein Werkzeug. Was du ziehst, wird zurückgeschrieben; was nicht geht, sagt er dir ehrlich.</div>' +
       aktiv.map(zeile).join('') +
-      '<div class="mini" style="margin-top:10px"><b>Was als Nächstes kommt</b> — die Reihenfolge bestimmen die Kundinnen und Kunden. Sag uns, was dir fehlt.</div>' +
+      '<div class="mini" style="margin-top:10px"><b>Was als Nächstes kommt</b> — diese Werkzeuge lassen sich heute noch nicht verbinden; sie stehen hier, damit du siehst, was gebaut wird. Die Reihenfolge bestimmen die Kundinnen und Kunden. Sag uns, was dir fehlt.</div>' +
       kommt.map(zeile).join('') +
       '<div class="chipbar">' +
       '<a class="btn" href="mailto:' + E(mail) + '?subject=' + encodeURIComponent('Flow Compass: Konnektor-Wunsch') + '">🔔 Konnektor wünschen</a>' +
@@ -342,7 +342,7 @@
         '<label class="sf"><span>Jira · Projektkürzel</span><input id="suJiraKeys" value="' + E((d.jira.keys || []).join(', ')) + '" placeholder="OPS, PROJ"></label>' +
         '<label class="sf sfc"><input type="checkbox" id="suTeamAn"' + (d.team.an ? ' checked' : '') + '><span>✈️ Team-Cockpit (Flight Levels) anbinden</span></label>' +
         '<label class="sf"><span>Adresse des Team-Cockpits</span><input id="suTeamUrl" value="' + E(d.team.url) + '" placeholder="https://…/va/"></label>' +
-        '<p class="shint">Zugangs-Token trägst du hier <b>nicht</b> ein — die liegen im Server, den wir für dich einrichten. Der Browser sieht sie nie.</p>';
+        '<p class="shint">Zugangs-Token trägst du hier <b>nicht</b> ein — die liegen im Server, den wir für dich einrichten. Der Browser sieht sie nie. Diese Adressen verlinken deine Vorgänge; geholt werden sie erst, wenn der Compass-Server läuft — bis dahin zeigt das Board Beispieldaten, und die Karte sagt das in ihrer Fußzeile.</p>';
 
       if (s === 'ki') {
         const r = function (wert, titel, text) {

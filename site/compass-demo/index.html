@@ -2620,7 +2620,7 @@ function jiraCard(mode,kompakt){
   const z=jiraZeilen(mode); const rows=z.rows;
   const stand=z.live?new Date(PK.jira.stand).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'';
   const fuss=z.live?`Live: ${esc(PK.jira.site||'Jira')} · Stand: ${esc(stand)}`
-    :`Quelle: dein Vorgangssystem · Stand: ${esc(D.stand||'?')}`;
+    :`Beispieldaten — ${esc(PK.geladen?'dein Vorgangssystem ist nicht verbunden — läuft der Compass-Server?':'Verbindung wird geprüft …')}`;
   return `<div class="card s6 tone-va${kompakt?' kompakt':''}" data-jira="${esc(mode||'')}"><h3>🎫 Meine Vorgänge <span class="cnt">${esc(z.anzahl)} offen · Top ${rows.length}</span></h3>
     ${kurzListe(rows.map(r=>{const m=qmark(r[0]+' '+r[2],r[4]+' · Status: '+r[1],z.live?'Compass-Server › /api/jira/meine':'dashboard-data.js › jira');return `<div class="item ${m.c}"${m.a}><div class="ic">🎫</div><div class="body">
       <div class="t"><a href="${JIRA_VA_URL}${r[0]}" target="_blank" rel="noopener">${r[0]}</a> ${esc(r[2])}

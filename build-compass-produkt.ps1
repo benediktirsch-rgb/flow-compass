@@ -293,8 +293,13 @@ Rep '<h3>🎫 Jira (Vishnu) <span class="cnt">' `
 # Seit 06.09.2026 hat die Karte zwei Fussnoten: live (Instanz mit Server) und Handliste (ohne).
 # Die Live-Fassung nennt nur die Site aus der Serverantwort und bleibt; die Handlisten-Fassung
 # soll in der Demo nicht von dashboard-data.js und einem John-Server reden.
+# 10.09.2026 (VA-13683, Meldung aus einer Team-Instanz): der Ersatztext hiess „Quelle: dein
+# Vorgangssystem“ und behauptete damit genau das, was nicht stimmte — die Zeilen kamen aus der
+# Beispiel-Datenschicht. Wer seine Jira-Adressen eingetragen hatte, sah Beispieldaten und keinen
+# Hinweis darauf. Regel 5 des Repos gilt auch im Produkt-Build: „nicht angebunden“ wird benannt,
+# nicht weggeschrieben. Beide Zweige stehen als ganze Teilstuecke in compass-i18n.js.
 Rep ':`Handliste aus dashboard-data.js · Stand: ${esc(D.stand||''?'')} — ${esc(PK.jiraHint||(PK.geladen?''John-Server offline, Live-Liste fehlt'':''Live-Liste lädt …''))}`;' `
-    ':`Quelle: dein Vorgangssystem · Stand: ${esc(D.stand||''?'')}`;' 'Ticket-Karte Fussnote'
+    ':`Beispieldaten — ${esc(PK.geladen?''dein Vorgangssystem ist nicht verbunden — läuft der Compass-Server?'':''Verbindung wird geprüft …'')}`;' 'Ticket-Karte Fussnote'
 
 Rep ":'<div class=""empty"">Nichts offen — die Feedback-Kette läuft. Zuletzt erledigt: VA-13397 + VA-13396 (Dark-Mode-Kontraste, 18.08.).</div>'}" `
     ":'<div class=""empty"">Nichts offen — alles abgearbeitet.</div>'}" 'Meldungs-Karte leer'

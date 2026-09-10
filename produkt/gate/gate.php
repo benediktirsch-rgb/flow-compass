@@ -455,6 +455,10 @@ $typen = array(
 	'pdf' => 'application/pdf', 'csv' => 'text/csv; charset=utf-8',
 	'mp4' => 'video/mp4', 'webm' => 'video/webm', 'mp3' => 'audio/mpeg', 'wav' => 'audio/wav',
 	'xml' => 'application/xml; charset=utf-8', 'vtt' => 'text/vtt; charset=utf-8',
+	/* Das Compass-Server-Paket laedt der Einrichtungs-Assistent aus dem Ordner der Instanz
+	   (Schritt „Dein Coach“). Ohne diesen Eintrag antwortet die Tuer mit 403 „Diesen Dateityp
+	   liefern wir hier nicht aus“ und niemand kommt an den Server (VA-13681, 10.09.2026). */
+	'zip' => 'application/zip',
 );
 if ( ! isset( $typen[ $endung ] ) ) { g_seite( 403, 'Nicht abrufbar', 'Diesen Dateityp liefern wir hier nicht aus.' ); }
 

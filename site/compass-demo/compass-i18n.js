@@ -1130,6 +1130,13 @@
     'Karten auf Mein Board — Finanzen öffnen': ['cards on My Board — open finances', 'بطاقات على لوحتي — افتح المالية'],
     'Karten auf Mein Board — Wachstum öffnen': ['cards on My Board — open growth', 'بطاقات على لوحتي — افتح النمو'],
     'Quelle: dein Vorgangssystem · Stand: Demo-Datenstand': ['Source: your issue system · as of: demo data', 'المصدر: نظام مهامك · بتاريخ: بيانات العرض التجريبي'],
+    /* Fussnote der Ticket-Karte ohne Verbindung (VA-13683, 10.09.2026) — der Zerleger trennt
+       an „ — “, deshalb steht jeder Teil einzeln. Fehlt einer, bleibt die ganze Zeile deutsch. */
+    'Beispieldaten': ['Sample data', 'بيانات تجريبية'],
+    'dein Vorgangssystem ist nicht verbunden': ['your issue system is not connected', 'نظام مهامك غير متصل'],
+    'läuft der Compass-Server?': ['is the Compass server running?', 'هل خادم البوصلة يعمل؟'],
+    'Verbindung wird geprüft …': ['checking the connection …', 'جارٍ التحقق من الاتصال …'],
+    'diese Werkzeuge lassen sich heute noch nicht verbinden; sie stehen hier, damit du siehst, was gebaut wird. Die Reihenfolge bestimmen die Kundinnen und Kunden. Sag uns, was dir fehlt.': ['these tools cannot be connected yet — they are listed so you can see what is being built. Our customers set the order. Tell us what you are missing.', 'لا يمكن ربط هذه الأدوات بعد؛ وهي مدرجة لترى ما يُبنى. العملاء يحددون الترتيب. أخبرنا بما ينقصك.'],
     'Jira live (Zugangsdaten im Compass-Server) · sonst kennzahlen-data.js': ['Jira live (credentials in the Compass server) · otherwise kennzahlen-data.js', 'Jira مباشرةً (بيانات الدخول في خادم البوصلة) · وإلا kennzahlen-data.js'],
     'Routinen-Wächter (live über john-server, GET /api/routinen)': ['Routine watch (live via the server, GET /api/routinen)', 'مراقب الروتينات (مباشرةً عبر الخادم، GET /api/routinen)'],
     'Analytics-Plugin auf projekt.example (live über john-server, GET /api/vaikuntha) · ohne Server der Tages-Snapshot aus kennzahlen-data.js': ['Analytics plugin on the project site (live via the server, GET /api/vaikuntha) · without a server the daily snapshot from kennzahlen-data.js', 'إضافة التحليلات على موقع المشروع (مباشرةً عبر الخادم، GET /api/vaikuntha) · وبلا خادم تُستخدم اللقطة اليومية من kennzahlen-data.js'],
