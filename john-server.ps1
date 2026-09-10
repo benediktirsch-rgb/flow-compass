@@ -562,6 +562,8 @@ Du darfst ihn von dir aus rufen, aber selten — höchstens zweimal am Tag. „R
 . (Join-Path $PSScriptRoot 'john-madeleine.ps1')
 # Das Wirkungsbild neben beiden Beratern (10.09.2026) — braucht Invoke-ClaudeCli und Limit-Ende von oben.
 . (Join-Path $PSScriptRoot 'john-systembild.ps1')
+# Die Erfolgs-Ausgabe im Kompass-Kino (11.09.2026): Morgen-/Abendausgabe aus Commits, Jira, Checkins — nur Belegtes.
+. (Join-Path $PSScriptRoot 'john-ausgabe.ps1')
 
 # ---------- KI-Anbindung: Claude Code (Abo) oder API (Schlüssel) — 07.09.2026 ----------
 # Bene, 07.09.2026: „ist es möglich, meine Tokens aus dem Abo zu nutzen?" — ja, über Claude Code im
@@ -4581,6 +4583,25 @@ try {
           $f = Get-JohnFehler $m
           if ($f) { Write-Host "  Systembild: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $f.code; hint = $f.hint } $f.status }
           else { Write-Host "  Systembild-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 500 }
+        }
+        continue
+      }
+      # --- Erfolgs-Ausgabe (11.09.2026, john-ausgabe.ps1): GET = was gilt (sofort, ohne Modell),
+      # POST = die Redaktion (ein Modellaufruf, 10–40 s, einmal je Ausgabe). ?fresh=1 / {fresh:true} erzwingt neu.
+      if ($path -eq '/api/ausgabe') {
+        try {
+          if ($req.HttpMethod -eq 'POST') {
+            $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+            $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+            Send-Json $ctx (Build-Ausgabe ([bool]($in -and $in.fresh)))
+          } else {
+            Send-Json $ctx (Get-Ausgabe ($req.QueryString['fresh'] -eq '1'))
+          }
+        } catch {
+          $m = $_.Exception.Message
+          $f = Get-JohnFehler $m
+          if ($f) { Write-Host "  Ausgabe: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $f.code; hint = $f.hint } $f.status }
+          else { Write-Host "  Ausgabe-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 500 }
         }
         continue
       }

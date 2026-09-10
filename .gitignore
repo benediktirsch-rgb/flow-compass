@@ -37,6 +37,8 @@ _integrationen-vorgeschlagen.md
 # Checkins, Boards, Anfragen, Rückfragen-Gedächtnis, Vorlieben, Postfach, Slack
 john-stapel.json
 systembilder.json
+# Erfolgs-Ausgaben (john-ausgabe.ps1) - Laufzeit-Cache der Redaktion, schreibt sich je Ausgabe neu
+ausgaben.json
 reaktionen.json
 checkins/
 boards/
