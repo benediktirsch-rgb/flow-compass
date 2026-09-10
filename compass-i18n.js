@@ -394,6 +394,9 @@
     '{1} weitere zeigen': ['Show {1} more', 'إظهار {1} إضافية'],
     'weniger zeigen': ['Show fewer', 'إظهار أقل'],
     'weitere zeigen': ['show more', 'إظهار المزيد'],
+    /* Vorschau-Knopf des Rasters (compass-raster.js, 11.09.2026) */
+    'Die ganze Karte zeigen': ['Show the whole card', 'إظهار البطاقة كاملة'],
+    'Wieder auf die Vorschau kürzen': ['Shorten back to the preview', 'العودة إلى المعاينة المختصرة'],
     'Öffnen': ['Open', 'فتح'],
     'Quelle': ['Source', 'المصدر'],
     'Quelle öffnen': ['Open source', 'فتح المصدر'],
@@ -1201,9 +1204,12 @@
     '{1} Tage': ['{1} days', '{1} أيام'],
 
     /* ---- Fußzeile / Tastenhilfe ------------------------------------------ */
-    'Tasten: 1–4 Kontext (0 = alle, Strg+Klick kombiniert) · M Morgencheck · A Abendcheck · K Kennzahlen · B Kanban wechseln · F Fokus · J John · L Lotus · D Design · Esc schließt':
-      ['Keys: 1–4 context (0 = all, Ctrl+click combines) · M morning check · A evening check · K metrics · B switch kanban · F focus · J John · L lotus · D look · Esc closes',
-       'المفاتيح: 1–4 السياق (0 = الكل، Ctrl+نقر للدمج) · M فحص الصباح · A فحص المساء · K المؤشرات · B تبديل الكانبان · F التركيز · J جون · L اللوتس · D المظهر · Esc للإغلاق']
+    /* Seit 11.09.2026 verrät die Zeile die Tastenhilfe (compass-tasten.js) statt alles aufzuzählen. */
+    'Tasten: ? alle Tasten · M Morgencheck · A Abendcheck · R Rückfragen · N neue Karte · K Kennzahlen · B Board · J John · 0–4 Kontext · ⏎ weiter · Esc schließt':
+      ['Keys: ? all keys · M morning check · A evening check · R open questions · N new card · K metrics · B board · J John · 0–4 context · ⏎ next · Esc closes',
+       'المفاتيح: ? كل المفاتيح · M فحص الصباح · A فحص المساء · R الأسئلة · N بطاقة جديدة · K المؤشرات · B اللوحة · J جون · 0–4 السياق · ⏎ التالي · Esc للإغلاق'],
+    'Zurück (Alt+←)': ['Back (Alt+←)', 'رجوع (Alt+←)'],
+    'Weiter (Enter)': ['Next (Enter)', 'التالي (Enter)']
   };
 
   /* ==========================================================================

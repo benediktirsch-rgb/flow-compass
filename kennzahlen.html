@@ -175,7 +175,7 @@ html[lang="ar"]{font-family:'Noto Naskh Arabic','Segoe UI',Tahoma,'Arial Unicode
 
 <button class="fab" id="fab" title="Bug / Feedback melden — landet als Jira-Ticket">💬</button>
 
-<div class="modal" id="modal">
+<div class="modal" id="modal" data-tasten>
   <div class="sheet">
     <h4>🐞 Melden</h4>
     <div class="sub">Landet als Ticket im aktuellen Sprint (Projekt VA, Board 73).</div>
@@ -204,10 +204,10 @@ html[lang="ar"]{font-family:'Noto Naskh Arabic','Segoe UI',Tahoma,'Arial Unicode
     </select>
 
     <label for="fText">Was ist los?</label>
-    <textarea id="fText" placeholder="Kurz und konkret — was hast du gesehen, was hast du erwartet?"></textarea>
+    <textarea id="fText" data-mehrzeilig placeholder="Kurz und konkret — was hast du gesehen, was hast du erwartet?"></textarea>
 
     <div style="margin-top:18px;display:flex;gap:8px">
-      <button class="btn p" id="fSend" style="flex:1">Ticket anlegen</button>
+      <button class="btn p" id="fSend" data-primaer title="Ticket anlegen (Strg+Enter)" style="flex:1">Ticket anlegen</button>
       <button class="btn" id="fClose">Abbrechen</button>
     </div>
     <div class="status" id="fStatus"></div>
@@ -814,5 +814,7 @@ render();
 ladeQuellen();
 meldenAuto();
 </script>
+<!-- Tastatur-Ebene (11.09.2026): dieselben Tasten wie im Compass — ? zeigt sie alle. -->
+<script src="compass-tasten.js"></script>
 </body>
 </html>

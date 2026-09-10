@@ -780,6 +780,18 @@ $edit = [Text.RegularExpressions.Regex]::Replace($edit, '\bBenes\b', 'ihren')
 $edit = [Text.RegularExpressions.Regex]::Replace($edit, '\bBene\b',  'die Nutzerin')
 Write-Lf (Join-Path $Ziel 'compass-edit.js') $edit
 
+# Raster nach Inhalt (11.09.2026): compass-raster.js ordnet die Karten in 3/2/1 Spalten als
+# Mauerwerk und faltet hohe Karten auf eine Vorschau. Gehoert ins Produkt — eine Seite ohne
+# Leerflaechen ist genau das, was die Demo zeigen soll. Haengt sich wie compass-edit.js von aussen
+# an; dieselben Wortregeln, damit die Wortpruefung auch diese Datei sauber sieht.
+$raster = (Read-Utf8 (Join-Path $Quelle 'compass-raster.js')).Replace("`r`n","`n")
+$raster = [Text.RegularExpressions.Regex]::Replace($raster, '\bJohns\b', 'Coach-')
+$raster = [Text.RegularExpressions.Regex]::Replace($raster, '(?<![a-zA-Z])John(?![a-zA-Z])', 'Coach')
+$raster = [Text.RegularExpressions.Regex]::Replace($raster, '\bVishnu\b', 'Team')
+$raster = [Text.RegularExpressions.Regex]::Replace($raster, '\bBenes\b', 'ihren')
+$raster = [Text.RegularExpressions.Regex]::Replace($raster, '\bBene\b',  'die Nutzerin')
+Write-Lf (Join-Path $Ziel 'compass-raster.js') $raster
+
 # Focus View (06.09.2026): compass-focus.js ist das zweite, schlanke Frontend — drei lernende
 # Einstiegskacheln statt des vollen Rasters, fuer Leute, die keine Analytics-Menschen sind.
 # Haengt sich wie compass-edit.js von aussen an; dieselben Wortregeln (John->Coach, Vishnu->Team),
@@ -802,6 +814,18 @@ $live = [Text.RegularExpressions.Regex]::Replace($live, '\bVishnu\b', 'Team')
 $live = [Text.RegularExpressions.Regex]::Replace($live, '\bBenes\b', 'ihren')
 $live = [Text.RegularExpressions.Regex]::Replace($live, '\bBene\b',  'die Nutzerin')
 Write-Lf (Join-Path $Ziel 'compass-live.js') $live
+
+# Tastatur-Ebene (11.09.2026): compass-tasten.js — Enter in allen Feldern, 1–9 fuer Antworten und
+# Kartenaktionen, Fokusfallen in Dialogen, Tastenhilfe auf "?". Haengt sich wie compass-edit.js von
+# aussen an und gehoert ins Produkt. Dieselben Wortregeln, damit die Hilfe-Zeile "J … fragen" und ihr
+# Woerterbuch-Schluessel zum Ergebnis der Seite passen; die Wortpruefung unten laeuft auch hierueber.
+$tasten = (Read-Utf8 (Join-Path $Quelle 'compass-tasten.js')).Replace("`r`n","`n")
+$tasten = [Text.RegularExpressions.Regex]::Replace($tasten, '\bJohns\b', 'Coach-')
+$tasten = [Text.RegularExpressions.Regex]::Replace($tasten, '(?<![a-zA-Z])John(?![a-zA-Z])', 'Coach')
+$tasten = [Text.RegularExpressions.Regex]::Replace($tasten, '\bVishnu\b', 'Team')
+$tasten = [Text.RegularExpressions.Regex]::Replace($tasten, '\bBenes\b', 'ihren')
+$tasten = [Text.RegularExpressions.Regex]::Replace($tasten, '\bBene\b',  'die Nutzerin')
+Write-Lf (Join-Path $Ziel 'compass-tasten.js') $tasten
 
 # Sprachen (28.08.2026): compass-i18n.js uebersetzt die fertig gerenderte Oberflaeche
 # (Deutsch/English/Arabisch inkl. RTL). dashboard.html laedt sie im Kopf — fehlt sie,

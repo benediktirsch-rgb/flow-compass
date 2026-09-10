@@ -1080,7 +1080,7 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
 <div class="foot" id="foot">Vishnu Flow Compass · lokal, nicht veröffentlicht · gebaut mit Claude</div>
 
 <!-- Ritual-Overlay -->
-<div class="ov" id="ov" role="dialog" aria-label="Ritual"><div class="sheet">
+<div class="ov" id="ov" role="dialog" aria-label="Ritual" data-tasten><div class="sheet">
   <button class="sx" id="ovX" title="Schließen (Esc)" aria-label="Schließen">✕</button>
   <div class="sh">
     <div class="step"><span id="ovKind">Morgencheck</span><span id="ovStep"></span><span class="timer" id="ovTimer"></span></div>
@@ -1091,10 +1091,10 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
   </div>
   <div class="sbody" id="ovBody"></div>
   <div class="sfoot">
-    <button class="btn" id="ovBack">‹ Zurück</button>
+    <button class="btn" id="ovBack" data-zurueck title="Zurück (Alt+←)">‹ Zurück</button>
     <span style="flex:1"></span>
     <button class="btn" id="ovSkip">Überspringen</button>
-    <button class="btn a" id="ovNext">Weiter ›</button>
+    <button class="btn a" id="ovNext" data-primaer title="Weiter (Enter)">Weiter ›</button>
   </div>
 </div></div>
 
@@ -1105,7 +1105,7 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
 </div></div>
 
 <!-- Mein Board: neue Karte anlegen (Ziel = Compass-lokal | Trello privat/Arbeit + Liste | Jira-Projekt) -->
-<div class="ov" id="nov" role="dialog" aria-label="Neue Karte"><div class="sheet">
+<div class="ov" id="nov" role="dialog" aria-label="Neue Karte" data-tasten><div class="sheet">
   <button class="sx" id="novX" title="Schließen (Esc)" aria-label="Schließen">✕</button>
   <div class="sh"><div class="step">🧭 Mein Board</div><h2 style="margin-top:8px">Neue Karte</h2><div class="hint">Eine Zeile, ein Ergebnis. Wähle, wo die Karte leben soll — der Compass legt sie dort an und zeigt sie sofort im Board.</div></div>
   <div class="sbody">
@@ -1114,7 +1114,7 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
     <div id="novListeWrap" style="display:none"><label>Trello-Liste</label><select id="novListe"></select></div>
     <div id="novJiraWrap" style="display:none"><label>Jira-Projekt · Typ</label><select id="novJira"><option value="VA|Story">VA · Story</option><option value="VA|Task">VA · Task</option><option value="STA|Story">STA · Story</option></select></div>
     <label>Spalte im Board</label><select id="novCol"><option value="bereit">🎯 Bereit</option><option value="doing">🔥 In Arbeit</option><option value="backlog">📥 Backlog</option><option value="wartet">⏳ Wartet</option></select>
-    <label>Notiz / Link (optional)</label><textarea id="novDesc" placeholder="Kontext oder Link — z. B. ein Miro-Board oder eine Confluence-Seite; die URL wird zum ↗-Quell-Link der Karte"></textarea>
+    <label>Notiz / Link (optional)</label><textarea id="novDesc" data-mehrzeilig placeholder="Kontext oder Link — z. B. ein Miro-Board oder eine Confluence-Seite; die URL wird zum ↗-Quell-Link der Karte"></textarea>
     <div class="hint" id="novHint"></div>
   </div>
   <div class="sfoot"><button class="btn" id="novAbbruch">Abbrechen</button><span style="flex:1"></span><button class="btn a" id="novGo">Anlegen</button></div>
@@ -1653,7 +1653,7 @@ function koerper(s){
     const M=R.abendMotivation||[];
     const motiv = (FLOW.art==='abend' && s.id==='erholung' && M.length) ? M[new Date().getDate()%M.length] : '';
     return `<div class="qa" data-w="${esc(s.id)}">
-      <div class="opts">${(s.optionen||[]).map(o=>`<button data-a="${esc(o)}" class="${gewaehlt===o?'on':''}">${esc(o)}</button>`).join('')}</div></div>
+      <div class="opts" data-tasten-weiter>${(s.optionen||[]).map(o=>`<button data-a="${esc(o)}" class="${gewaehlt===o?'on':''}">${esc(o)}</button>`).join('')}</div></div>
       ${motiv?`<div class="hint" style="margin-top:8px">✨ ${esc(motiv)}</div>`:''}
       <input type="text" id="ovIn" placeholder="${esc(s.platz||'Optional: was genau?')}" style="margin-top:8px">`;
   }
@@ -1681,7 +1681,9 @@ function koerper(s){
 
 function verdrahten(s){
   const inp=document.getElementById('ovIn');
-  if(inp) setTimeout(()=>inp.focus(),60);
+  /* Fokus (11.09.2026): compass-tasten.js setzt ihn auf eine offene Wahl, sonst ins Feld —
+     so greifen 1–9 sofort, und wer tippt, landet trotzdem im Feld. Ohne die Datei wie bisher. */
+  setTimeout(()=>{ if(window.compassTasten) compassTasten.fokusRein(ov); else if(inp) inp.focus(); },60);
   /* „Das Eine“: Vorschlag erst auf Tipp übernehmen (Index → FLOW.vorschlaege, nie Text im Attribut) */
   document.querySelectorAll('#ovBody button.vorsatz').forEach(b=>b.addEventListener('click',()=>{
     const v=(FLOW.vorschlaege||[])[+b.dataset.vi]; const t=document.getElementById('ovIn');
@@ -6735,8 +6737,12 @@ document.addEventListener('click',e=>{
 
 /* Tastatur */
 document.addEventListener('keydown',e=>{
-  if(e.target.matches('input,textarea')) return;
+  if(e.target.matches('input,textarea,select')) return;
   if(e.key==='Escape'){ const dm=document.getElementById('designMenu'); if(dm&&dm.classList.contains('on')){ designToggle(false); return; } if(nov.classList.contains('on')){ nov.classList.remove('on'); return; } if(qov.classList.contains('on')) return quelleSchliessen(); if(ov.classList.contains('on')) return beenden(); if(document.getElementById('john').classList.contains('on')) return johnToggle(false); }
+  /* Unter einem offenen Dialog springt keine Taste die Seite um (A startete den Abendcheck neu, K verließ
+     die Seite), und Strg/Alt/⌘ gehören dem Browser — Strg+Ziffer bleibt fürs Kombinieren (11.09.2026). */
+  if(document.querySelector('.ov.on,#tastenHilfe.on')) return;
+  if(e.altKey||e.metaKey||(e.ctrlKey&&!/^[0-4]$/.test(e.key))) return;
   const map={'1':'va','2':'vk','3':'pr','4':'fi','0':'alle'};
   if(map[e.key]) setCtx(map[e.key], e.ctrlKey||e.metaKey||e.shiftKey);
   if(e.key.toLowerCase()==='m') starte('morgen');
@@ -6791,7 +6797,7 @@ tick(); setInterval(tick,30000);
 
 document.getElementById('datenstand').textContent='Datenstand: '+(D.stand||'unbekannt');
 document.getElementById('foot').innerHTML=esc(COMPASS.product+' · '+COMPASS.claim+' · '+(LIVE?'Pilot auf '+location.hostname+' · persönlicher Bereich':'lokal (john-server)')+' · Jira/Kennzahlen-Stand '+(K.stand||'?')+' · Porsche-KPIs live')
-  +'<span class="keys">Tasten: 1–4 Kontext (0 = alle, Strg+Klick kombiniert) · M Morgencheck · A Abendcheck · K Kennzahlen · B Kanban wechseln · F Fokus · J John · L Lotus · D Design · Esc schließt</span>';
+  +'<span class="keys" role="button" tabindex="0" style="cursor:pointer" onclick="window.compassTasten&&compassTasten.hilfe(true)">Tasten: ? alle Tasten · M Morgencheck · A Abendcheck · R Rückfragen · N neue Karte · K Kennzahlen · B Board · J John · 0–4 Kontext · ⏎ weiter · Esc schließt</span>';
 document.getElementById('btnFokus').classList.toggle('p',fokusModus);
 
 kopfMalen(); rhythmMalen(); lotusWerte();
@@ -7289,7 +7295,14 @@ addEventListener('pageshow',zeitNachstellen); addEventListener('focus',zeitNachs
 <script src="compass-madeleine.js"></script>
 <script src="compass-focus.js"></script>
 <script src="compass-edit.js"></script>
+<!-- Raster nach Inhalt (11.09.2026): 3/2/1 Spalten je Bildschirm, Karten im Mauerwerk statt gestreckt,
+     hohe Karten zeigen eine Vorschau und klappen bei Interesse auf. Haengt sich wie compass-edit.js von
+     aussen an und muss danach stehen (liest dessen Breiten). Abschalten zum Vergleich: ?raster=aus -->
+<script src="compass-raster.js"></script>
 <script src="compass-live.js"></script>
+<!-- Tastatur-Ebene (11.09.2026): Enter in allen Feldern, 1–9 für Antworten und Kartenaktionen,
+     Fokusfallen in Dialogen, Tastenhilfe auf „?“. Unsichtbar, solange niemand tippt. -->
+<script src="compass-tasten.js"></script>
 <!-- Lobby (10.09.2026, Bestellung: "sobald er weg ist, geb mir ein Layover-Fenster, das ihn direkt
      startet"). Erscheint nur, wenn der Coach-Server nicht antwortet: sagt WAS ist (belegt / aus / dieses
      Geraet kann ihn nicht starten), zeigt seinen letzten Stand aus der Rezeption im WWW und startet ihn
