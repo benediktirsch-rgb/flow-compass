@@ -267,14 +267,15 @@ param(
     # stand, hat es niemand gesehen. Diese Liste ist die einzige Stelle, an der eine Aufgabe „existiert“.
     @{ id = 'ausschreibungs-scan-taeglich'; art = 'claude';  cron = '30 6 * * *';       ktx = 'pr'
        name = 'Ausschreibungs-Scan';        wirkung = 'Job-Alerts prüfen, Ketten starten, Ledger schreiben' }
-    @{ id = 'job-weiterleitung-takt';       art = 'claude';  cron = '0 7-23/2 * * *';   ktx = 'pr'
+    @{ id = 'job-weiterleitung-takt';       art = 'claude';  cron = '15 7-23/2 * * *';  ktx = 'pr'
        name = 'Weitergabe-Takt';            wirkung = 'Antworten lesen, Fristen ziehen, an die nächste Person' }
-    @{ id = 'pool-verfuegbarkeit-nachfragen'; art = 'claude'; cron = '0 10 * * 1';      ktx = 'va'
-       name = 'Verfügbarkeit nachfragen';   wirkung = 'Kollektiv nach Kapazität fragen' }
-    @{ id = 'finanzlauf-leistungsnachweis'; art = 'claude';  cron = '0 9 1 * *';        ktx = 'va'
-       name = 'Leistungsnachweis';          wirkung = 'Timesheets und Rechnungen des Monats' }
-    @{ id = 'dvct-mail-an-gudrun-freitag';  art = 'claude';  cron = '0 16 * * 5';       ktx = 'pr'
-       name = 'dvct-Mail an Gudrun';        wirkung = 'wöchentliche Mail zur Fachgruppe KI-Ethik' }
+    @{ id = 'pool-verfuegbarkeit-nachfragen'; art = 'claude'; cron = '0 9 1 1,4,7,10 *'; ktx = 'va'
+       name = 'Verfügbarkeit nachfragen';   wirkung = 'Kollektiv nach Kapazität fragen (quartalsweise)' }
+    @{ id = 'finanzlauf-leistungsnachweis'; art = 'claude';  cron = '0 9,16 * * 1-5';   ktx = 'va'
+       name = 'Leistungsnachweis';          wirkung = 'neue Nachweise -> Fastbill- und Mail-Entwurf' }
+    # 10.09.2026: fehlte hier, seit sie am 08.09. angelegt wurde — derselbe blinde Fleck wie am 06.09.
+    @{ id = 'produkt-meldungen-abarbeiten'; art = 'claude';  cron = '30 9,15 * * 1-5';  ktx = 'va'
+       name = 'Produkt-Meldungen';          wirkung = 'Bugs aus #produkt-feedback: Ticket, Fix, Antwort im Thread' }
     @{ id = 'porsche-agile-triage';         art = 'cloud';   cron = '0 8,16 * * 1-5';   ktx = 'va'
        name = 'Porsche AGILE triagieren';   wirkung = 'labelt und kommentiert AGILE-Tickets (Cloud-Aufgabe)' }
   ),
