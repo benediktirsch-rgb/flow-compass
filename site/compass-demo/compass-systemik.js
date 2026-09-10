@@ -36,18 +36,19 @@
   function css(){
     const c=[
       '.sysgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}',
-      '.card.sysbreit .sysgrid{grid-template-columns:minmax(0,1fr) minmax(320px,440px)}',
+      '.card.sysbreit .sysgrid{grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr)}',
       '.syslinks{min-width:0}',
       '.sysbox{min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--panel2);padding:12px 13px}',
       '.sysbox .syskopf{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:8px}',
       '.sysbox .systitel{font-size:12.5px;font-weight:800;letter-spacing:.01em}',
       '.sysbox .sysmeta{font-size:10.5px;color:var(--sub);margin-left:auto}',
       '.sysbox .sysmuted{font-size:12px;color:var(--sub);line-height:1.5}',
-      '.sysbox svg{display:block;width:100%;height:auto;overflow:visible}',
+      '.sysbox svg{display:block;width:100%;max-width:620px;margin:0 auto;height:auto;overflow:visible}',
       /* Knoten */
       '.sysn{cursor:pointer}',
       '.sysn .nb{fill:var(--panel);stroke:var(--line);stroke-width:1.2}',
       '.sysn .nt{font:700 11px/1.1 var(--sans,system-ui);fill:var(--ink)}',
+      '.sysbox.eng .sysn .nt{font-size:15px}.sysbox.eng .sysn .nw{font-size:13px}.sysbox.eng .sysz text{font-size:14px}.sysbox.eng .sysn .pf{font-size:14px}',
       '.sysn .nw{font:600 9.5px/1 var(--sans,system-ui);fill:var(--sub)}',
       '.sysn.hebel .nb{stroke:var(--va);stroke-width:2}',
       '.sysn.risiko .nb{stroke:var(--bad)}',
@@ -109,13 +110,23 @@
 
   /* ---------- Rahmen: die Box neben das Feld hängen ---------- */
   let RO=null;
+  /* Zweispaltig ab 880 px Kartenbreite. Der ResizeObserver allein reicht nicht: die Karte wird von
+     ihrer eigenen Render-Funktion ersetzt, dann beobachtet er ein Element, das gar nicht mehr im
+     Dokument haengt. Deshalb wird die Breite zusaetzlich bei jedem Malen und bei jedem Fensterwechsel
+     nachgerechnet — das kostet nichts und ist die Fassung, die immer stimmt. */
+  function breitePruefen(){
+    Object.keys(FELDER).forEach(a=>{
+      const k=document.getElementById(FELDER[a].karte);
+      if(k) k.classList.toggle('sysbreit', k.getBoundingClientRect().width>=880);
+    });
+  }
   function beobachten(karte){
     if(!karte) return;
     if(!RO && typeof ResizeObserver==='function'){
-      RO=new ResizeObserver(es=>{ for(const e of es){ e.target.classList.toggle('sysbreit', e.contentRect.width>=700); } });
+      RO=new ResizeObserver(es=>{ for(const e of es){ e.target.classList.toggle('sysbreit', e.contentRect.width>=880); } });
     }
     if(RO && !karte.dataset.sysRo){ karte.dataset.sysRo='1'; RO.observe(karte); }
-    else if(!RO) karte.classList.toggle('sysbreit', karte.getBoundingClientRect().width>=700);
+    karte.classList.toggle('sysbreit', karte.getBoundingClientRect().width>=880);
   }
   function rahmen(art){
     const f=FELDER[art];
@@ -157,7 +168,7 @@
 
   /* ---------- Holen: eine Schlange, der Server arbeitet seriell ---------- */
   let SCHLANGE=Promise.resolve();
-  function anstellen(fn){ SCHLANGE=SCHLANGE.then(fn).catch(()=>{}); return SCHLANGE; }
+  function anstellen(fn){ SCHLANGE=SCHLANGE.then(fn).catch(e=>{ console.error('systemik:',e); }); return SCHLANGE; }
   async function holen(art, frisch){
     const s=S[art], f=FELDER[art];
     const q = art==='mad' ? await quelleMad() : quelleJohn();
@@ -220,9 +231,9 @@
   function svgBauen(art, b){
     const s=S[art];
     const N=b.knoten, n=N.length;
-    const W=560, H= n>=6 ? 400 : (n>=5 ? 370 : 330);
-    const cx=W/2, cy=H/2;
-    const rx=W/2-104, ry=H/2-56;
+    const W=560, HOCH = n>=6 ? 400 : (n>=5 ? 370 : 330);
+    const cx=W/2, cy=HOCH/2;
+    const rx=W/2-104, ry=HOCH/2-56;
     const P={}, B={};
     N.forEach((k,i)=>{
       const w=-Math.PI/2 + i*2*Math.PI/n;
@@ -237,7 +248,7 @@
     const nachbar=id=>{ const set=new Set([id]); b.wirkungen.forEach(w=>{ if(w.von===id) set.add(w.nach); if(w.nach===id) set.add(w.von); }); return set; };
     const sichtbar = fokus ? nachbar(fokus) : null;
 
-    const teile=[`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Wirkungsbild: ${H(b.titel||b.schluss)}">`];
+    const teile=[`<svg viewBox="0 0 ${W} ${HOCH}" role="img" aria-label="Wirkungsbild: ${H(b.titel||b.schluss)}">`];
     /* Erst die Kanten, damit die Knoten darüber liegen */
     b.wirkungen.forEach((w,i)=>{
       const a=P[w.von], e=P[w.nach]; if(!a||!e) return;
@@ -438,8 +449,18 @@
   }
   function malen(art){
     const box=document.getElementById('sysbox-'+art); if(!box) return;
+    breitePruefen();
+    /* Unter 470 px rechnet der Browser das 560er Bild herunter — dann muss die Schrift im SVG groesser
+       gesetzt werden, sonst steht die Beschriftung bei effektiv 6 px da. */
+    box.classList.toggle('eng', box.getBoundingClientRect().width<470);
     const feld=box.querySelector('.syseigen'); const stand=feld?[feld.value,feld.selectionStart]:null;
-    box.innerHTML=inhalt(art);
+    /* Ein Fehler beim Zeichnen darf die Box nicht stumm auf „zeichnet …" stehen lassen — dann sieht
+       es aus, als haenge der Server, obwohl das Bild laengst da ist. */
+    try{ box.innerHTML=inhalt(art); }
+    catch(e){ console.error('systemik: Zeichnen fehlgeschlagen',e);
+      box.innerHTML='<div class="syskopf"><span class="systitel">🕸️ Wirkungsbild</span></div>'+
+        '<div class="sysmuted">Das Bild liegt vor, ließ sich hier aber nicht zeichnen: '+H(e.message||e)+'</div>'+
+        '<div class="systasten"><button class="sysklein" data-tun="neu">↻ Noch einmal</button></div>'; }
     if(stand){ const neu=box.querySelector('.syseigen'); if(neu){ neu.value=stand[0]; try{ neu.setSelectionRange(stand[1],stand[1]); }catch(e){} } }
   }
 
@@ -462,6 +483,7 @@
   function start(){
     rahmenAlle();
     beob.observe(document.body,{childList:true,subtree:true});
+    let rt=0; addEventListener('resize',()=>{ clearTimeout(rt); rt=setTimeout(breitePruefen,150); });
     /* Erst der Cockpit-Aufbau, dann wir: Coach- Stapel und die Beraterrunde sollen zuerst laden —
        der Server arbeitet seriell, und ein Wirkungsbild ist der Kommentar dazu, nicht der Inhalt. */
     setTimeout(()=>{
