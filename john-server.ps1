@@ -560,6 +560,8 @@ Du darfst ihn von dir aus rufen, aber selten — höchstens zweimal am Tag. „R
 . (Join-Path $PSScriptRoot 'john-tools.ps1')
 # Madeleine (07.09.2026): zweite Beraterin auf GPT über Codex, Beraterrunde mit John — eigene Datei, gleiche Bausteine.
 . (Join-Path $PSScriptRoot 'john-madeleine.ps1')
+# Das Wirkungsbild neben beiden Beratern (10.09.2026) — braucht Invoke-ClaudeCli und Limit-Ende von oben.
+. (Join-Path $PSScriptRoot 'john-systembild.ps1')
 
 # ---------- KI-Anbindung: Claude Code (Abo) oder API (Schlüssel) — 07.09.2026 ----------
 # Bene, 07.09.2026: „ist es möglich, meine Tokens aus dem Abo zu nutzen?" — ja, über Claude Code im
@@ -1266,6 +1268,55 @@ function Get-JiraKpi([bool]$fresh = $false) {
   $script:JiraCache = @{ zeit = Get-Date; out = $out }
   return $out
 }
+# ---------- Strategische Initiativen: Bewegung statt Tagesfrist (10.09.2026) ----------
+# Bene: „STA sind strategische Items — die laufen maximal 8 Monate, aber nicht in Tagesfristen.
+# Man kann untersuchen, ob Storys dazu bearbeitet wurden, und wenn länger nicht, dann zurück.“
+# Fuer jede laufende Initiative (statusCategory indeterminate, z. B. „In Flight“) holen wir darum die
+# untergeordneten Storys — im Vishnu-Jira hängen sie NICHT am parent-Feld, sondern am Verknüpfungstyp
+# „Parent-Child“ (outward „is parent of“) — und geben dem Compass deren Stand mit: wie viele offen
+# sind, wie viele in Arbeit, wann zuletzt eine bewegt wurde. Die Regel daraus zieht der Compass
+# (pkStratLage in dashboard.html); hier wird nur gemessen. Zwei Aufrufe je Initiative, gedeckelt auf
+# sechs, alles im 180-Sekunden-Cache von Get-JiraMeine.
+function Add-JiraStrategie($auth, $liste) {
+  $laufend = @(@($liste | Where-Object { $_.strategisch -and $_.kategorie -eq 'indeterminate' }) | Select-Object -First 6)
+  if (-not $laufend.Count) { return }
+  $kinder = @{}; $alle = New-Object System.Collections.Generic.List[string]
+  foreach ($s in $laufend) {
+    $k = New-Object System.Collections.Generic.List[string]
+    $d = Invoke-JiraJson $auth "/rest/api/3/issue/$($s.key)?fields=issuelinks" $null
+    foreach ($l in @($d.fields.issuelinks)) {
+      if (-not $l.outwardIssue) { continue }
+      if ([string]$l.type.outward -notmatch 'parent of') { continue }
+      $kk = [string]$l.outwardIssue.key
+      if (-not $k.Contains($kk)) { $k.Add($kk) }
+      if (-not $alle.Contains($kk)) { $alle.Add($kk) }
+    }
+    $kinder[$s.key] = $k
+  }
+  # Eine Initiative ganz ohne Storys bekommt gesamt = 0 — der Compass soll „nichts darunter“
+  # von „keine Daten“ unterscheiden können und nur im ersten Fall nachfragen.
+  $stand = @{}
+  if ($alle.Count) {
+    $r = Invoke-JiraJson $auth '/rest/api/3/search/jql' @{ jql = ('key in (' + ($alle -join ',') + ')'); fields = @('status','updated'); maxResults = 100 }
+    foreach ($i in @($r.issues)) {
+      $stand[[string]$i.key] = @{ kat = [string]$i.fields.status.statusCategory.key; upd = [DateTime]::Parse($i.fields.updated).ToLocalTime() }
+    }
+  }
+  $jetzt = Get-Date
+  foreach ($s in $laufend) {
+    $k = $kinder[$s.key]; if ($null -eq $k) { continue }
+    $offen = 0; $arbeit = 0; $fertig = 0; $letzte = $null; $letzterKey = ''
+    foreach ($x in $k) {
+      $i = $stand[$x]; if (-not $i) { continue }
+      if ($i.kat -eq 'done') { $fertig++ } else { $offen++; if ($i.kat -eq 'indeterminate') { $arbeit++ } }
+      if (-not $letzte -or $i.upd -gt $letzte) { $letzte = $i.upd; $letzterKey = $x }
+    }
+    $s['kinder'] = @{ gesamt = $k.Count; offen = $offen; inArbeit = $arbeit; fertig = $fertig
+                      letzteBewegung = $(if ($letzte) { $letzte.ToString('o') } else { $null })
+                      stillTage = $(if ($letzte) { [int][Math]::Floor(($jetzt - $letzte).TotalDays) } else { $null })
+                      letzterKey = $letzterKey }
+  }
+}
 # ---------- Jira fürs Mein Board (19.08.): meine offenen Vorgänge, Status wechseln, Vorgang anlegen ----------
 $script:JiraMeineCache = @{ zeit = $null; out = $null }
 function Get-JiraMeine([bool]$fresh = $false) {
@@ -1281,6 +1332,10 @@ function Get-JiraMeine([bool]$fresh = $false) {
                         projekt = $i.fields.project.key; typ = $i.fields.issuetype.name; prio = $(if ($i.fields.priority) { $i.fields.priority.name } else { $null })
                         aktiv = $i.fields.updated; erstellt = $i.fields.created; due = $i.fields.duedate; url = "https://$($auth.site)/browse/$($i.key)" })
   }
+  # Strategisches kennzeichnen (Projekt STA / Typ Initiative) und für die laufenden die Bewegung
+  # ihrer Storys dazulegen — der Compass bewertet sie danach statt nach Tagen in Arbeit.
+  foreach ($e in $liste) { $e['strategisch'] = ($e.projekt -eq 'STA' -or $e.typ -eq 'Initiative') }
+  try { Add-JiraStrategie $auth $liste } catch { Write-Host "  Strategie-Lage: $($_.Exception.Message)" -ForegroundColor Yellow }
   $out = @{ ok = $true; stand = (Get-Date).ToString('o'); site = $auth.site; anzahl = $liste.Count; issues = $liste }
   $script:JiraMeineCache = @{ zeit = Get-Date; out = $out }
   return $out
@@ -4467,6 +4522,20 @@ try {
         }
         $st = Read-Stapel
         Send-Json $ctx @{ ok = $true; stand = $st.stand; letzte = $st.letzte; datei = $script:StapelDatei }
+        continue
+      }
+      # --- Systembild (10.09.2026): das Wirkungsbild, das neben John und Madeleine mitlaeuft ----------
+      # Der Compass fragt bei jedem Aufbau nach; gerechnet wird nur, was noch nicht im Cache liegt.
+      if ($path -eq '/api/systembild' -and $req.HttpMethod -eq 'POST') {
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        try { Send-Json $ctx (John-Systembild $in) }
+        catch {
+          $m = $_.Exception.Message
+          $f = Get-JohnFehler $m
+          if ($f) { Write-Host "  Systembild: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $f.code; hint = $f.hint } $f.status }
+          else { Write-Host "  Systembild-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 500 }
+        }
         continue
       }
       # --- Madeleine (07.09.2026): zweite Beraterin auf GPT über Codex; Beraterrunde = John ↔ Madeleine ----
