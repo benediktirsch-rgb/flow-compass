@@ -1243,6 +1243,33 @@ function Invoke-JiraJson($auth, [string]$path, $body) {
   if (-not $res.IsSuccessStatusCode) { throw "JIRA $([int]$res.StatusCode): $($txt.Substring(0, [Math]::Min(200, $txt.Length)))" }
   return ($txt | ConvertFrom-Json)
 }
+# ---------- Jira-Suche mit Seiten (10.09.2026) ----------
+# Die Cloud-Suche (/rest/api/3/search/jql) liefert hoechstens 100 Treffer je Seite und dazu einen
+# nextPageToken. Wer den ignoriert, bekommt stumm eine gekappte Liste: Bene hatte am 10.09. genau
+# 100 offene Vorgaenge, das aelteste `updated` war der 28.08. — alles davor fehlte im „Mein Board“
+# des Compass, darunter die laufende Initiative STA-485, und nichts wies darauf hin. Darum wird hier
+# geblaettert, bis Jira keinen Token mehr schickt. Greift die Obergrenze, sagt das Ergebnis es
+# ausdruecklich (`gekappt`), damit „mehr als N offene Vorgaenge“ sichtbar wird statt zu verschwinden.
+$script:JiraSeiteMax = 100
+function Invoke-JiraSuche($auth, [string]$jql, [string[]]$fields, [int]$maxGesamt = 500) {
+  $issues = New-Object System.Collections.ArrayList
+  $token = $null; $seiten = 0; $gekappt = $false
+  while ($true) {
+    $body = @{ jql = $jql; fields = $fields; maxResults = [Math]::Min($script:JiraSeiteMax, [Math]::Max(1, $maxGesamt - $issues.Count)) }
+    if ($token) { $body.nextPageToken = $token }
+    $r = Invoke-JiraJson $auth '/rest/api/3/search/jql' $body
+    $seiten++
+    foreach ($i in @($r.issues)) { [void]$issues.Add($i) }
+    $neu = $null
+    if ($r.PSObject.Properties['nextPageToken'] -and $r.nextPageToken) { $neu = [string]$r.nextPageToken }
+    # Kein Token mehr, ein Token, der sich nicht bewegt, oder eine leere Seite: fertig, nicht gekappt.
+    if (-not $neu -or $neu -eq $token -or -not @($r.issues).Count) { break }
+    $token = $neu
+    if ($issues.Count -ge $maxGesamt) { $gekappt = $true; break }
+    if ($seiten -ge 50) { $gekappt = $true; break }   # Notbremse gegen eine endlose Kette
+  }
+  return @{ issues = $issues; seiten = $seiten; gekappt = $gekappt; limit = $maxGesamt }
+}
 function Get-JiraKpi([bool]$fresh = $false) {
   $auth = Get-JiraAuth
   if (-not $auth) { throw 'NO_KEY' }
@@ -1250,6 +1277,12 @@ function Get-JiraKpi([bool]$fresh = $false) {
   if ($cc.out -and -not $fresh -and ((Get-Date) - $cc.zeit).TotalSeconds -lt 300) { return $cc.out }
   Assert-JiraAuth $auth
   # 1) erledigt in den letzten 14 Tagen (mit created/resolutiondate → Lead Time), 2) offen (Näherungszahl)
+  # Hier bewusst OHNE Invoke-JiraSuche (10.09.2026): die Suche liefert nie mehr als 100 je Seite, done14
+  # ist also seit je gedeckelt. Blaettern wuerde die Zahl aber nicht heilen, sondern verzerren — am
+  # 30.08.2026 wurden an einem Tag 721 alte Vorgaenge auf einmal geschlossen (14-Tage-Summe: 734, davon
+  # 4 in den letzten 7 Tagen). Voll geblaettert stuende dort „734 erledigt“ und leadP50 bei rund
+  # einem halben Jahr. Was diese Kennzahl zaehlen soll (Massenschliessungen ausnehmen?), entscheidet
+  # Bene; bis dahin bleibt sie so, wie der Verlauf sie kennt.
   $done = Invoke-JiraJson $auth '/rest/api/3/search/jql' @{ jql = 'assignee = currentUser() AND statusCategory = Done AND resolved >= -14d ORDER BY resolved DESC'; fields = @('created','resolutiondate','summary','project'); maxResults = 200 }
   $open = Invoke-JiraJson $auth '/rest/api/3/search/approximate-count' @{ jql = 'assignee = currentUser() AND statusCategory != Done' }
   $heute = (Get-Date).Date; $gestern = $heute.AddDays(-1); if ($heute.DayOfWeek -eq 'Monday') { $gestern = $heute.AddDays(-3) }
@@ -1297,7 +1330,9 @@ function Add-JiraStrategie($auth, $liste) {
   # von „keine Daten“ unterscheiden können und nur im ersten Fall nachfragen.
   $stand = @{}
   if ($alle.Count) {
-    $r = Invoke-JiraJson $auth '/rest/api/3/search/jql' @{ jql = ('key in (' + ($alle -join ',') + ')'); fields = @('status','updated'); maxResults = 100 }
+    # Sechs Initiativen koennen zusammen mehr als 100 Storys haben — auch hier blaettern, sonst
+    # faenden einzelne Initiativen ihre eigenen Kinder nicht wieder und saehen still stiller aus.
+    $r = Invoke-JiraSuche $auth ('key in (' + ($alle -join ',') + ')') @('status','updated') ([Math]::Max(1, $alle.Count))
     foreach ($i in @($r.issues)) {
       $stand[[string]$i.key] = @{ kat = [string]$i.fields.status.statusCategory.key; upd = [DateTime]::Parse($i.fields.updated).ToLocalTime() }
     }
@@ -1324,8 +1359,11 @@ function Get-JiraMeine([bool]$fresh = $false) {
   $cc = $script:JiraMeineCache
   if ($cc.out -and -not $fresh -and ((Get-Date) - $cc.zeit).TotalSeconds -lt 180) { return $cc.out }
   Assert-JiraAuth $auth
-  $r = Invoke-JiraJson $auth '/rest/api/3/search/jql' @{ jql = 'assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC'
-        fields = @('summary','status','updated','created','project','priority','issuetype','duedate'); maxResults = 100 }
+  # Alle offenen Vorgaenge, ueber so viele Seiten wie noetig. 500 ist hoch genug, dass die Grenze im
+  # Alltag nie greift, und niedrig genug, dass ein verungluecktes JQL den Server nicht minutenlang
+  # blockiert — der 180-Sekunden-Cache unten faengt den Rest ab.
+  $max = 500
+  $r = Invoke-JiraSuche $auth 'assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC' @('summary','status','updated','created','project','priority','issuetype','duedate') $max
   $liste = New-Object System.Collections.ArrayList
   foreach ($i in @($r.issues)) {
     [void]$liste.Add(@{ key = $i.key; titel = $i.fields.summary; status = $i.fields.status.name; kategorie = $i.fields.status.statusCategory.key
@@ -1336,7 +1374,15 @@ function Get-JiraMeine([bool]$fresh = $false) {
   # ihrer Storys dazulegen — der Compass bewertet sie danach statt nach Tagen in Arbeit.
   foreach ($e in $liste) { $e['strategisch'] = ($e.projekt -eq 'STA' -or $e.typ -eq 'Initiative') }
   try { Add-JiraStrategie $auth $liste } catch { Write-Host "  Strategie-Lage: $($_.Exception.Message)" -ForegroundColor Yellow }
-  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); site = $auth.site; anzahl = $liste.Count; issues = $liste }
+  # Greift die Obergrenze, muss das oben stehen und nicht nur im Log: `hinweis` geht mit der Antwort
+  # raus, damit der Compass „mehr als N offene Vorgaenge“ anzeigen kann statt stumm zu kappen.
+  $hinweis = $null
+  if ($r.gekappt) {
+    $hinweis = "Jira: mehr als $max offene Vorgaenge — Liste bei $($liste.Count) gekappt, die aeltesten fehlen"
+    Write-Host "  jira/meine: $hinweis" -ForegroundColor Yellow
+  }
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); site = $auth.site; anzahl = $liste.Count; issues = $liste
+            gekappt = $r.gekappt; limit = $max; seiten = $r.seiten; hinweis = $hinweis }
   $script:JiraMeineCache = @{ zeit = Get-Date; out = $out }
   return $out
 }
