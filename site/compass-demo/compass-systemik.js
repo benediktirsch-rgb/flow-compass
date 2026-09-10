@@ -147,15 +147,19 @@
   function rahmenAlle(){ Object.keys(FELDER).forEach(a=>rahmen(a)); }
 
   /* ---------- Quelltexte ---------- */
+  /* Wichtig: eine tote Quelle darf nie aussehen wie eine leere. Antwortet der Server nicht, sagt die
+     Box das — sonst stuende dort "Noch keine Beraterrunde", waehrend die Runde von gestern in der
+     Datei liegt. */
   async function quelleMad(){
+    let j=null;
     try{
       const r=await fetch(API()+'/api/beraterrunde?n=1',{cache:'no-store',signal:AbortSignal.timeout(20000)});
-      const j=await r.json();
-      const runde=(j.runden||[])[0]; if(!runde) return null;
-      const text=(runde.beitraege||[]).map(b=>b.wer+': '+String(b.text||'').trim()).join('\n\n');
-      if(text.trim().length<80) return null;
-      return { thema:runde.thema||'Beraterrunde', text:text, stand:runde.datum||'' };
-    }catch(e){ return null; }
+      j=await r.json();
+    }catch(e){ return { fehler:'Die letzte Beraterrunde ließ sich nicht laden — läuft john-server.cmd?' }; }
+    const runde=((j&&j.runden)||[])[0]; if(!runde) return null;
+    const text=(runde.beitraege||[]).map(b=>b.wer+': '+String(b.text||'').trim()).join('\n\n');
+    if(text.trim().length<80) return null;
+    return { thema:runde.thema||'Beraterrunde', text:text, stand:runde.datum||'' };
   }
   function quelleJohn(){
     let offen=[]; try{ offen=(typeof stapelOffen==='function')?stapelOffen():[]; }catch(e){}
@@ -172,6 +176,14 @@
   async function holen(art, frisch){
     const s=S[art], f=FELDER[art];
     const q = art==='mad' ? await quelleMad() : quelleJohn();
+    if(q && q.fehler){
+      /* Einmal nachfassen: nach dem Aufwachen aus dem Ruhezustand ist der erste Abruf oft der
+         einzige, der scheitert. */
+      s.bild=null; s.leer=''; s.fehler=q.fehler; malen(art);
+      if(!s.zweiterVersuch){ s.zweiterVersuch=true; setTimeout(()=>anstellen(()=>holen(art,false)), 45000); }
+      return;
+    }
+    s.zweiterVersuch=false;
     if(!q){
       s.bild=null; s.fehler=''; s.leer = art==='mad'
         ? 'Noch keine Beraterrunde. Sobald Coach und Fachberatung beraten haben, steht hier das Wirkungsbild dazu.'
@@ -324,6 +336,9 @@
     const kopf=(rechts)=>`<div class="syskopf"><span class="systitel">🕸️ Wirkungsbild</span>`+
       `<span class="sysmeta">${rechts}</span></div>`;
     if(s.laeuft) return kopf(H(f.wer))+`<div class="sysmuted">zeichnet das Wirkungsbild aus dem, was gerade beraten wurde … das dauert einen Moment; der Server ist so lange belegt.</div>`;
+    /* Vor dem ersten Holen: nicht "kein Bild" behaupten, sondern sagen, dass es gleich kommt —
+       der erste Lauf wartet bewusst, bis die Karten selbst geladen haben. */
+    if(!s.text && !s.fehler && !s.leer) return kopf(H(f.wer))+`<div class="sysmuted">gleich — erst laden die Karten, dann zeichne ich, was daraus folgt.</div>`;
     if(s.leer)   return kopf(H(f.wer))+`<div class="sysmuted">${H(s.leer)}</div>`;
     if(!s.bild)  return kopf(H(f.wer))+`<div class="sysmuted">${H(s.fehler||'Noch kein Wirkungsbild.')}</div>`+
       `<div class="systasten"><button class="sysklein" data-tun="neu">↻ Noch einmal versuchen</button></div>`;
