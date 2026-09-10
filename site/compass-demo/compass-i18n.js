@@ -394,6 +394,9 @@
     '{1} weitere zeigen': ['Show {1} more', 'إظهار {1} إضافية'],
     'weniger zeigen': ['Show fewer', 'إظهار أقل'],
     'weitere zeigen': ['show more', 'إظهار المزيد'],
+    /* Vorschau-Knopf des Rasters (compass-raster.js, 11.09.2026) */
+    'Die ganze Karte zeigen': ['Show the whole card', 'إظهار البطاقة كاملة'],
+    'Wieder auf die Vorschau kürzen': ['Shorten back to the preview', 'العودة إلى المعاينة المختصرة'],
     'Öffnen': ['Open', 'فتح'],
     'Quelle': ['Source', 'المصدر'],
     'Quelle öffnen': ['Open source', 'فتح المصدر'],
