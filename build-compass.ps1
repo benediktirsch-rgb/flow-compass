@@ -97,6 +97,26 @@ else {
   $grund = if ($imBaum) { 'der Schutz steht erst im Arbeitsbaum, noch nicht in HEAD' } else { 'kein `Require valid-user` in site\compass\.htaccess' }
   Write-Warning "kundenlage.html bleibt lokal ($grund) — Klarnamen in kundenlage-data.js. Knopf aus dem Live-Compass entfernt."
 }
+# Johns Rezeption (11.09.2026): Adresse und Token bekommt NUR die eigene Instanz mit.
+# Sie liegt hinter dem Gate und ist gitignored; die Demo und jede Kundeninstanz bekommen die
+# Lobby ohnehin nicht (build-compass-produkt.ps1 nimmt sie heraus). Fehlt eines von beiden,
+# wird nichts eingesetzt — die Lobby zeigt dann ehrlich „keine Rezeption hinterlegt".
+$hubUrl = $null; $hubTok = $null
+foreach ($s in @('Process','User')) {
+  if (-not $hubUrl) { $hubUrl = [Environment]::GetEnvironmentVariable('JOHN_HUB_URL', $s) }
+  # Der Browser bekommt den EINGESCHRAENKTEN Schluessel (nachsehen, abraeumen, fragen) --
+  # nie den Geraeteschluessel. Fehlt er, wird nichts eingesetzt; die Lobby sagt das dann.
+  if (-not $hubTok) { $hubTok = [Environment]::GetEnvironmentVariable('JOHN_HUB_TOKEN_BROWSER', $s) }
+}
+$lobbyTag = '<script src="compass-john-lobby.js"></script>'
+if ($hubUrl -and $hubTok -and $html.Contains($lobbyTag)) {
+  $einsatz = '<script>window.JOHN_HUB=''' + $hubUrl.Trim().TrimEnd('/') + ''';window.JOHN_HUB_TOKEN=''' + $hubTok.Trim() + ''';</script>' + "`n"
+  $html = $html.Replace($lobbyTag, $einsatz + $lobbyTag)
+  Write-Host "Rezeption eingesetzt: $($hubUrl.Trim()) (Token aus der Benutzerumgebung)"
+} elseif ($html.Contains($lobbyTag)) {
+  Write-Warning "JOHN_HUB_URL/JOHN_HUB_TOKEN fehlen - die Lobby zeigt keinen Stand aus der Rezeption."
+}
+
 Write-Lf (Join-Path $Ziel 'index.html') $html
 
 # 2) Unterseiten (Rücksprung auf den Ordner statt dashboard.html)

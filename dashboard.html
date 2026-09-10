@@ -7290,5 +7290,11 @@ addEventListener('pageshow',zeitNachstellen); addEventListener('focus',zeitNachs
 <script src="compass-focus.js"></script>
 <script src="compass-edit.js"></script>
 <script src="compass-live.js"></script>
+<!-- Lobby (10.09.2026, Bestellung: "sobald er weg ist, geb mir ein Layover-Fenster, das ihn direkt
+     startet"). Erscheint nur, wenn der Coach-Server nicht antwortet: sagt WAS ist (belegt / aus / dieses
+     Geraet kann ihn nicht starten), zeigt seinen letzten Stand aus der Rezeption im WWW und startet ihn
+     ueber die Tuer des Geraete-Workers (127.0.0.1:8788). Haengt sich wie compass-live.js von aussen an.
+     Quelle und Architektur: C:\dev\john-agent. Der Produkt-Build nimmt diese vier Zeilen heraus. -->
+<script src="compass-john-lobby.js"></script>
 </body>
 </html>

@@ -714,6 +714,13 @@ foreach ($wort in 'porscheCard','porscheLive','PORSCHE_STE','Car Sales','STE-Por
 # compass-madeleine.js wird hier nie kopiert.
 RepX '\n<!-- Madeleine \(07\.09\.2026\):.*?-->\n<script src="compass-madeleine\.js"></script>' '' 'Madeleine nur in der eigenen Instanz'
 
+# Lobby (10.09.2026): compass-john-lobby.js ist das Wartefenster vor dem eigenen Coach-Server —
+# sie fragt 127.0.0.1:8788 und die persoenliche Rezeption im WWW. Beides gibt es nur in Benes
+# Instanz; in der Demo wuerde das Fenster auf dem Rechner der Besucherin nach localhost fragen.
+# Darum: Kommentar und Skriptzeile raus, Datei nie kopiert. Wieder aufnehmen erst, wenn eine
+# Kundeninstanz ihren eigenen Server hat (dann mit Adresse aus instanz.js, nicht mit localhost).
+RepX '\n<!-- Lobby \(10\.09\.2026,.*?-->\n<script src="compass-john-lobby\.js"></script>' '' 'Lobby nur in der eigenen Instanz'
+
 Write-Lf (Join-Path $Ziel 'index.html') $script:s
 
 # Kennzahlenseite: die Quelle (kennzahlen.html im persoenlichen Ordner) ist ein
