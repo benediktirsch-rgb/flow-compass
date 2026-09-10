@@ -9,6 +9,10 @@ name: Deploy Flow Compass Demo nach KAS (demo.vishnuartists.com)
 # im KAS) statt des geteilten Domain-Ordners von vishnu-artists.de — ein Ziel je Repo. publish-compass.ps1
 # lädt dieselben Bytes zusätzlich per FTPS hoch (eigener Hash-Stand); solange dem Repo die Secrets
 # FTP_SERVER/FTP_USERNAME/FTP_PASSWORD fehlen, ist das der einzige Weg, der wirklich ausliefert.
+# Seit 11.09.2026 prüft der erste Schritt, ob die Secrets da sind, und überspringt den Upload sonst mit
+# einem Hinweis — vorher schlug jeder automatische Demo-Commit nach 3 s fehl und schickte eine rote Mail,
+# obwohl die Demo live längst stimmte. Muster wie in flow-cockpit: Secret → env → Step-Output
+# (kein "secrets." in if-Bedingungen).
 
 on:
   push:
@@ -22,10 +26,26 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: FTP-Secrets vorhanden?
+        id: ftp
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          if [ -z "$FTP_SERVER" ] || [ -z "$FTP_USERNAME" ] || [ -z "$FTP_PASSWORD" ]; then
+            echo "::notice title=Deploy übersprungen::Repo-Secrets FTP_SERVER/FTP_USERNAME/FTP_PASSWORD fehlen. Die Demo lädt publish-compass.ps1 vom Rechner hoch."
+            echo "vorhanden=nein" >> "$GITHUB_OUTPUT"
+          else
+            echo "vorhanden=ja" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout
+        if: steps.ftp.outputs.vorhanden == 'ja'
         uses: actions/checkout@v4
 
       - name: FTPS-Deploy Compass-Demo
+        if: steps.ftp.outputs.vorhanden == 'ja'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server:   ${{ secrets.FTP_SERVER }}
