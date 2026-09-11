@@ -71,7 +71,7 @@
       <path d="M-5 1Q0 5 6 0" stroke="#8b5149" stroke-width="1.7" fill="none" stroke-linecap="round"/>
       ${who === 'bene' ? '<image class="jgr-portrait" x="-21" y="-39" width="42" height="57" preserveAspectRatio="xMidYMid slice" clip-path="url(#jgr-portrait-clip)"/>' : ''}
       </g></g>
-      <g transform="translate(-57 137)"><rect width="114" height="28" rx="14" fill="#0b1e2c" fill-opacity=".82"/><text x="57" y="19" text-anchor="middle" fill="#fff" font-size="14" font-family="system-ui">${who === 'bene' ? 'Du · Platzhalter' : names[who]}</text></g>
+      <g transform="translate(-70 137)"><rect width="140" height="28" rx="14" fill="#0b1e2c" fill-opacity=".82"/><text x="70" y="19" text-anchor="middle" fill="#fff" font-size="14" font-family="system-ui">${who === 'bene' ? 'Du · Platzhalter' : names[who]}</text></g>
       <circle class="jgr-speaking" cx="33" cy="-32" r="7" fill="#d3f3a3"/>
     </g>`;
   }
@@ -257,7 +257,7 @@
       let data;
       try { data = await local('/raeume'); }
       catch (cause) {
-        if (cause.code) { fail(cause); return; }
+        if (Number.isInteger(cause.code) && cause.code >= 400) { fail(cause); return; }
         await remoteStand(); return;
       }
       if (!dialog.open || busy) return;
@@ -290,7 +290,7 @@
   }
   function build() {
     const style = e('style'); style.textContent = `
-      .jgr{box-sizing:border-box;width:min(1040px,calc(100% - 24px));max-height:92vh;padding:0;border:1px solid var(--line2,#48533d);border-radius:16px;background:var(--panel,#141712);color:var(--ink,#e9eee4);font:16px/1.5 system-ui,sans-serif}
+      .jgr{--panel:#141c23;--panel2:#202d37;--ink:#e9eee4;--line2:#485b65;box-sizing:border-box;width:min(1040px,calc(100% - 24px));max-height:92vh;padding:0;border:1px solid var(--line2,#48533d);border-radius:16px;background:var(--panel,#141712);color:var(--ink,#e9eee4);font:16px/1.5 system-ui,sans-serif}
       .jgr::backdrop{background:#080b09b8}.jgr [hidden]{display:none!important}.jgr *{box-sizing:border-box}
       .jgr button,.jgr select,.jgr input,.jgr textarea{font:inherit;color:inherit;background:var(--panel2,#20271c);border:1px solid var(--line2,#48533d);border-radius:8px;padding:9px 12px}
       .jgr button{cursor:pointer}.jgr button:disabled{opacity:.5;cursor:default}.jgr :focus-visible,.jgr-open:focus-visible{outline:3px solid #b5df83;outline-offset:3px}
@@ -305,7 +305,7 @@
       .jgr form{border-top:1px solid var(--line2,#48533d);padding-top:12px;margin-top:12px}.jgr label{display:block;font-size:14px}.jgr textarea,.jgr input{display:block;width:100%;margin:5px 0 10px}.jgr textarea{resize:vertical;min-height:90px}
       .jgr-actions{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.jgr-actions label{margin-right:auto}.jgr-send{background:#456c27!important;color:#fff!important}.jgr-note{font-size:14px;color:#bbc7b1}
       .jgr-open{font:inherit;padding:8px 12px;border:1px solid var(--line2,#48533d);border-radius:9px;background:var(--panel2,#20271c);color:var(--ink,#e9eee4);cursor:pointer;margin:8px 0}
-      .jgr-scene{background:#263b48;border-bottom:1px solid #48533d;overflow:hidden}.jgr-scene svg{display:block;width:100%;max-height:300px}.jgr-setting{display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:10px 20px;background:#14212b}.jgr-setting label{display:flex;gap:8px;align-items:center}.jgr-setting input[type=file]{max-width:220px;font-size:14px;padding:4px}.jgr-setting small{font-size:13px}.jgr-speaking{opacity:0}.jgr-active .jgr-speaking{opacity:1;animation:jgrPulse 1.5s ease-in-out infinite}.jgr-body{animation:jgrBreathe 5s ease-in-out infinite;transform-box:fill-box;transform-origin:bottom center}.jgr-person-madeleine .jgr-body{animation-delay:-2s}.jgr-eyes{animation:jgrBlink 7s infinite;transform-box:fill-box;transform-origin:center}.jgr-glow{animation:jgrLight 4s ease-in-out infinite}.jgr-water{animation:jgrDrift 9s ease-in-out infinite alternate}.jgr-cloud{animation:jgrDrift 20s ease-in-out infinite alternate}.jgr-flame{animation:jgrLight 1.2s ease-in-out infinite alternate}
+      .jgr-scene{background:#263b48;border-bottom:1px solid #48533d;overflow:hidden}.jgr-scene svg{display:block;width:100%;max-height:300px}.jgr-setting{color:#e9eee4;display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:10px 20px;background:#14212b}.jgr-setting label{display:flex;gap:8px;align-items:center}.jgr-setting input[type=file]{max-width:220px;font-size:14px;padding:4px}.jgr-setting small{font-size:13px}.jgr-speaking{opacity:0}.jgr-active .jgr-speaking{opacity:1;animation:jgrPulse 1.5s ease-in-out infinite}.jgr-body{animation:jgrBreathe 5s ease-in-out infinite;transform-box:fill-box;transform-origin:bottom center}.jgr-person-madeleine .jgr-body{animation-delay:-2s}.jgr-eyes{animation:jgrBlink 7s infinite;transform-box:fill-box;transform-origin:center}.jgr-glow{animation:jgrLight 4s ease-in-out infinite}.jgr-water{animation:jgrDrift 9s ease-in-out infinite alternate}.jgr-cloud{animation:jgrDrift 20s ease-in-out infinite alternate}.jgr-flame{animation:jgrLight 1.2s ease-in-out infinite alternate}
       @keyframes jgrBreathe{50%{transform:translateY(-2px)}}@keyframes jgrBlink{0%,44%,48%,100%{transform:scaleY(1)}46%{transform:scaleY(.1)}}@keyframes jgrLight{50%{opacity:.65}}@keyframes jgrPulse{50%{opacity:.3}}@keyframes jgrDrift{to{transform:translateX(15px)}}
       @media(prefers-reduced-motion:reduce){.jgr *{animation:none!important;scroll-behavior:auto!important}}
       @media(min-width:651px){.jgr[open]{display:flex;flex-direction:column;height:94vh;max-height:1000px}.jgr-head{padding:10px 20px}.jgr-scene{flex:none}.jgr-scene svg{height:21vh;max-height:220px}.jgr-layout{flex:1;min-height:0}.jgr-main{display:flex;flex-direction:column;min-height:0;padding:10px 18px}.jgr-log{height:auto;flex:1;min-height:75px}.jgr form{padding-top:6px;margin-top:6px}.jgr textarea{min-height:55px;height:60px;margin-bottom:6px}.jgr input{margin:3px 0 6px;padding:5px 10px}.jgr-note{margin:4px 0!important}.jgr-side{max-height:none}.jgr-setting{padding:6px 20px}.jgr-setting select{padding:5px 8px}.jgr-setting small{font-size:12px}.jgr-status{margin:3px 0!important}.jgr-main>button{align-self:flex-start;padding:4px 10px}}
