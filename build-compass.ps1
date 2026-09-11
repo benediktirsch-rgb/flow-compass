@@ -145,6 +145,14 @@ foreach ($f in $begleiter) {
   if (Test-Path $src) { Write-Lf (Join-Path $Ziel $f) (Read-Utf8 $src) } else { Write-Warning "fehlt in der Quelle: $f" }
 }
 
+# Holodeck-Assets: nur eigener Build, niemals Produkt-Demo.
+$holoQuelle = Join-Path $Quelle 'holodeck-assets'
+if (Test-Path $holoQuelle) {
+  $holoZiel = Join-Path $Ziel 'holodeck-assets'
+  if (-not (Test-Path $holoZiel)) { New-Item -ItemType Directory -Force $holoZiel | Out-Null }
+  Get-ChildItem $holoQuelle -File -Filter *.png | ForEach-Object { Copy-Item $_.FullName (Join-Path $holoZiel $_.Name) -Force }
+}
+
 # 3b) Vollständigkeitsprüfung — was die gebauten Seiten referenzieren, muss im Zielordner
 #     liegen. Fehlt etwas, bricht der Build ab: publish-compass.ps1 würde einen 404 sonst
 #     stillschweigend veröffentlichen, und im Browser sieht man ihn erst beim Klicken.

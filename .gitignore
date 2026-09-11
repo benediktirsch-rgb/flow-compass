@@ -65,3 +65,6 @@ instanzen/
 
 # Übergabe Cowork → Claude Code (persönlich, nie committen)
 _uebergabe/
+
+# Private holodeck portrait assets; only deploy behind the existing gate.
+/holodeck-assets/

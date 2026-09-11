@@ -55,82 +55,92 @@
   const local = (path, body) => request(door + path, body);
   const reception = (action, body) => request(hub + '/api.php?w=' + action, body, { 'X-John-Token': token });
   // Gezeichnete Figuren sind Rollenbilder, keine behaupteten Porträts realer Personen.
-  function person(who, x, coat, hair, skin) {
-    return `<g class="jgr-person jgr-person-${who}" transform="translate(${x} 172)">
-      <ellipse cx="0" cy="124" rx="48" ry="8" fill="#0c171e" opacity=".25"/>
-      <g class="jgr-body"><path d="M-26 70L-25 116Q-17 124-9 116L-3 82 5 117Q14 124 23 116L27 70" fill="#293344"/>
-      <path d="M-29 25Q-43 27-48 62L-35 70-22 45 23 45 36 70 48 62Q40 29 28 25Z" fill="${coat}"/>
-      <path d="M-23 23Q0 13 23 23L30 80Q0 91-30 80Z" fill="${coat}"/>
-      <path d="M-8 22L0 48 9 22" fill="#f3e1c6"/>
-      <path d="M-36 59Q-47 64-42 72L-22 76-20 68Z M36 59Q47 64 42 72L22 76 20 68Z" fill="${skin}"/>
-      <rect x="-7" y="7" width="14" height="19" rx="5" fill="${skin}"/>
-      <g class="jgr-head-figure"><path d="M-23-13Q-26-43 0-45Q30-43 23-10L21 21-21 21Z" fill="${hair}"/>
-      <ellipse cy="-11" rx="20" ry="27" fill="${skin}"/>
-      <path d="M-21-15Q-26-42 0-42Q22-43 23-15L13-29Q-8-18-15-30Z" fill="${hair}"/>
-      <g class="jgr-eyes"><ellipse cx="-7" cy="-11" rx="2" ry="2.4" fill="#273039"/><ellipse cx="7" cy="-11" rx="2" ry="2.4" fill="#273039"/></g>
-      <path d="M-5 1Q0 5 6 0" stroke="#8b5149" stroke-width="1.7" fill="none" stroke-linecap="round"/>
-      ${who === 'bene' ? '<image class="jgr-portrait" x="-21" y="-39" width="42" height="57" preserveAspectRatio="xMidYMid slice" clip-path="url(#jgr-portrait-clip)"/>' : ''}
-      </g></g>
-      <g transform="translate(-70 137)"><rect width="140" height="28" rx="14" fill="#0b1e2c" fill-opacity=".82"/><text x="70" y="19" text-anchor="middle" fill="#fff" font-size="14" font-family="system-ui">${who === 'bene' ? 'Du · Platzhalter' : names[who]}</text></g>
-      <circle class="jgr-speaking" cx="33" cy="-32" r="7" fill="#d3f3a3"/>
-    </g>`;
+  const assetBase = new URL('holodeck-assets/', document.currentScript?.src || location.href).href;
+  const wardrobe = {
+    bene: ['Elegant', 'Lässig', 'Naturbursche', 'Offizier', 'Pilot', 'Mönch', 'Vishnu · künstlerisch', 'Goa'],
+    madeleine: ['Business-Model', 'Seide & Stil', 'Abendkleid', 'Sari', 'Goa-Boho', 'Cocktail'],
+    john: ['Resort-Luxus', 'CEO', 'Kurta', 'Sherwani', 'Goa-Party', 'An der Bar']
+  };
+  const costume = {}, wardrobeSelects = {};
+  let madeleineSource = 'madeleine';
+  const localDay = () => new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Berlin'}).format(new Date());
+  function outfitIndex(who) {
+    if (costume[who] !== undefined && costume[who] !== 'auto') return Number(costume[who]);
+    const day = Math.floor(Date.parse(localDay() + 'T12:00:00Z') / 86400000);
+    return (day + Object.keys(wardrobe).indexOf(who)) % wardrobe[who].length;
   }
-  function scenery(theme) {
-    const defs = `<defs><linearGradient id="jgr-sky" x2="0" y2="1"><stop stop-color="${theme === 'bar' ? '#152336' : theme === 'huette' ? '#8da2b7' : theme === 'rom' ? '#d78e79' : '#e49e94'}"/><stop offset="1" stop-color="#f2d8ae"/></linearGradient><linearGradient id="jgr-floor" x2="0" y2="1"><stop stop-color="#967254"/><stop offset="1" stop-color="#352d34"/></linearGradient><clipPath id="jgr-portrait-clip"><ellipse cy="-11" rx="20" ry="27"/></clipPath></defs>`;
-    const base = '<rect width="900" height="360" fill="url(#jgr-sky)"/>';
-    const stars = '<g fill="#ffe8b4" opacity=".65"><circle cx="84" cy="38" r="1.5"/><circle cx="266" cy="23" r="1"/><circle cx="470" cy="65" r="2"/><circle cx="614" cy="28" r="1"/><circle cx="822" cy="46" r="1.5"/></g>';
-    let landscape = '';
-    if (theme === 'bar') landscape = `${stars}<path d="M0 0H900V34H0Z" fill="#0e1724"/><rect y="199" width="900" height="161" fill="url(#jgr-floor)"/>
-      <rect x="286" y="49" width="328" height="132" rx="65" fill="#40586a" stroke="#cca575" stroke-width="5"/>
-      <path d="M309 144Q400 75 449 129T590 111" fill="none" stroke="#c99a6c" stroke-width="2" opacity=".6"/>
-      <text x="450" y="98" text-anchor="middle" font-family="Georgia" font-size="29" fill="#f8e1b9">VA I K U N T H A</text>
-      <text x="450" y="125" text-anchor="middle" font-family="system-ui" font-size="11" letter-spacing="5" fill="#f8e1b9">DIE BAR</text>
-      <g fill="#142432" stroke="#806e57" stroke-width="3"><rect x="52" y="58" width="177" height="130" rx="7"/><rect x="671" y="58" width="177" height="130" rx="7"/></g>
-      <g stroke="#ac8961" stroke-width="5"><path d="M53 119H230M670 119H847M53 163H230M670 163H847"/></g>
-      ${[80,110,145,178,705,739,776,811].map((x,i)=>`<path d="M${x} 113V87L${x+5} 83V70H${x+12}V83L${x+17} 87V113Z" fill="${i%2?'#b97a50':'#6e9b86'}"/>`).join('')}
-      <rect x="30" y="186" width="840" height="28" rx="8" fill="#ceaa78"/><rect x="45" y="212" width="810" height="25" fill="#4a3733"/>
-      <g class="jgr-glow" fill="#ffdc94"><ellipse cx="182" cy="56" rx="39" ry="10"/><ellipse cx="716" cy="56" rx="39" ry="10"/></g><path d="M182 0V48M716 0V48" stroke="#d5b983" stroke-width="3"/>`;
-    if (theme === 'huette') landscape = `<path d="M0 178L112 52 228 177 384 42 553 176 682 60 900 177V260H0" fill="#728793"/><path d="M60 113L112 52 158 110 131 101 114 118 99 96ZM311 111L384 42 451 111 410 91 383 116 363 88Z" fill="#e9e7de"/>
-      <rect y="223" width="900" height="137" fill="#504039"/><path d="M0 0H900V23H0ZM0 0L72 0 72 253H0ZM830 0H900V253H830Z" fill="#4a342b"/>
-      <path d="M71 20L450 0 830 20M72 181H830" stroke="#73513a" stroke-width="14"/>
-      <path d="M96 256L210 254 210 360H96" fill="#392d2c"/><path d="M116 240Q111 183 149 159Q170 190 160 205Q187 181 188 235Z" class="jgr-flame" fill="#f6b25c"/>
-      <path d="M0 311H900M285 226L237 360M660 225L705 360" stroke="#b2916e" opacity=".3" stroke-width="2"/>
-      <g fill="#314e48"><path d="M90 193L123 130 155 193ZM722 203L768 115 814 203Z"/></g>`;
-    if (theme === 'goa') landscape = `<circle cx="595" cy="107" r="36" fill="#ffe1a6"/><rect y="152" width="900" height="104" fill="#4b9b9f"/>
-      <g class="jgr-water" fill="none" stroke="#d9e8ca" stroke-width="3" opacity=".6"><path d="M0 173Q120 159 240 173T480 173T720 173T960 173M-30 207Q110 194 250 207T530 207T930 207M0 236Q150 219 300 236T600 236T960 236"/></g>
-      <path d="M0 252Q266 218 469 253T900 235V360H0Z" fill="#d4b88e"/>
-      <path d="M96 266Q137 144 102 50M805 255Q781 141 806 64" fill="none" stroke="#664f45" stroke-width="13"/>
-      <g fill="#345d52"><path d="M104 53Q17 6 0 83Q55 49 104 53Q31 73 37 134Q66 79 104 53Q158 1 224 61Q155 40 104 53Q187 48 197 112Q147 70 104 53Z"/><path d="M806 66Q730 17 685 89Q747 65 806 66Q872 4 900 45L900 78Q844 53 806 66Q877 82 873 140Q852 87 806 66Z"/></g>`;
-    if (theme === 'anden') landscape = `<circle cx="730" cy="72" r="31" fill="#ffe6bb"/>
-      <path d="M0 224L141 78 270 201 464 21 664 220 803 81 900 181V360H0Z" fill="#8a7c89"/>
-      <path d="M76 146L141 78 195 145 163 127 142 149 126 124ZM365 125L464 21 557 114 504 97 469 132 437 95Z" fill="#eee7e3"/>
-      <path d="M0 256L188 174 315 270 566 164 740 267 900 211V360H0Z" fill="#77795c"/><path d="M0 306Q256 239 466 296T900 287V360H0Z" fill="#9c8c63"/>
-      <path d="M4 295L204 257 292 279M539 255L657 292 863 260" stroke="#bdb487" stroke-width="7" fill="none"/>
-      <g class="jgr-cloud" fill="#fff1dc" opacity=".38"><ellipse cx="255" cy="79" rx="76" ry="13"/><ellipse cx="644" cy="137" rx="65" ry="9"/></g>`;
-    if (theme === 'rom') landscape = `<path d="M0 28H244V266H0ZM658 0H900V277H658Z" fill="#bf805e"/><path d="M244 86H389V254H244ZM535 64H658V257H535Z" fill="#e6bb86"/>
-      <path d="M389 177Q450 48 535 177V260H389" fill="#b79d85"/><path d="M437 130V75H465V130M430 75H472L451 48Z" fill="#b59a83"/>
-      ${[37,112,186,687,766,840].map(x=>`<path d="M${x} 86V58Q${x+17} 33 ${x+34} 58V86Z" fill="#4c6260"/><rect x="${x}" y="123" width="34" height="49" fill="#526762"/><path d="M${x-4} 178H${x+39}" stroke="#483e38" stroke-width="4"/>`).join('')}
-      <path d="M0 263L396 240H533L900 273V360H0Z" fill="#9a8a80"/>
-      <path d="M80 360L409 245M303 360L439 245M612 360L479 245M840 360L514 245M0 313H900M71 277H832" stroke="#c4b3a0" stroke-width="2" opacity=".6"/>
-      <path d="M0 211H270L243 239H0Z" fill="#a74840"/><path d="M663 211H900V239H681Z" fill="#78805d"/>
-      <path d="M0 13Q444 127 900 13" stroke="#594737" stroke-width="2" fill="none"/>
-      <g class="jgr-glow" fill="#ffe3a7">${[75,200,325,450,575,700,825].map((x,i)=>`<circle cx="${x}" cy="${i<4?30+i*13:69-(i-3)*13}" r="4"/>`).join('')}</g>`;
-    return defs + base + landscape;
+  let transitionTimer;
+  function materialize() {
+    if (!stage) return;
+    clearTimeout(transitionTimer);
+    stage.classList.remove('jgr-arrive');
+    void stage.offsetWidth;
+    stage.classList.add('jgr-arrive');
+    transitionTimer = setTimeout(() => stage?.classList.remove('jgr-arrive'), 1900);
+  }
+  function holoSymbol() {
+    return '<svg viewBox="0 0 160 50" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M25 39Q3 31 10 16Q25 19 25 39Q18 18 25 5Q36 20 25 39Q47 30 40 16Q28 22 25 39ZM10 40H40"/><circle cx="80" cy="25" r="19"/><circle cx="80" cy="25" r="5"/><path d="M80 6V20M80 30V44M61 25H75M85 25H99M67 12L77 22M83 28L93 38M67 38L77 28M83 22L93 12M127 39Q153 25 145 13Q135 1 124 14Q116 28 138 24Q149 31 127 39ZM126 39L123 46L134 42"/></g></svg>';
   }
   function paintScene() {
     const theme = place.value;
-    stage.innerHTML = `<svg viewBox="0 0 900 360" role="img" aria-label="${places[theme]}. Gezeichnete Figuren von John, Dir und Madeleine.">${scenery(theme)}
-      ${person('john', 260, '#63796c', '#c6c7bb', '#c89f83')}${person('bene', 450, '#668195', '#65564d', '#c8a58f')}${person('madeleine', 640, '#9a6974', '#493c3b', '#d7b09a')}
-      <ellipse cx="450" cy="281" rx="172" ry="25" fill="#805d4a"/><ellipse cx="450" cy="277" rx="172" ry="23" fill="#c9a276"/>
-      <path d="M447 295V331M426 335H472" stroke="#443c37" stroke-width="9"/>
-      <g fill="#f1e6d3"><path d="M342 254H360L357 270H345Z"/><path d="M538 254H556L553 270H541Z"/></g>
-      <circle cx="449" cy="261" r="8" fill="#ffdfa2" class="jgr-glow"/></svg>`;
-    if (portraitUrl) {
-      stage.querySelector('.jgr-portrait').setAttribute('href', portraitUrl);
-      stage.querySelector('.jgr-person-bene text').textContent = 'Du';
+    stage.replaceChildren();
+    stage.dataset.place = theme;
+    const backdrop = e('img', {class:'jgr-world', src:assetBase + theme + '.png', alt:places[theme], decoding:'async'});
+    backdrop.addEventListener('error', () => { backdrop.hidden = true; stage.style.background = '#172e39'; });
+    stage.append(backdrop);
+    const sigil = e('div', {class:'jgr-sigil'}); sigil.innerHTML = holoSymbol();
+    sigil.append(e('span', {}, 'VISHNU · VAIKUNTHA'));
+    stage.append(sigil, e('div', {class:'jgr-world-title'}, places[theme]));
+    const cast = e('div', {class:'jgr-cast'});
+    for (const who of ['john','bene','madeleine']) {
+      const i = outfitIndex(who), cols = who === 'bene' ? 4 : 3;
+      const actor = e('figure', {class:'jgr-actor jgr-person-' + who});
+      const portrait = e('div', {class:'jgr-avatar', role:'img', 'aria-label':(who === 'bene' ? 'Bene' : names[who]) + ' · ' + wardrobe[who][i] + (who === 'john' ? ' · vorläufiger Konzeptavatar' : ' · nach Fotovorlage')});
+      const sprite = e('div',{class:'jgr-sprite'});
+      const source = who === 'madeleine' ? madeleineSource : who;
+      const split = {bene:500,john:496,madeleine:488,mona:512}[source];
+      const rowHeight = Math.floor(i / cols) ? 1024 - split : split;
+      sprite.style.aspectRatio = String((1536 / cols) / rowHeight);
+      sprite.style.backgroundImage = 'url("' + assetBase + source + '-wardrobe.png")';
+      sprite.style.backgroundSize = (cols * 100) + '% ' + (1024 / rowHeight * 100) + '%';
+      sprite.style.backgroundPosition = ((i % cols) * 100 / (cols - 1)) + '% ' + (Math.floor(i / cols) * 100) + '%';
+      if (who === 'bene' && portraitUrl) {
+        sprite.style.backgroundImage = 'url("' + portraitUrl + '")'; sprite.style.backgroundSize = 'contain'; sprite.style.backgroundPosition = 'center';
+      }
+      portrait.append(sprite);
+      actor.append(portrait, e('figcaption', {}, (who === 'bene' ? 'Bene' : names[who]) + ' · ' + wardrobe[who][i]));
+      if (who === 'john') actor.append(e('small', {}, 'Konzept · Foto noch offen'));
+      cast.append(actor);
     }
-    animateSpeaker();
+    const grid = e('div', {class:'jgr-holo-grid', 'aria-hidden':'true'});
+    stage.append(cast, grid, e('div',{class:'jgr-door jgr-door-left','aria-hidden':'true'}), e('div',{class:'jgr-door jgr-door-right','aria-hidden':'true'}));
+    animateSpeaker(); materialize();
   }
+  function wardrobeControls() {
+    const details = e('details',{class:'jgr-wardrobe'});
+    details.append(e('summary',{},'Garderobe & Rollen · täglich neu'));
+    const panel = e('div',{class:'jgr-wardrobe-panel'});
+    for (const who of ['bene','madeleine','john']) {
+      const label = e('label',{},who === 'bene' ? 'Meine Rolle' : names[who]);
+      const select = e('select',{'aria-label':who === 'bene' ? 'Meine Rolle' : names[who] + ' Garderobe'});
+      select.append(e('option',{value:'auto'},'Tageslook · automatisch'));
+      wardrobe[who].forEach((v,i) => select.append(e('option',{value:String(i)},v)));
+      try { const saved = localStorage.getItem('holodeckOutfit-' + who); if (saved === 'auto' || wardrobe[who][Number(saved)] && saved !== null) select.value = saved; } catch (_) {}
+      costume[who] = select.value; wardrobeSelects[who] = select;
+      select.addEventListener('change',()=>{ costume[who] = select.value; try { localStorage.setItem('holodeckOutfit-' + who,select.value); } catch (_) {} paintScene(); });
+      label.append(select); panel.append(label);
+    }
+    const sourceLabel = e('label',{},'Madeleines Fotovorlage');
+    const sourceSelect = e('select',{'aria-label':'Madeleines Fotovorlage'});
+    sourceSelect.append(e('option',{value:'madeleine'},'Erste Fotovorlage'),e('option',{value:'mona'},'Mona'));
+    try { if (localStorage.getItem('holodeckMadeleineSource') === 'mona') sourceSelect.value = 'mona'; } catch (_) {}
+    madeleineSource = sourceSelect.value;
+    sourceSelect.addEventListener('change',()=>{ madeleineSource = sourceSelect.value; try { localStorage.setItem('holodeckMadeleineSource',madeleineSource); } catch (_) {} paintScene(); });
+    sourceLabel.append(sourceSelect);panel.append(sourceLabel);
+    panel.append(e('small',{},'Tageslooks wechseln nach Berliner Datum. Deine manuelle Auswahl bleibt erhalten. Rollen ändern hier den Look; Gesprächscharaktere folgen über John und Madeleine.'));
+    details.append(panel); return details;
+  }
+
   function animateSpeaker() {
     if (!stage) return;
     for (const who of ['john', 'madeleine']) stage.querySelector('.jgr-person-' + who)?.classList.toggle('jgr-active', mode === 'local' && lastRun?.an === who);
@@ -310,12 +320,28 @@
       @media(prefers-reduced-motion:reduce){.jgr *{animation:none!important;scroll-behavior:auto!important}}
       @media(min-width:651px){.jgr[open]{display:flex;flex-direction:column;height:94vh;max-height:1000px}.jgr-head{padding:10px 20px}.jgr-scene{flex:none}.jgr-scene svg{height:21vh;max-height:220px}.jgr-layout{flex:1;min-height:0}.jgr-main{display:flex;flex-direction:column;min-height:0;padding:10px 18px}.jgr-log{height:auto;flex:1;min-height:75px}.jgr form{padding-top:6px;margin-top:6px}.jgr textarea{min-height:55px;height:60px;margin-bottom:6px}.jgr input{margin:3px 0 6px;padding:5px 10px}.jgr-note{margin:4px 0!important}.jgr-side{max-height:none}.jgr-setting{padding:6px 20px}.jgr-setting select{padding:5px 8px}.jgr-setting small{font-size:12px}.jgr-status{margin:3px 0!important}.jgr-main>button{align-self:flex-start;padding:4px 10px}}
       @media(max-width:650px){.jgr-layout{grid-template-columns:1fr}.jgr-side{border-right:0;border-bottom:1px solid #48533d;max-height:150px;padding:12px}.jgr-rooms{display:flex;overflow:auto}.jgr-rooms button{min-width:150px}.jgr-main{padding:12px}.jgr-head{padding:12px}.jgr-log{height:28vh}.jgr{max-height:96vh}}
+.jgr{width:min(1440px,calc(100% - 20px));border-color:#b59c62;border-radius:18px;background:#081018;--panel:#081018;--panel2:#142433;--line2:#3e5360;color:#edf2f4}
+.jgr-head{background:linear-gradient(100deg,#132636,#081018);border-bottom:1px solid #b79d6266}.jgr-head h2{letter-spacing:.035em}.jgr-head h2::before{content:'✧ ';color:#efd494}.jgr-head button{font-size:13px}
+.jgr-setting{background:#101e29}.jgr-wardrobe{padding:7px 20px;background:#0b1721;border-bottom:1px solid #b79d6244;font-size:13px}.jgr-wardrobe summary{cursor:pointer;color:#e4ce96}.jgr-wardrobe-panel{display:flex;flex-wrap:wrap;gap:12px;padding:10px 0}.jgr-wardrobe-panel label{flex:1;min-width:150px}.jgr-wardrobe-panel select{display:block;width:100%;margin-top:5px}.jgr-wardrobe-panel small{flex-basis:100%;font-size:12px}
+.jgr-scene{position:relative;isolation:isolate;height:32vh;min-height:245px;max-height:430px;background:#081018;overflow:hidden;border-bottom:1px solid #c4a35b88}.jgr-world{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:jgrWorldDrift 28s ease-in-out infinite alternate}.jgr-scene::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,#07101a55,transparent 35%,#07101aa6);z-index:1}.jgr-sigil{position:absolute;left:24px;top:17px;color:#ffdf99;z-index:3;text-shadow:0 1px 8px #000;display:grid;gap:4px;justify-items:center;font-size:10px;letter-spacing:.2em}.jgr-sigil svg{width:104px!important;height:34px!important;max-height:none!important}.jgr-world-title{position:absolute;right:24px;top:24px;z-index:3;color:#fff2ce;font-size:13px;letter-spacing:.07em;text-shadow:0 2px 7px #000;background:#08101866;border:1px solid #d8ba6f55;border-radius:30px;padding:6px 14px}
+.jgr-cast{position:absolute;inset:20px 12% 8px;z-index:2;display:flex;justify-content:center;gap:24px;align-items:end}.jgr-actor{height:92%;width:25%;max-width:215px;margin:0;text-align:center;position:relative}.jgr-avatar{height:calc(100% - 32px);width:100%;background-repeat:no-repeat;background-color:#081018;mask-image:linear-gradient(to right,transparent,#000 9%,#000 91%,transparent);border-radius:14px 14px 40% 40%;animation:jgrBreathe 6s ease-in-out infinite;box-shadow:0 0 40px #6bd2ff22}.jgr-actor figcaption{font-size:11px;color:#fff4d4;background:#081018cc;border:1px solid #bba56966;border-radius:20px;display:inline-block;padding:3px 9px;position:relative;white-space:nowrap}.jgr-actor small{font-size:9px;color:#d7dedf;text-shadow:0 1px 3px #000}.jgr-active .jgr-avatar{filter:drop-shadow(0 0 8px #70e9ff)}.jgr-active figcaption::before{content:'● ';color:#8ff0ff}.jgr-person-madeleine .jgr-avatar{animation-delay:-2s}
+.jgr-holo-grid{position:absolute;inset:0;z-index:5;pointer-events:none;opacity:0;background-color:#060e18;background-image:linear-gradient(#edc75b88 1px,transparent 1px),linear-gradient(90deg,#edc75b88 1px,transparent 1px);background-size:55px 55px}.jgr-arrive .jgr-holo-grid{animation:jgrMaterialize 1.8s ease-out both}.jgr-door{position:absolute;top:0;bottom:0;width:50%;z-index:6;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 65px,#c9daea0c 66px 67px),linear-gradient(100deg,#122333,#3d5260,#10212d);border:1px solid #81949c}.jgr-door::after{content:'';position:absolute;top:12%;bottom:12%;width:3px;background:#ffdb85;box-shadow:0 0 15px #edcc74}.jgr-door-left{left:0;transform:translateX(-101%)}.jgr-door-right{right:0;transform:translateX(101%)}.jgr-door-left::after{right:10px}.jgr-door-right::after{left:10px}.jgr-arrive .jgr-door-left{animation:jgrDoorLeft 1.1s cubic-bezier(.6,0,.2,1) both}.jgr-arrive .jgr-door-right{animation:jgrDoorRight 1.1s cubic-bezier(.6,0,.2,1) both}
+.jgr.jgr-immersive .jgr-layout{display:none}.jgr.jgr-immersive .jgr-scene{flex:1;height:auto;max-height:none}.jgr.jgr-immersive .jgr-actor{max-width:290px}.jgr-open{background:linear-gradient(110deg,#122838,#244352)!important;border:1px solid #d8bb78!important;color:#ffedc2!important;box-shadow:inset 0 0 0 3px #08121a,0 4px 12px #0002;letter-spacing:.015em}.jgr-open::before{content:'⇧ ';color:#f3cf7b}.jgr-open:hover{box-shadow:inset 0 0 0 3px #08121a,0 0 18px #e4be6b55}.jgr-open:focus-visible{outline:3px solid #80ddff!important}
+@keyframes jgrMaterialize{0%,25%{opacity:1}100%{opacity:0}}@keyframes jgrDoorLeft{0%,15%{transform:translateX(0)}100%{transform:translateX(-101%)}}@keyframes jgrDoorRight{0%,15%{transform:translateX(0)}100%{transform:translateX(101%)}}@keyframes jgrWorldDrift{to{transform:scale(1.055)}}
+@media(min-width:651px){.jgr[open]{height:96vh;max-height:1200px}.jgr-log{min-height:65px}.jgr-layout{grid-template-columns:190px minmax(0,1fr)}}
+@media(max-width:650px){.jgr{width:100%;max-height:100dvh;border-radius:0}.jgr-head{flex-wrap:wrap;gap:7px}.jgr h2{font-size:18px}.jgr-scene{height:290px;min-height:290px}.jgr-cast{inset:55px 2% 10px;gap:2px}.jgr-actor{width:33%}.jgr-actor figcaption{font-size:9px;padding:3px 5px;white-space:normal}.jgr-sigil{left:12px;top:9px}.jgr-world-title{right:10px;top:20px;font-size:11px}.jgr-setting{padding:8px 12px}.jgr-wardrobe{padding:7px 12px}.jgr.jgr-immersive .jgr-scene{height:65dvh}.jgr-setting input[type=file]{max-width:175px}.jgr-log{height:27vh}}
+@media(prefers-reduced-motion:reduce){.jgr *{animation:none!important;transition:none!important}.jgr-holo-grid{display:none}.jgr-door-left{transform:translateX(-101%)}.jgr-door-right{transform:translateX(101%)}}
+
+.jgr-avatar{position:relative;overflow:hidden}.jgr-sprite{position:absolute;left:50%;top:0;height:100%;transform:translateX(-50%);background-repeat:no-repeat}
+
     `; document.head.append(style);
     dialog = e('dialog', { class: 'jgr', 'aria-labelledby': 'jgr-title' });
     const head = e('div', { class: 'jgr-head' });
     const close = e('button', { type: 'button', 'aria-label': 'Gesprächsraum schließen' }, 'Schließen');
     close.addEventListener('click', () => dialog.close());
-    head.append(e('h2', { id: 'jgr-title' }, 'Hotel Vaikuntha · Lobby'), close);
+    const expand = e('button', {type:'button', 'aria-pressed':'false'}, 'Raum groß ansehen');
+    expand.addEventListener('click', () => { const on = dialog.classList.toggle('jgr-immersive'); expand.textContent = on ? 'Gespräch anzeigen' : 'Raum groß ansehen'; expand.setAttribute('aria-pressed', String(on)); });
+    head.append(e('h2', { id: 'jgr-title' }, 'Vaikuntha · Holodeck'), expand, close);
     const settings = e('div', { class: 'jgr-setting' });
     const placeLabel = e('label', {}, 'Unser Ort'); place = e('select', { 'aria-label': 'Unser Ort' });
     for (const [value, label] of Object.entries(places)) place.append(e('option', { value }, label));
@@ -333,6 +359,7 @@
       portraitUrl = URL.createObjectURL(file); paintScene();
     });
     photoLabel.append(photo); settings.append(placeLabel, photoLabel, e('small', {}, 'Dein Foto bleibt in dieser Browser-Sitzung.'));
+    const wardrobePanel = wardrobeControls();
     stage = e('div', { class: 'jgr-scene' }); paintScene();
     const layout = e('div', { class: 'jgr-layout' }), side = e('nav', { class: 'jgr-side', 'aria-label': 'Räume' });
     fresh = e('button', { type: 'button' }, 'Neuer Raum'); fresh.addEventListener('click', () => select(''));
@@ -372,7 +399,7 @@
       status.textContent = result.gestoppt ? 'Gespräch gestoppt.' : 'Es läuft und wartet gerade kein Zug.';
       lastRun = null; waiting = [];
     }));
-    main.append(status, error, log, stop, form); layout.append(side, main); dialog.append(head, settings, stage, layout); document.body.append(dialog);
+    main.append(status, error, log, stop, form); layout.append(side, main); dialog.append(head, settings, wardrobePanel, stage, layout); document.body.append(dialog);
     dialog.addEventListener('close', () => { clearTimeout(timer); epoch++; saveDraft(); opener?.focus(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(timer); else schedule(0); });
     controls();
@@ -380,22 +407,24 @@
   function open() {
     if (!dialog) build();
     if (dialog.open) return;
-    opener = document.activeElement; dialog.showModal(); schedule(0);
+    opener = document.activeElement; dialog.showModal(); paintScene(); schedule(0);
   }
   function attach() {
     for (const target of ['rhythm', 'stapelBody']) {
     const card = document.getElementById(target);
     if (card && !card.querySelector('.jgr-open')) {
-      const button = e('button', { type: 'button', class: 'jgr-open' }, 'Hotel-Lobby öffnen');
+      const button = e('button', { type: 'button', class: 'jgr-open' }, 'Aufzug zum Holodeck');
       button.addEventListener('click', open); card.prepend(button);
     }
   }
   }
-  function fromLink() { if (location.hash === '#hotel-lobby') open(); }
+  function fromLink() { if (['#hotel-lobby','#holodeck'].includes(location.hash)) open(); }
   function start() {
     const entryStyle = e('style');
     entryStyle.textContent = '.jgr-open{font:inherit;padding:10px 15px;border:1px solid #aab795;border-radius:9px;background:#dbe7c0;color:#253b2a;cursor:pointer;margin:8px 0}.jgr-open:focus-visible{outline:3px solid #ad6b2a;outline-offset:3px}';
     document.head.append(entryStyle);
+    let wardrobeDay = localDay();
+    setInterval(() => { const today = localDay(); if (today !== wardrobeDay) { wardrobeDay = today; if (dialog?.open) paintScene(); } }, 60000);
     attach(); new MutationObserver(attach).observe(document.body, { childList: true, subtree: true });
     window.addEventListener('hashchange', fromLink); fromLink();
   }
