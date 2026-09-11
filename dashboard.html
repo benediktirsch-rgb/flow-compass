@@ -373,6 +373,14 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .qa .opts button:hover{border-color:var(--line2);color:var(--ink)}
 .qa .opts button.on{background:var(--bene);border-color:var(--bene);color:#1c1300}
 .qa.beantwortet{opacity:.6}
+/* Der Vorschlag in einer wartenden Zeile (10.09.): sagt, welcher Knopf gemeint ist, und warum. */
+.qa .vor{margin-top:10px;font-size:12px;line-height:1.45;color:var(--ink);background:var(--panel);
+  border:1px solid var(--line);border-left:3px solid var(--bene);border-radius:10px;padding:7px 10px}
+.qa .vor b{color:var(--bene)}
+.tri-mehr{margin-top:10px;font-size:12px;color:var(--sub)}
+.tri-mehr summary{cursor:pointer;font-weight:700;padding:4px 0}
+.tri-mehr summary:hover{color:var(--ink)}
+.tri-mehr .m{margin-top:5px;line-height:1.5}
 /* Trichter (06.09.): zwei Spalten in der breiten Karte; Link-Knopf wie ein Knopf */
 .tri-liste{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px;margin-top:4px}.tri-liste .qa{margin-top:0}
 .qa .opts a{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700;color:var(--sub);text-decoration:none}.qa .opts a:hover{border-color:var(--line2);color:var(--ink)}
@@ -1186,6 +1194,13 @@ const COMPASS={
   /* 🧭 Mein Board (Personal Kanban): WIP-Limit für „In Arbeit“ (Benson/Barry empfehlen 3), Zuordnung der Trello-Listen
      zum Wertstrom (RegExp auf den Listennamen; alles andere → Backlog), Alters-Schwellen für die Alterungs-Ampel. */
   board:{ wip:3, alter:[3,7],
+    /* Strategische Initiativen (Jira-Projekt STA, Typ „Initiative“) laufen bis zu acht Monate. Sie werden
+       darum NICHT nach Tagen in Arbeit gemessen, sondern daran, ob sich die Storys darunter bewegen:
+       still = Tage ohne Bewegung an einer untergeordneten Story, monate = Laufzeit, die eine Initiative
+       höchstens hat. (Bene, 10.09.2026: „STA sind strategische Items, die laufen maximal 8 Monate — aber
+       nicht in Tagesfristen. Man kann untersuchen, ob Storys dazu bearbeitet wurden, und wenn länger
+       nicht, dann zurück.“)                                                                             */
+    strat:{ still:21, monate:8 },
     listen:{ bereit:/^(sofort|heute|jetzt|ready|next|to ?do|bereit|diese woche)/i, wartet:/^(waiting|wartet|warten|blocked|blockiert|feedback|delegiert)/i,
              doing:/^(doing|in arbeit|in progress|läuft)/i, done:/^(done|erledigt|fertig)/i, bald:/^(n[äa]chste woche|bald|soon)/i } },
   cockpit:{
@@ -2966,6 +2981,40 @@ const PK_SRC={ 'trello-privat':['🏠','privat','trello'], 'trello-arbeit':['�
 const pkWip=()=>S.kan.wip||COMPASS.board.wip||3;
 const pkTage=iso=>{ if(!iso) return null; const d=new Date(iso); if(isNaN(d)) return null; return Math.max(0,Math.floor((Date.now()-d.getTime())/864e5)); };
 const pkSlug=s=>String(s||'').toLowerCase().replace(/[^a-z0-9äöüß]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
+/* ---- Strategische Initiativen (10.09.2026) ---------------------------------------
+   Eine STA-Initiative ist kein Tagesgeschäft: sie darf Monate offen stehen, solange
+   sich die Storys darunter bewegen. Der john-server liefert dazu c.kinder
+   {gesamt,offen,fertig,inArbeit,letzteBewegung,stillTage,letzterKey} aus den
+   „Parent-Child“-Verknüpfungen. pkStratLage() macht daraus:
+     alarm 'still' → seit COMPASS.board.strat.still Tagen keine Story bewegt und
+                     keine in Arbeit → zurückschieben.
+     alarm 'frist' → länger als acht Monate unterwegs — das ist die einzige Frist.
+     alarm null    → läuft. Ohne Kinderdaten (alter Server, Jira offline) bleibt es
+                     null: lieber nichts melden als nach Tagen melden.               */
+const pkStrat=c=>!!(c&&(c.strategisch||/^STA-\d+$/.test(String(c.jiraKey||''))));
+const pkMon=t=>t==null?null:Math.round(t/30.44*10)/10;
+const pkMonTxt=m=>m==null?'–':String(m).replace('.',',');
+function pkStratLage(c){
+  const cfg=COMPASS.board.strat||{still:21,monate:8}, k=(c&&c.kinder)||null;
+  const still=k?(k.stillTage!=null?k.stillTage:pkTage(k.letzteBewegung)):null;
+  const lauf=pkTage(c&&(c.erstellt||c.seit)), monate=pkMon(lauf), inArbeit=k?(k.inArbeit||0):0;
+  let alarm=null;
+  if(monate!=null&&monate>=cfg.monate) alarm='frist';
+  else if(k&&k.gesamt===0){ const eigen=pkTage(c&&c.seit); if(eigen!=null&&eigen>=cfg.still) alarm='leer'; }
+  else if(still!=null&&still>=cfg.still&&!inArbeit) alarm='still';
+  return {still,lauf,monate,inArbeit,alarm,grenze:cfg,
+          gesamt:k?(k.gesamt||0):null,offen:k?(k.offen||0):null,fertig:k?(k.fertig||0):null,letzterKey:(k&&k.letzterKey)||''};
+}
+function pkStratText(c){
+  const l=pkStratLage(c);
+  if(l.gesamt==null) return 'strategisch'+(l.monate!=null?' · läuft '+pkMonTxt(l.monate)+' Mon.':'');
+  if(l.gesamt===0) return 'keine Story darunter'+(l.monate!=null?' · '+pkMonTxt(l.monate)+'/'+l.grenze.monate+' Mon.':'');
+  const t=[l.offen+'/'+l.gesamt+' Storys offen'];
+  if(l.inArbeit) t.push(l.inArbeit+' in Arbeit');
+  if(l.still!=null) t.push(l.still===0?'heute bewegt':'zuletzt bewegt vor '+l.still+' T');
+  if(l.monate!=null) t.push(pkMonTxt(l.monate)+'/'+l.grenze.monate+' Mon.');
+  return t.join(' · ');
+}
 function pkListeCol(name){ const L=COMPASS.board.listen; for(const k of ['doing','done','wartet','bereit','bald']) if(L[k]&&L[k].test(name||'')) return k==='bald'?'backlog':k; return 'backlog'; }
 function pkJiraCol(status){ const s=String(status||'').toLowerCase(); if(/progress|flight|arbeit/.test(s)) return 'doing'; if(/check|review|waiting|blocked/.test(s)) return 'wartet'; if(/ready|to do|selected/.test(s)) return 'bereit'; if(/done|closed/.test(s)) return 'done'; return 'backlog'; }
 /* Alle Quellen → einheitliche Karten {id,name,url,src,col,seit,due,dueComplete,labels,liste,extra} */
@@ -2975,7 +3024,8 @@ function pkQuellen(){
     d.lists.forEach(l=>{ const col=pkListeCol(l.name);
       (l.cards||[]).forEach(c=>out.push({id:'trello:'+c.id,name:c.name,url:c.url,src:'trello-'+k,board:k,cardId:c.id,listId:l.id,col:c.dueComplete?'done':col,seit:c.aktiv||null,due:c.due||null,dueComplete:!!c.dueComplete,labels:(c.labels||[]).filter(x=>x&&x.color),liste:l.name,extra:c.checks?('☑ '+c.checks):''})); }); });
   /* Jira: live (/api/jira/meine, alle meine offenen Vorgänge) — sonst die kuratierten Top-Tickets aus dashboard-data.js */
-  if(PK.jira&&PK.jira.issues) PK.jira.issues.forEach(i=>out.push({id:'jira:'+i.key,name:i.key+' · '+i.titel,url:i.url||JIRA_VA_URL+i.key,src:'jira',jiraKey:i.key,col:pkJiraCol(i.status),seit:i.aktiv||null,due:i.due||null,liste:i.status,extra:[i.projekt,i.typ,i.prio].filter(Boolean).join(' · '),live:true}));
+  if(PK.jira&&PK.jira.issues) PK.jira.issues.forEach(i=>out.push({id:'jira:'+i.key,name:i.key+' · '+i.titel,url:i.url||JIRA_VA_URL+i.key,src:'jira',jiraKey:i.key,col:pkJiraCol(i.status),seit:i.aktiv||null,due:i.due||null,liste:i.status,extra:[i.projekt,i.typ,i.prio].filter(Boolean).join(' · '),
+    strategisch:!!i.strategisch,kinder:i.kinder||null,erstellt:i.erstellt||null,live:true}));
   else JIRA_VA.forEach(r=>out.push({id:'jira:'+r[0],name:r[0]+' · '+r[2],url:JIRA_VA_URL+r[0],src:'jira',jiraKey:r[0],col:pkJiraCol(r[1]),seit:null,liste:r[1],extra:r[4]||''}));
   ((D.woche||{}).bene||[]).forEach(r=>{ const {row:x,q}=zeileTrennen(r); const tag=String(x[4]||x[3]||'').toLowerCase();
     const col=/erledigt|fertig/.test(tag)?'done':/abgelegt|wartet|offen/.test(tag)?'wartet':'bereit';
@@ -3017,18 +3067,30 @@ function pkFilterOk(c){
 }
 function pkMetrik(karten){
   const by=col=>karten.filter(c=>c.col===col);
-  const doing=by('doing'), today=trelloDatumLokal(new Date());
+  /* Strategische Initiativen laufen neben dem Tagesgeschäft her: sie zählen weder ins WIP-Limit
+     noch in die Alterung — für sie gilt „bewegt sich etwas darunter?“ (pkStratLage).            */
+  const inArbeit=by('doing'), strat=inArbeit.filter(pkStrat), doing=inArbeit.filter(c=>!pkStrat(c));
+  const today=trelloDatumLokal(new Date());
   const over=karten.filter(c=>c.due&&!c.dueComplete&&c.col!=='done'&&trelloDatumLokal(c.due)<today).length;
   const alter=doing.map(c=>pkTage(c.seit)).filter(x=>x!=null);
   const aeltest=doing.filter(c=>pkTage(c.seit)!=null).sort((a,b)=>pkTage(b.seit)-pkTage(a.seit))[0]||null;
+  const stratLage=strat.map(c=>({karte:c,lage:pkStratLage(c)}));
+  const stratStill=stratLage.filter(x=>x.lage.alarm).sort((a,b)=>(b.lage.still||0)-(a.lage.still||0))[0]||null;
   return {wip:doing.length,limit:pkWip(),bereit:by('bereit').length,backlog:by('backlog').length,wartet:by('wartet').length,done7:by('done').length,over,
-          maxAlter:alter.length?Math.max(...alter):null,aeltest};
+          maxAlter:alter.length?Math.max(...alter):null,aeltest,
+          strat:strat.length,stratKarten:strat,stratLage,stratStill};
 }
 function pkHinweis(m){
   const [a3,a7]=COMPASS.board.alter||[3,7];
   if(m.wip>m.limit) return `<b>WIP ${m.wip} über Limit ${m.limit}.</b> Erst eine Karte fertig machen, dann die nächste ziehen — sonst wird alles langsamer. <span style="color:var(--dim)">(Personal Kanban, Regel 2: WIP begrenzen)</span>`;
   if(m.wip===0&&m.bereit>0) return `<b>Nichts in Arbeit.</b> Zieh dir <i>das Eine</i> oder die wichtigste Bereit-Karte — eine, nicht drei.`;
   if(m.aeltest&&m.maxAlter>=a7) return `<b>„${esc(m.aeltest.name.slice(0,60))}“ hängt seit ${m.maxAlter} Tagen.</b> Zerlegen, abgeben oder bewusst zurücklegen — Alterung ist das ehrlichste Signal.`;
+  if(m.stratStill){ const l=m.stratStill.lage, n=esc(String(m.stratStill.karte.name||'').slice(0,60));
+    return l.alarm==='frist'
+      ? `<b>„${n}“ läuft seit ${pkMonTxt(l.monate)} Monaten.</b> Strategische Initiativen sind auf ${l.grenze.monate} Monate angelegt — abschließen, neu schneiden oder bewusst zurückstellen.`
+      : l.alarm==='leer'
+      ? `<b>Unter „${n}“ hängt keine Story.</b> Eine Initiative in Arbeit ohne Arbeit darunter — erste Story schneiden oder zurückschieben.`
+      : `<b>Unter „${n}“ hat sich seit ${l.still} Tagen keine Story bewegt.</b> Nicht das Alter ist das Problem, der Stillstand — nächste Story ziehen oder die Initiative zurückschieben.`; }
   if(m.wartet>=5) return `<b>${m.wartet} Karten warten.</b> Wer blockiert dich? Einmal nachfassen ist billiger als fünfmal hinschauen.`;
   if(m.bereit===0&&m.backlog>0) return `<b>Bereit ist leer.</b> Nimm dir 2 Minuten und zieh 2–3 kleine Optionen aus dem Backlog nach vorn.`;
   return `<b>Fluss ok:</b> ${m.done7} fertig in 7 Tagen · WIP ${m.wip}/${m.limit}${m.maxAlter!=null?` · älteste Karte ${m.maxAlter} T`:''}. Weiter so — eins nach dem anderen.`;
@@ -3041,6 +3103,8 @@ function pkKarteHtml(c){
   if(c.liste&&c.src.startsWith('trello')) meta.push(`<span>${esc(c.liste)}</span>`);
   if(c.due){ const d=new Date(c.due); meta.push(`<span class="due">${c.dueComplete?'✅':'📅'} ${d.toLocaleDateString(LOC(),{day:'2-digit',month:'2-digit'})}</span>`); }
   if(c.col==='done'&&c.am) meta.push(`<span>✓ ${esc(c.am.slice(8,10)+'.'+c.am.slice(5,7)+'.')}</span>`);
+  else if(pkStrat(c)){ const l=pkStratLage(c);
+    meta.push(`<span class="age ${l.alarm?'a7':''}" title="Strategische Initiative — zählt nicht ins WIP-Limit und wird nicht nach Tagen bewertet, sondern nach der Bewegung der Storys darunter">🧭 ${esc(pkStratText(c))}</span>`); }
   else if(t!=null) meta.push(`<span class="age ${t>=a7?'a7':t>=a3?'a3':''}" title="${c.col==='doing'?'in Arbeit seit':'zuletzt bewegt vor'} ${t} Tagen">⏱ ${t} T</span>`);
   if(c.extra&&c.src!=='trello-privat'&&c.src!=='trello-arbeit') meta.push(`<span title="${esc(c.extra)}">${esc(c.extra.slice(0,48))}${c.extra.length>48?'…':''}</span>`);
   else if(c.extra) meta.push(`<span>${esc(c.extra)}</span>`);
@@ -3069,8 +3133,9 @@ function pkBoardHtml(){
     /* frisch angelegte Karte immer zeigen, auch wenn die Spalte gekürzt ist */
     const alle=PK.mehr[k]; let show=alle?cs:cs.slice(0,PK_MAX);
     if(PK.neu && cs.some(c=>c.id===PK.neu) && !show.some(c=>c.id===PK.neu)) show=[cs.find(c=>c.id===PK.neu)].concat(show.slice(0,PK_MAX-1));
-    const over=k==='doing'&&cs.length>m.limit;
-    return `<div class="col ${k} ${over?'over':''}" data-col="${k}" title="${esc(sub)} — Karten hierher ziehen"><h4>${ic} ${esc(titel)}${k==='doing'?` <span class="lim" onclick="pkLimit()" title="WIP-Limit ändern">Limit ${m.limit}</span>`:''}<span class="n ${over?'bad':''}">${cs.length}${k==='doing'?'/'+m.limit:''}</span></h4>
+    const stratHier=k==='doing'?cs.filter(pkStrat).length:0;
+    const over=k==='doing'&&(cs.length-stratHier)>m.limit;
+    return `<div class="col ${k} ${over?'over':''}" data-col="${k}" title="${esc(sub)} — Karten hierher ziehen"><h4>${ic} ${esc(titel)}${k==='doing'?` <span class="lim" onclick="pkLimit()" title="WIP-Limit ändern">Limit ${m.limit}</span>`:''}<span class="n ${over?'bad':''}" title="${k==='doing'&&stratHier?'Ohne '+stratHier+' strategische Initiative'+(stratHier===1?'':'n')+' — die laufen neben dem Tagesgeschäft':''}">${k==='doing'?(cs.length-stratHier)+'/'+m.limit+(stratHier?' +'+stratHier+' 🧭':''):cs.length}</span></h4>
       <div class="cards">${show.map(pkKarteHtml).join('')||`<div class="more">${k==='doing'?'leer — zieh dir eine Karte':k==='done'?'noch nichts diese Woche':'leer'}</div>`}
       ${cs.length>PK_MAX?`<div class="more" style="cursor:pointer" onclick="pkMehr('${k}')">${alle?'weniger zeigen':'+'+(cs.length-PK_MAX)+' weitere'}</div>`:''}</div>
       ${(k==='bereit'||k==='backlog'||k==='doing')?`<button class="add" onclick="pkNeu('${k}')">+ Karte</button>`:''}</div>`; }).join('');
@@ -3078,7 +3143,7 @@ function pkBoardHtml(){
     .map(([k,l])=>`<button class="${KAN.filter===k?'on':''}" onclick="pkFilter('${k}')" title="${k==='tab'?'Nur Karten aus dem aktiven Kontext-Tab (wechselt mit 1–4)':'Quelle filtern'}">${esc(l)}</button>`).join('');
   const st=Object.keys(TRELLO).map(k=>PK.trello[k]?'':(PK.stand[k]||'')).filter(Boolean);
   if(PK.jiraHint) st.push(PK.jiraHint);
-  return `<div class="pkstat"><span class="${m.wip>m.limit?'bad':m.wip?'warn':''}"><b>${m.wip}/${m.limit}</b>WIP</span><span><b>${m.bereit}</b>bereit</span><span><b>${m.wartet}</b>wartet</span><span class="${m.over?'bad':''}"><b>${m.over}</b>überfällig</span><span class="${m.maxAlter>=(COMPASS.board.alter||[3,7])[1]?'bad':''}"><b>${m.maxAlter==null?'–':m.maxAlter+' T'}</b>ältestes in Arbeit</span><span class="ok"><b>${m.done7}</b>fertig · 7 T</span></div>
+  return `<div class="pkstat"><span class="${m.wip>m.limit?'bad':m.wip?'warn':''}"><b>${m.wip}/${m.limit}</b>WIP</span><span><b>${m.bereit}</b>bereit</span><span><b>${m.wartet}</b>wartet</span><span class="${m.over?'bad':''}"><b>${m.over}</b>überfällig</span><span class="${m.maxAlter>=(COMPASS.board.alter||[3,7])[1]?'bad':''}"><b>${m.maxAlter==null?'–':m.maxAlter+' T'}</b>ältestes in Arbeit</span>${m.strat?`<span class="${m.stratStill?'bad':''}" title="Strategische Initiativen (STA) — nicht nach Tagen, sondern nach der Bewegung der Storys darunter"><b>${m.strat}</b>strategisch${m.stratStill?' · Stillstand':''}</span>`:''}<span class="ok"><b>${m.done7}</b>fertig · 7 T</span></div>
     <div class="pkhint">🧭 ${pkHinweis(m)}</div>
     ${tugendLeiste()}
     <div class="pkfilter">${f}<span class="cnt" id="pkStand">${verdeckt?`<a href="#" onclick="pkFilter('alle');return false" title="Filter aufheben">${verdeckt} Karten in anderen Kontexten</a> · `:''}${st.length?esc(st.join(' · ')):(PK.geladen?('Trello live'+(PK.jira?' · Jira live':'')):'lädt …')}</span></div>
@@ -4672,20 +4737,49 @@ function kurz(s,n){ s=String(s||''); return s.length>n?s.slice(0,n-1)+'…':s; }
    sieben — wer eine überspringen will, tut das in der Portal-Pflege; sieben Knöpfe je Zeile
    wären eine Wand statt einer Entscheidung. */
 function triKnoepfe(w){
+  const v=triVorschlag(w);
+  const vz=v?`<div class="vor">💡 <b>${esc(v.knopf)}</b> — ${esc(v.warum)}</div>`:'';
   if(w.bahn==='ankommen'){
-    return `<div class="opts" style="margin-top:8px">
-        <button onclick="triZugang(${Number(w.uid)},'ja',this)">✅ Freigeben</button>
+    return vz+`<div class="opts" style="margin-top:8px">
+        <button class="${v&&v.tun==='freigeben'?'on':''}" onclick="triZugang(${Number(w.uid)},'ja',this)">✅ Freigeben</button>
         <button onclick="triZugang(${Number(w.uid)},'nein',this)">🗑️ Ablehnen</button>
         <button onclick="triSpaeter('${esc(w.schluessel)}')">später</button></div>`;
   }
   const n=(w.naechste||[])[0];
   const ab=(w.naechste||[]).find(x=>x.status==='abgesagt');
   const link=triLink(w);
-  return `<div class="opts" style="margin-top:8px">
-      ${n?`<button onclick="poolSchritt(${Number(w.id)},'${esc(n.status)}',this)">➜ ${esc(n.text)}</button>`:''}
+  return vz+`<div class="opts" style="margin-top:8px">
+      ${n?`<button class="${v&&v.tun==='weiter'?'on':''}" onclick="poolSchritt(${Number(w.id)},'${esc(n.status)}',this)">➜ ${esc(n.text)}</button>`:''}
       ${ab?`<button onclick="poolSchritt(${Number(w.id)},'abgesagt',this)">✖ Absage</button>`:''}
       <button onclick="triSpaeter('${esc(w.schluessel)}')">später</button>
       ${link?`<a href="${esc(link)}" target="_blank" rel="noopener">Vorgang im Portal ↗</a>`:''}</div>`;
+}
+/* Der Vorschlag (10.09.2026, Bene: „wenn ich hier was entscheiden soll, call to action — sonst, was
+   bringen die Infos"): jede wartende Zeile nennt jetzt den Knopf, der gemeint ist, und den Grund dafür.
+   Der Grund ist immer eine gemessene Tatsache aus genau dieser Zeile — Liegezeit, Stufe, Treffer im
+   anderen Haus, laufende Einsätze —, nie eine Einschätzung über den Menschen: ein erfundener Grund wäre
+   hier schlimmer als gar keiner. Vorgeschlagen wird der nächste Schritt der Bahn; ein Trichter ist zum
+   Weiterschieben da, nicht zum Parken. Die 14 Tage sind keine neue Regel, sondern dieselbe, die
+   portal-admin.php zieht („2+ Wochen ohne Schritt"). */
+const TRI_STILL=14;
+function triSeit(t){ return t==null?'':(t===0?'seit heute':(t===1?'seit gestern':'seit '+t+' Tagen')); }
+function triVorschlag(w){
+  const liegt=(w.liegtTage==null?w.tage:w.liegtTage), seit=triSeit(liegt);
+  if(w.bahn==='ankommen'){
+    return {tun:'freigeben', knopf:'✅ Freigeben',
+      warum: w.auchBekannt
+        ? 'Dieselbe Mailadresse ist im Vishnu-Pool bekannt — diesen Menschen kennst du schon.'
+        : 'Wartet '+(seit||'auf eine Entscheidung')+' — bis zur Freigabe kommt sie oder er nicht hinein.'};
+  }
+  const n=(w.naechste||[])[0]; if(!n) return null;
+  const steht=(seit?'Liegt '+seit:'Liegt')+(w.was?' auf „'+w.was+'"':'');
+  let warum;
+  if(liegt!=null&&liegt>=TRI_STILL)
+    warum='Seit '+liegt+' Tagen kein Schritt — so lange wartet sie oder er im Portal ins Leere. Weiterschieben oder absagen, nur nicht liegen lassen.';
+  else
+    warum=steht+' — der nächste Schritt gehört dir.';
+  if(w.auchBekannt) warum+=' Dieselbe Adresse wartet zugleich auf den Vereinszugang.';
+  return {tun:'weiter', status:n.status, knopf:'➜ '+n.text, warum:warum};
 }
 function triSpaeter(schluessel){
   const w=triOffen().find(x=>x.schluessel===schluessel); if(!w) return;
@@ -4737,19 +4831,43 @@ function triRefresh(){
     ? `<div class="tri-liste">${w.slice(0,8).map(x=>triZeile(x,triKnoepfe)).join('')}${h.map(triKompakt).join('')}</div>`
       + (w.length>8?`<div class="hint">… und ${w.length-8} weitere — im Ritual „🫂 Trichter“ kommen sie nach.</div>`:'')
     : (luecken.length?'':`<div class="empty">✓ Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.</div>`);
-  /* Der Trichter dahinter: die Tore aus ziele.php stehen auf „Mein Vishnu“ für alle sichtbar,
-     hier standen sie bis heute nicht. Nur gemessene Zahlen, keine erfundenen. */
-  const tore = pz ? `<div class="item"><div class="ic">🎯</div><div class="body">
-      <div class="t">Tore des Kollektivs</div>
-      <div class="m">${kpi?kpi.pool:'–'}/40 im Kollektiv · ${kpi?kpi.verfuegbar:'–'}/10 Verfügbarkeiten gemeldet · ${pz.mitSkill}/20 Skill-Profile · ${kpi?kpi.platziert_90:'–'}/3 Einsätze in 90 T</div>
-      <div class="m">${pz.mitPortal} von ${pz.gesamt} waren schon im Portal · ${pz.mitMail} mit Mailadresse</div></div></div>` : '';
-  const abgleich = t.doppelt ? `<div class="item"><div class="ic">🔗</div><div class="body">
-      <div class="t">${t.doppelt} ${t.doppelt===1?'Person ist':'Personen sind'} in beiden Häusern</div>
-      <div class="m">Über die Mailadresse erkannt — der Trichter legt nichts zusammen, er sagt es dir nur.</div></div></div>` : '';
+  /* Die Tore aus ziele.php (10.09.): sichtbar bleibt nur die größte Lücke — mit dem Satz, wo sie
+     sich schließen lässt. Die volle Zahlenreihe und die Grenzen des Abgleichs stehen einen Klick
+     tiefer: Zahlen, an denen keine Handlung hängt, gehören nicht auf die Höhe einer Entscheidung
+     (Bene 10.09.: „was bringen die Infos"). Nur gemessene Zahlen, keine erfundenen. */
+  const luecke = (pz&&kpi) ? triLuecke(kpi,pz,t) : null;
+  const tore = luecke ? `<div class="item"><div class="ic">🎯</div><div class="body">
+      <div class="t">Größte Lücke: ${luecke.ist} von ${luecke.ziel} ${esc(luecke.t)}</div>
+      <div class="m">${esc(luecke.tun)}</div></div></div>`
+    : (pz&&kpi ? `<div class="item"><div class="ic">🎯</div><div class="body">
+      <div class="t">Alle Tore des Kollektivs erreicht</div>
+      <div class="m">${kpi.pool}/40 im Kollektiv · ${kpi.verfuegbar}/10 verfügbar · ${pz.mitSkill}/20 Skill-Profile · ${kpi.platziert_90}/3 Einsätze in 90 T</div></div></div>` : '');
   const warn=luecken.map(l=>`<div class="item"><div class="ic">⚠️</div><div class="body"><div class="t">Teilweise blind</div><div class="m">${l}</div></div></div>`).join('');
   const pflege = t.urlPflege ? `<div class="hint" style="margin-top:8px"><a href="${esc(t.urlPflege)}" target="_blank" rel="noopener">Alle Vorgänge in der Portal-Pflege ↗</a></div>` : '';
-  body.innerHTML = kopf + warn + liste + tore + abgleich + pflege
-    + `<div class="hint" style="margin-top:6px">Abgleich über die Mailadresse: für eine Bewerbung sieht der Trichter nur, ob dieselbe Person <b>gerade auch</b> auf den Vereinszugang wartet — ob sie Vereinsmitglied ist, gibt die Vereins-Schnittstelle nicht her.</div>`;
+  const mehr = pz ? `<details class="tri-mehr"><summary>Alle Tore, der Bestand und die Grenzen des Abgleichs</summary>
+      <div class="m">${kpi?kpi.pool:'–'}/40 im Kollektiv · ${kpi?kpi.verfuegbar:'–'}/10 Verfügbarkeiten gemeldet · ${pz.mitSkill}/20 Skill-Profile · ${kpi?kpi.platziert_90:'–'}/3 Einsätze in 90 T</div>
+      <div class="m">${pz.mitPortal} von ${pz.gesamt} waren schon im Portal · ${pz.mitMail} mit Mailadresse</div>
+      ${t.doppelt?`<div class="m">🔗 ${t.doppelt} ${t.doppelt===1?'Person ist':'Personen sind'} in beiden Häusern — über die Mailadresse erkannt; der Trichter legt nichts zusammen, er sagt es dir nur.</div>`:''}
+      <div class="m">Abgleich über die Mailadresse: für eine Bewerbung sieht der Trichter nur, ob dieselbe Person <b>gerade auch</b> auf den Vereinszugang wartet — ob sie Vereinsmitglied ist, gibt die Vereins-Schnittstelle nicht her.</div></details>` : '';
+  body.innerHTML = kopf + warn + tore + liste + pflege + mehr;
+}
+/* Welches Tor liegt am weitesten zurück — und wo schließt es sich? Gemessen am Anteil, der zum Ziel
+   fehlt, damit 0/3 nicht hinter 35/40 verschwindet. Der Satz dazu nennt nur Wege, die es wirklich
+   gibt: die beiden Bahnen dieses Trichters und die Portal-Pflege. */
+function triLuecke(kpi,pz,t){
+  const nb=t.nachBahn||{};
+  const tore=[{ist:Number(kpi.pool)||0,ziel:40,t:'im Kollektiv',
+               tun:'Wächst über die Bahn „Ins Kollektiv" — offene Aufnahmen gerade: '+(nb.kollektiv||0)+'.'},
+              {ist:Number(kpi.verfuegbar)||0,ziel:10,t:'gemeldeten Verfügbarkeiten',
+               tun:'Verfügbarkeit meldet jede:r selbst im Portal — wer nichts gemeldet hat, steht in der Portal-Pflege.'},
+              {ist:Number(pz.mitSkill)||0,ziel:20,t:'Skill-Profilen',
+               tun:'Skill-Profile pflegen die Leute selbst — von '+pz.gesamt+' Menschen haben '+pz.mitSkill+' eines, '+pz.mitMail+' sind per Mail erreichbar.'},
+              {ist:Number(kpi.platziert_90)||0,ziel:3,t:'Einsätzen in 90 Tagen',
+               tun:'Entscheidet sich in der Bahn „Zum Kunden" — offene Vermittlungen gerade: '+(nb.einsatz||0)+'.'}];
+  const offen=tore.filter(x=>x.ziel>x.ist);
+  if(!offen.length) return null;
+  offen.sort((a,b)=>((b.ziel-b.ist)/b.ziel)-((a.ziel-a.ist)/a.ziel));
+  return offen[0];
 }
 /* Beide Exemplare der Liste zugleich (06.09., Bene: „2x eingebunden — oben beantwortet, unten passiert nix“):
    die Karte und, wenn das Ritual gerade auf dem Trichter-Schritt steht, auch dessen Körper. */
@@ -6172,6 +6290,19 @@ function stapelKandidaten(){
     if(m.over>0){ const today=trelloDatumLokal(new Date()); const ov=(PK.karten||[]).filter(c=>c.due&&!c.dueComplete&&c.col!=='done'&&trelloDatumLokal(c.due)<today).map(c=>c.name).slice(0,5);
       k.push({key:'board:over',art:'board',titel:`${m.over} Karte${m.over===1?'':'n'} über der Frist`,warum:ov.join(' | ')}); }
     if(m.aeltest&&m.maxAlter>=7) k.push({key:'board:alt:'+String(m.aeltest.id||'').slice(0,40),art:'board',titel:`„${String(m.aeltest.name||'').slice(0,50)}“ hängt seit ${m.maxAlter} Tagen`,warum:'Älteste Karte in Arbeit — zerlegen, abgeben oder bewusst zurücklegen.'});
+    /* Strategische Initiativen kommen nur über Stillstand oder die Acht-Monats-Frist auf den Stapel,
+       nie über ihr Alter in Arbeit (Bene, 10.09.2026).                                              */
+    (m.stratLage||[]).filter(x=>x.lage.alarm).forEach(x=>{ const n=String(x.karte.name||'').slice(0,50);
+      k.push({key:'board:strat:'+String(x.karte.jiraKey||x.karte.id||'').slice(0,40),art:'board',
+        titel:x.lage.alarm==='frist'?`„${n}“ läuft ${pkMonTxt(x.lage.monate)} Monate`
+             :x.lage.alarm==='leer'?`Unter „${n}“ hängt keine Story`
+             :`Unter „${n}“ bewegt sich seit ${x.lage.still} Tagen keine Story`,
+        warum:x.lage.alarm==='frist'
+          ? `Strategische Initiative, angelegt auf ${x.lage.grenze.monate} Monate — abschließen, neu schneiden oder bewusst zurückstellen. ${x.lage.offen} von ${x.lage.gesamt} Storys offen.`
+          : x.lage.alarm==='leer'
+          ? `Strategische Initiative steht in Arbeit, aber es hängt keine Story darunter (auch die Initiative selbst wurde seit ${pkTage(x.karte.seit)} Tagen nicht bewegt). Erste Story schneiden oder zurückschieben.`
+          : `Strategische Initiative: ${x.lage.offen} von ${x.lage.gesamt} Storys offen, keine in Arbeit, letzte Bewegung vor ${x.lage.still} Tagen${x.lage.letzterKey?' ('+x.lage.letzterKey+')':''}. Nächste Story ziehen oder die Initiative zurückschieben — das Alter allein ist kein Grund.`,
+        url:x.karte.url||''}); });
   }catch(e){}
   try{ triOffen().slice(0,6).forEach(w=>k.push({key:'trichter:'+String(w.schluessel||w.name||'').slice(0,60),art:'trichter',titel:(w.name||'ohne Namen')+' — '+((TRI_BAHN[w.bahn]||{}).t||w.bahn),
        warum:[w.was,w.rolle,w.kunde,w.tage!=null?('wartet seit '+w.tage+' Tagen'):''].filter(Boolean).join(' · ').slice(0,300),url:triLink(w)||''})); }catch(e){}
@@ -6971,7 +7102,9 @@ function johnKontext(){
   /* Johns Stapel (06.09.): was gerade im Coach-Feld liegt — so kann John im Chat Punkt für Punkt zur Entscheidung führen */
   try{ const so=stapelOffen(); if(so.length) L.push('Dein Stapel im Coach-Feld (offen, in dieser Reihenfolge): '+so.map((p,i)=>`${i+1}. ${p.titel} — ${p.satz} [Aktion: ${(p.aktion||{}).label||(p.aktion||{}).art||'?'}]${p.wieder?' (Wiedervorlage, angestoßen: '+(p.wieder.aktion||'vertagt')+')':''}`).join(' | ')); }catch(e){}
   const w=D.woche||{}; if((w.bene||[]).length) L.push('Deine Schritte diese Woche: '+w.bene.map(x=>x[1]).join('; '));
-  try{ const m=pkMetrik(pkQuellen()); L.push(`Mein Board (Personal Kanban): WIP ${m.wip}/${m.limit}, bereit ${m.bereit}, wartet ${m.wartet}, überfällig ${m.over}, fertig in 7 T ${m.done7}${m.aeltest?`, älteste Karte in Arbeit: „${m.aeltest.name}“ (${m.maxAlter} T)`:''}; in Arbeit: `+(PK.karten||[]).filter(c=>c.col==='doing').map(c=>c.name).slice(0,5).join(' | ')); }catch(e){}
+  try{ const m=pkMetrik(pkQuellen()); L.push(`Mein Board (Personal Kanban): WIP ${m.wip}/${m.limit}, bereit ${m.bereit}, wartet ${m.wartet}, überfällig ${m.over}, fertig in 7 T ${m.done7}${m.aeltest?`, älteste Karte in Arbeit: „${m.aeltest.name}“ (${m.maxAlter} T)`:''}; in Arbeit: `+(PK.karten||[]).filter(c=>c.col==='doing'&&!pkStrat(c)).map(c=>c.name).slice(0,5).join(' | ')
+    +((m.stratKarten||[]).length?`. Strategische Initiativen (STA, bis ${(COMPASS.board.strat||{}).monate||8} Monate — nicht nach Tagen bewerten, sondern nach der Bewegung der Storys darunter): `
+      +m.stratKarten.map(c=>`${c.name} (${pkStratText(c)})`).join(' | '):'')); }catch(e){}
   return L.join('\n');
 }
 
@@ -7309,5 +7442,17 @@ addEventListener('pageshow',zeitNachstellen); addEventListener('focus',zeitNachs
      ueber die Tuer des Geraete-Workers (127.0.0.1:8788). Haengt sich wie compass-live.js von aussen an.
      Quelle und Architektur: C:\dev\john-agent. Der Produkt-Build nimmt diese vier Zeilen heraus. -->
 <script src="compass-john-lobby.js"></script>
+<!-- Systemische Infografik neben John und Madeleine (10.09.2026, Benes Bestellung: "Neben Madelene
+     und John muessen immer interaktive systemische Infografiken mitlaufen, damit schnell Kontext und
+     Schlussfolgerung gesehen werden kann. Call to actions fuer Zustimmung und Ablehnung, angelehnt an
+     unsere Gamification."). Haengt sich wie compass-live.js von aussen an: baut den Infobox-Bereich
+     rechts neben #stapelBody und #madBody, holt das geprueste Wirkungsbild von /api/systembild.
+     Muss NACH compass-madeleine.js stehen, sonst gibt es die Madeleine-Karte noch nicht. -->
+<script src="compass-systemik.js"></script>
+<!-- Erfolgs-Ausgabe (11.09.2026): die Folie „Anerkennung" im Kompass-Kino wird ein Boulevardblatt mit
+     Morgen- und Abendausgabe — Schlagzeilen nur aus Belegtem (Commits, Jira, Checkins), von /api/ausgabe.
+     Haengt sich wie compass-live.js von aussen an. Nur in der eigenen Instanz; der Produkt-Build nimmt
+     Kommentar und Skriptzeile heraus. -->
+<script src="compass-ausgabe.js"></script>
 </body>
 </html>

@@ -721,6 +721,11 @@ RepX '\n<!-- Madeleine \(07\.09\.2026\):.*?-->\n<script src="compass-madeleine\.
 # Kundeninstanz ihren eigenen Server hat (dann mit Adresse aus instanz.js, nicht mit localhost).
 RepX '\n<!-- Lobby \(10\.09\.2026,.*?-->\n<script src="compass-john-lobby\.js"></script>' '' 'Lobby nur in der eigenen Instanz'
 
+# Erfolgs-Ausgabe (11.09.2026): compass-ausgabe.js macht aus der Anerkennungs-Folie ein Boulevardblatt aus
+# Benes Commits, Jira und Checkins (john-ausgabe.ps1). Ohne eigenen Server gibt es nichts zu drucken —
+# in der Demo bleibt die Anerkennung aus den Beispieldaten. Kommentar und Skriptzeile raus, Datei nie kopiert.
+RepX '\n<!-- Erfolgs-Ausgabe \(11\.09\.2026\):.*?-->\n<script src="compass-ausgabe\.js"></script>' '' 'Erfolgs-Ausgabe nur in der eigenen Instanz'
+
 Write-Lf (Join-Path $Ziel 'index.html') $script:s
 
 # Kennzahlenseite: die Quelle (kennzahlen.html im persoenlichen Ordner) ist ein
@@ -826,6 +831,21 @@ $tasten = [Text.RegularExpressions.Regex]::Replace($tasten, '\bVishnu\b', 'Team'
 $tasten = [Text.RegularExpressions.Regex]::Replace($tasten, '\bBenes\b', 'ihren')
 $tasten = [Text.RegularExpressions.Regex]::Replace($tasten, '\bBene\b',  'die Nutzerin')
 Write-Lf (Join-Path $Ziel 'compass-tasten.js') $tasten
+
+# Wirkungsbild (10.09.2026): compass-systemik.js baut den Infobox-Bereich neben der Coach-Karte —
+# das Wirkungsdiagramm zu dem, was gerade beraten wurde, plus die zwei Call-to-Actions. Haengt sich
+# wie compass-live.js von aussen an; ohne john-server und ohne /api/systembild tut sie nichts.
+# Die zweite Beraterin gibt es nur in der eigenen Instanz — ihr Name faellt hier weg, der Code
+# findet ihre Karte im Produkt schlicht nicht und baut dort nichts.
+$sysm = (Read-Utf8 (Join-Path $Quelle 'compass-systemik.js')).Replace("`r`n","`n")
+$sysm = [Text.RegularExpressions.Regex]::Replace($sysm, '\bMadeleines\b', 'der Fachberatung')
+$sysm = [Text.RegularExpressions.Regex]::Replace($sysm, '\bMadele(?:i)?ne\b', 'Fachberatung')
+$sysm = [Text.RegularExpressions.Regex]::Replace($sysm, '\bJohns\b', 'Coach-')
+$sysm = [Text.RegularExpressions.Regex]::Replace($sysm, '(?<![a-zA-Z])John(?![a-zA-Z_])', 'Coach')
+$sysm = [Text.RegularExpressions.Regex]::Replace($sysm, '\bVishnu\b', 'Team')
+$sysm = [Text.RegularExpressions.Regex]::Replace($sysm, '\bBenes\b', 'ihren')
+$sysm = [Text.RegularExpressions.Regex]::Replace($sysm, '\bBene\b',  'die Nutzerin')
+Write-Lf (Join-Path $Ziel 'compass-systemik.js') $sysm
 
 # Sprachen (28.08.2026): compass-i18n.js uebersetzt die fertig gerenderte Oberflaeche
 # (Deutsch/English/Arabisch inkl. RTL). dashboard.html laedt sie im Kopf — fehlt sie,
