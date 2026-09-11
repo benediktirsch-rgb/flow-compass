@@ -1334,9 +1334,10 @@ function Add-JiraStrategie($auth, $liste) {
   if ($alle.Count) {
     # Sechs Initiativen koennen zusammen mehr als 100 Storys haben — auch hier blaettern, sonst
     # faenden einzelne Initiativen ihre eigenen Kinder nicht wieder und saehen still stiller aus.
-    $r = Invoke-JiraSuche $auth ('key in (' + ($alle -join ',') + ')') @('status','updated') ([Math]::Max(1, $alle.Count))
+    $r = Invoke-JiraSuche $auth ('key in (' + ($alle -join ',') + ')') @('status','updated','summary') ([Math]::Max(1, $alle.Count))
     foreach ($i in @($r.issues)) {
-      $stand[[string]$i.key] = @{ kat = [string]$i.fields.status.statusCategory.key; upd = [DateTime]::Parse($i.fields.updated).ToLocalTime() }
+      $stand[[string]$i.key] = @{ kat = [string]$i.fields.status.statusCategory.key; upd = [DateTime]::Parse($i.fields.updated).ToLocalTime()
+                                  titel = [string]$i.fields.summary; status = [string]$i.fields.status.name }
     }
   }
   $jetzt = Get-Date
@@ -1348,10 +1349,18 @@ function Add-JiraStrategie($auth, $liste) {
       if ($i.kat -eq 'done') { $fertig++ } else { $offen++; if ($i.kat -eq 'indeterminate') { $arbeit++ } }
       if (-not $letzte -or $i.upd -gt $letzte) { $letzte = $i.upd; $letzterKey = $x }
     }
+    # Die nächsten offenen Storys mit Titel (11.09.2026): der Morgencheck-Schritt „Was heute ansteht“
+    # nennt je laufende Initiative den konkreten nächsten Schritt statt nur „2 von 9 offen“.
+    # In Arbeit zuerst, dann die zuletzt bewegte — höchstens drei.
+    $naechste = @($k | Where-Object { $stand[$_] -and $stand[$_].kat -ne 'done' } |
+      Sort-Object @{ Expression = { if ($stand[$_].kat -eq 'indeterminate') { 0 } else { 1 } }; Ascending = $true },
+                  @{ Expression = { $stand[$_].upd }; Descending = $true } |
+      Select-Object -First 3 | ForEach-Object {
+        @{ key = $_; titel = $stand[$_].titel; status = $stand[$_].status; inArbeit = ($stand[$_].kat -eq 'indeterminate') } })
     $s['kinder'] = @{ gesamt = $k.Count; offen = $offen; inArbeit = $arbeit; fertig = $fertig
                       letzteBewegung = $(if ($letzte) { $letzte.ToString('o') } else { $null })
                       stillTage = $(if ($letzte) { [int][Math]::Floor(($jetzt - $letzte).TotalDays) } else { $null })
-                      letzterKey = $letzterKey }
+                      letzterKey = $letzterKey; naechste = $naechste }
   }
 }
 # ---------- Jira fürs Mein Board (19.08.): meine offenen Vorgänge, Status wechseln, Vorgang anlegen ----------

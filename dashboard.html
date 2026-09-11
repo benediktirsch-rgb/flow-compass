@@ -393,6 +393,11 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .zeile{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
 .zeile:first-child{border-top:none}
 .zeile b{font-variant-numeric:tabular-nums}
+/* „Was heute ansteht“ (11.09.): Schritt + Herkunft in zwei Zeilen, Antippen streicht für heute */
+.zeile.hz{cursor:pointer;border-radius:8px}.zeile.hz:hover .hzt{color:var(--ink)}
+.zeile.hz .hzt{flex:1;min-width:0}.zeile.hz .hzt small{display:block;font-size:11.5px;color:var(--dim);margin-top:2px;line-height:1.4}
+.zeile.hz .hzl{color:var(--dim);text-decoration:none;font-size:12px;padding:0 2px}.zeile.hz .hzl:hover{color:var(--ink)}
+.zeile.hz.weg .hzt{text-decoration:line-through;opacity:.45}.zeile.hz.weg>span:first-child{opacity:.45}
 .done-box{text-align:center;padding:14px 0}
 .done-box .big{font-size:44px}
 .done-box .xpwin{font-size:15px;font-weight:800;color:var(--ok);margin-top:6px}
@@ -1592,6 +1597,68 @@ function trafficTeil(ic,name,s){
   return `${ic} ${name} ${s.aufrufe} ${trafficWann(s)}${abw}`;
 }
 
+/* „Was heute ansteht“ aus den Initiativen (11.09.2026, Bene: „bitte dieses Feld tagesaktueller befüllen
+   mit Themen aus den Initiativen“). Vorher standen hier die handgepflegten CTX.<kontext>.next — im Kontext
+   „Finanzen & Sonstiges“ noch „FTP-Passwort rotieren“ und „USt-ID nachtragen“ aus dem August. Jetzt:
+     1. je laufende strategische Initiative (STA, In Flight) die nächste offene Story darunter, in Arbeit
+        zuerst (kinder.naechste vom john-server). Steht die Initiative still (pkStratLage), sagt die Zeile
+        das — eine Story vorzuschlagen, die seit Wochen niemand zieht, wäre Tapete;
+     2. die Neukunden-Initiative: was in der Mandats-Pipeline bei dir liegt (überfällig oder „Bene …“,
+        AUS.data aus /api/ausschreibungen), sonst der ➜-Schritt aus dashboard-data.js;
+     3. mit dem Rest bis HEUTE_MAX: Jira-Vorgänge, die heute fällig oder überfällig sind.
+   Kontextübergreifend: der Morgencheck fragt nach dem ganzen Tag, nicht nach dem Tab, der zuletzt offen
+   war. Ohne Jira-Antwort gibt es null → der Schritt zeigt die Handliste und sagt, dass es eine ist.       */
+const HEUTE_MAX=6;
+function heuteInitiativen(){
+  const j=PK.jira; if(!j||!Array.isArray(j.issues)) return null;
+  const Z=[], h=trelloDatumLokal(new Date()), ohneMd=t=>String(t||'').replace(/\*\*|`/g,'').trim();
+  /* „Checking“ heißt im Vishnu-Jira erledigt, nur nicht abgenommen — kein Schritt für heute. */
+  const erledigt=x=>/^check/i.test(String((x&&x.status)||''));
+  const strat=j.issues.filter(i=>i.strategisch);
+  strat.filter(i=>i.kategorie==='indeterminate').forEach(i=>{
+    const k=i.kinder||null, l=pkStratLage({...i,jiraKey:i.key,seit:i.aktiv}), n=((k&&k.naechste)||[]).find(x=>!erledigt(x));
+    const ini=i.key+' '+vaKurz(i.titel,60);
+    if(l.alarm==='frist')     Z.push({ic:'⌛',titel:ini,detail:`läuft seit ${pkMonTxt(l.monate)} Monaten — abschließen, neu schneiden oder zurückstellen`,url:i.url});
+    else if(k&&k.gesamt===0)  Z.push({ic:'✂️',titel:ini,detail:'keine Story darunter — erste Story schneiden',url:i.url});
+    else if(n)                Z.push({ic:n.inArbeit?'▶️':'🛫',titel:n.key+' '+vaKurz(n.titel,80),
+                                detail:[ini, n.inArbeit?'in Arbeit':(n.status||'offen'), k.offen+' von '+k.gesamt+' Storys offen',
+                                        l.alarm==='still'?`seit ${l.still} T still — ziehen oder zurückschieben`:''].filter(Boolean).join(' · '),
+                                url:(j.site?'https://'+j.site+'/browse/':JIRA_VA_URL)+n.key});
+    else                      Z.push({ic:'🛫',titel:ini,detail:pkStratText({...i,jiraKey:i.key,seit:i.aktiv}),url:i.url});
+  });
+  const pipe=(((AUS.data||{}).pipeline||{}).zeilen||[])
+    /* Was als Rückfrage im Compass liegt, entscheidet der Rückfragen-Schritt — hier nicht noch einmal. */
+    .filter(z=>!/Rückfrage/.test(z.schritt||'')&&((z.ueberTage!=null&&z.ueberTage>0)||/\b(Bene|Deine?)\b/.test(z.schritt||'')))
+    .sort((a,b)=>(b.ueberTage||0)-(a.ueberTage||0)).slice(0,2);
+  if(pipe.length) pipe.forEach(z=>Z.push({ic:'🎯',titel:vaKurz(ohneMd(z.schritt),110),
+    detail:['Neukunden',vaKurz(ohneMd(z.rolle),40),z.ueberTage>0?z.ueberTage+' T überfällig':''].filter(Boolean).join(' · ')}));
+  else { const r=((((D.projekte||{}).neukunden||{}).anfragen)||[]).find(x=>x[0]==='➜');
+    if(r){ const t=String(r[1]).replace(/^Next:\s*/,'').split(' — ')[0].split(' · ');
+      Z.push({ic:'🎯',titel:t[0],detail:'Neukunden'+(t[1]?' · '+t[1]:'')}); } }
+  /* Fälliges füllt den Rest auf: heute Fälliges zuerst, dann das jüngst Überfällige — ein Vorgang, der
+     seit einem Jahr „überfällig“ ist, ist kein Tagesthema mehr (KPI-23, fällig 01.04.2025). */
+  j.issues.filter(i=>!i.strategisch&&!erledigt(i)&&i.due&&String(i.due).slice(0,10)<=h)
+    .sort((a,b)=>String(b.due).localeCompare(String(a.due))).slice(0,3)
+    .forEach(i=>{ const d=String(i.due).slice(0,10), jahr=d.slice(0,4)!==h.slice(0,4)?d.slice(0,4):'';
+      Z.push({ic:d<h?'⏰':'📅',titel:i.key+' '+vaKurz(i.titel,80),detail:(d<h?'überfällig seit '+d.slice(8,10)+'.'+d.slice(5,7)+'.'+jahr:'heute fällig')+' · '+(i.status||''),url:i.url}); });
+  const st=j.stand?new Date(j.stand):null;
+  return { zeilen:Z.slice(0,HEUTE_MAX),
+           startklar:strat.filter(i=>i.kategorie==='new'&&/ready|start/i.test(i.status||'')),
+           stand:st&&!isNaN(st)?st.toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'}):'' };
+}
+/* Kommt Jira oder der Mandats-Puls erst, während der Schritt schon offen ist, malt er sich neu —
+   ohne das Getippte zu verlieren. Gestrichenes bleibt nur, solange die Liste dieselbe Quelle hat. */
+function heuteNachziehen(){
+  if(!FLOW||ENDE||!ov.classList.contains('on')) return;
+  const s=FLOW.schritte[IDX]; if(!s||s.typ!=='liste') return;
+  const inp=document.getElementById('ovIn'), v=inp?inp.value:'', f=document.activeElement===inp;
+  const vorher=JSON.stringify(FLOW.heuteListe||[]);
+  const body=document.getElementById('ovBody'); body.innerHTML=koerper(s);
+  if(JSON.stringify(FLOW.heuteListe||[])!==vorher){ FLOW.heuteWeg={}; body.innerHTML=koerper(s); }
+  verdrahten(s);
+  const n=document.getElementById('ovIn'); if(n){ n.value=v; if(f) n.focus(); }
+}
+
 function koerper(s){
   if(s.typ==='zahlen'){
     const b=K.bugs||{}, d=K.durchsatz||{}, a=(K.anmeldungen||{}).va||{};
@@ -1619,10 +1686,20 @@ function koerper(s){
           <div class="zeile"><span>🕊️ frei zwischen ${esc(f.von||'')} und ${esc(f.bis||'')}</span><span><b>${esc(k.freiStunden)} h</b></span></div></div>
          <div class="hint" style="margin-top:10px">Und was du dir vorgenommen hast:</div>`
       : '';
-    return `${kalHtml}<div class="qa">${(c.next||[]).slice(0,4).map(x=>
-      `<div class="zeile"><span>${x[0]}</span><span>${esc(x[1])}</span></div>`).join('')}</div>
+    /* Tagesaktuell aus den Initiativen (11.09.), sonst die Handliste des Kontexts — siehe heuteInitiativen(). */
+    const hi=heuteInitiativen();
+    FLOW.heuteListe = hi ? hi.zeilen : (c.next||[]).slice(0,4).map(x=>({ic:x[0],titel:x[1],detail:''}));
+    FLOW.heuteWeg = FLOW.heuteWeg||{};
+    const zeilen=FLOW.heuteListe.map((z,i)=>`<div class="zeile hz${FLOW.heuteWeg[i]?' weg':''}" data-hz="${i}" role="button" tabindex="0" title="Antippen = für heute streichen (noch einmal = zurückholen)">
+        <span>${z.ic}</span><span class="hzt">${esc(z.titel)}${z.detail?`<small>${esc(z.detail)}</small>`:''}</span>${z.url?`<a class="hzl" href="${esc(z.url)}" target="_blank" rel="noopener" title="In Jira öffnen">↗</a>`:''}</div>`).join('');
+    const herkunft = hi
+      ? `<span>Aus deinen laufenden Initiativen. Antippen streicht eine Sache, fehlt etwas: hier notieren.</span>${hi.stand?` <span class="tg" title="Stand der Jira-Daten">Jira ${esc(hi.stand)}</span>`:''}`
+      : `Aus „${esc(c.name)}“. Reicht dir das? Sonst hier notieren:`;
+    return `${kalHtml}<div class="qa">${zeilen||'<div class="zeile"><span>🕊️</span><span>Keine laufende Initiative mit offenem Schritt</span></div>'}</div>
+      ${hi&&hi.startklar.length?`<div class="hint" style="margin-top:8px">🚦 Startklar, noch nicht gezogen: ${hi.startklar.map(i=>`<b>${esc(i.key)}</b> ${esc(vaKurz(i.titel,48))}`).join(' · ')}</div>`:''}
       ${ab&&ab.ablegen?`<div class="hint" style="margin-top:8px">🧺 Am ${esc(ab.datum.slice(8,10)+'.'+ab.datum.slice(5,7)+'.')} bewusst abgelegt: <b>${esc(ab.ablegen)}</b> — heute wieder aufnehmen oder weiter liegen lassen.</div>`:''}
-      <div class="hint" style="margin-top:10px">Aus „${esc(c.name)}“. Reicht dir das? Sonst hier notieren:</div>
+      ${!hi&&PK.geladen?`<div class="hint" style="margin-top:8px">⚠️ Jira hat nicht geantwortet — das ist die Handliste, nicht der heutige Stand.</div>`:''}
+      <div class="hint" style="margin-top:10px">${herkunft}</div>
       <input type="text" id="ovIn" placeholder="Was noch heute passieren muss …">`;
   }
   if(s.typ==='fragen'){
@@ -1710,6 +1787,14 @@ function verdrahten(s){
     FLOW.wahl[box.dataset.w]=b.dataset.a;
   }));
   document.querySelectorAll('#ovBody .qa[data-q]').forEach(frageVerdrahten);
+  /* „Was heute ansteht“: Antippen streicht eine Sache für heute (11.09.) — der Hinweis „Wenn nicht: eine
+     Sache streichen“ stand bis dahin da, ohne dass man etwas streichen konnte. Landet in der Übergabe. */
+  document.querySelectorAll('#ovBody .zeile.hz').forEach(z=>z.addEventListener('click',e=>{
+    if(e.target.closest('a')) return;
+    const i=+z.dataset.hz; FLOW.heuteWeg=FLOW.heuteWeg||{};
+    if(FLOW.heuteWeg[i]) delete FLOW.heuteWeg[i]; else FLOW.heuteWeg[i]=1;
+    z.classList.toggle('weg',!!FLOW.heuteWeg[i]);
+  }));
 }
 /* Rückfragen-Schritt als lebendige Liste (06.09.2026): Karte, Anschluss, Nachziehen. */
 const FRAGEN_SICHTBAR=3;
@@ -2287,7 +2372,13 @@ function briefing(art){
   const heutedt=new Date().toLocaleDateString('de-DE',{weekday:'long',day:'2-digit',month:'long'});
   L.push(art==='morgen'?`Morgencheck ${heutedt}`:art==='abend'?`Abendcheck ${heutedt}`:art==='wochenstart'?`Wochenstart ${heutedt}`:art==='wochenreview'?`Wochen-Rückschau ${heutedt}`:`Rückfragen ${heutedt}`);
   L.push('');
-  (FLOW.schritte||[]).forEach(s=>{ const a=FLOW.antworten[s.id]; if(a) L.push(`${s.icon||'•'} ${s.titel||s.frage}: ${a}`); });
+  (FLOW.schritte||[]).forEach(s=>{ const a=FLOW.antworten[s.id]; if(a) L.push(`${s.icon||'•'} ${s.titel||s.frage}: ${a}`);
+    /* „Was heute ansteht“ (11.09.): was gezeigt wurde und was Bene gestrichen hat — sonst weiß die Session
+       nur, was er dazugeschrieben hat, nicht, wogegen er sich entschieden hat. */
+    if(s.typ==='liste'&&(FLOW.heuteListe||[]).length){ const w=FLOW.heuteWeg||{}, t=z=>z.titel;
+      const weg=FLOW.heuteListe.filter((z,i)=>w[i]), bleibt=FLOW.heuteListe.filter((z,i)=>!w[i]);
+      if(bleibt.length) L.push(`${s.icon||'•'} Steht heute an: ${bleibt.map(t).join(' · ')}`);
+      if(weg.length) L.push(`✂️ Für heute gestrichen: ${weg.map(t).join(' · ')}`); } });
   const frisch=(R.rueckfragen||[]).filter(q=>S.antworten[q.id] && S.antworten[q.id].ts===heute());
   if(frisch.length){ L.push(''); L.push('Antworten auf deine Rückfragen:'); frisch.forEach(q=>L.push(`- ${q.frage} → ${S.antworten[q.id].a}`)); }
   const ums=umsFrisch();
@@ -3323,7 +3414,7 @@ async function pkLaden(fresh){
       if(d&&d.ok){ PK.jira=d; PK.jiraHint=''; } else { PK.jira=null; PK.jiraHint=d&&d.error==='NO_KEY'?'Jira: Top-Tickets aus dashboard-data.js (live mit JIRA_TOKEN)':'Jira: '+((d&&d.error)||'Fehler'); }
     }catch(e){ PK.jira=null; PK.jiraHint=''; } })()]);
   if(lauf!==pkLauf) return;
-  PK.laedt=false; PK.geladen=true; pkRender(); jiraRefresh(); handRefresh();
+  PK.laedt=false; PK.geladen=true; pkRender(); jiraRefresh(); handRefresh(); heuteNachziehen();
 }
 function pkZeilen(){ /* für die Rückschau (Schritt „Fluss der Woche“) und Johns Kontext */
   const m=pkMetrik(pkQuellen());
@@ -5971,7 +6062,7 @@ async function lotusLaden(){
     if(erreicht&&typeof finStimmenNachreichen==='function'){ try{ finStimmenNachreichen(); }catch(e){} }
   }
   if(arbeit) arbeitXpVerbuchen(arbeit);
-  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh(); ausRefresh();
+  kalenderRefresh(); wachtRefresh(); depRefresh(); postfRefresh(); slrRefresh(); sichRefresh(); wetterRefresh(); routRefresh(); finRefresh(); nutzRefresh(); triRefresh(); ausRefresh(); heuteNachziehen();
   lotusRender(false);
   fortschrittRefresh();
   if(SUMMARY_NEU||!(S.summary&&S.summary.datum===heute())){ const f=SUMMARY_NEU; SUMMARY_NEU=false; summaryHolen(f); }

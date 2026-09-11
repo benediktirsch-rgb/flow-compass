@@ -272,6 +272,11 @@
       ['e.g. carry out the clean-up proposal, the domain migration plan, pull the metrics',
        'مثلًا: تنفيذ اقتراح التنظيف، خطة نقل النطاق، سحب المؤشرات'],
     'Aus „{1}“. Reicht dir das? Sonst hier notieren:': ['From “{1}”. Is that enough? Otherwise note it here:', 'من «{1}». أيكفيك ذلك؟ وإلا فدوّنه هنا:'],
+    'Aus deinen laufenden Initiativen. Antippen streicht eine Sache, fehlt etwas: hier notieren.': ['From your running initiatives. Tap to strike something, if anything is missing: note it here.', 'من مبادراتك الجارية. انقر لشطب أمر، وإن نقص شيء فدوّنه هنا.'],
+    'Startklar, noch nicht gezogen:': ['Ready to start, not yet pulled:', 'جاهزة للبدء ولم تُسحب بعد:'],
+    'Jira hat nicht geantwortet — das ist die Handliste, nicht der heutige Stand.': ['Jira did not answer — this is the manual list, not today’s state.', 'لم يستجب Jira — هذه القائمة اليدوية وليست حالة اليوم.'],
+    'Keine laufende Initiative mit offenem Schritt': ['No running initiative with an open step', 'لا مبادرة جارية بخطوة مفتوحة'],
+    'Antippen = für heute streichen (noch einmal = zurückholen)': ['Tap = strike for today (tap again = bring back)', 'انقر = اشطب لليوم (مرة أخرى = استرجاع)'],
     'Heute schon gemacht — kein zusätzliches XP.': ['Already done today — no extra XP.', 'أُنجز اليوم — لا نقاط إضافية.'],
     'Tag geschlossen. Der Abend gehört dir — und morgen liegt „das Eine“ schon bereit.':
       ['Day closed. The evening is yours — and tomorrow’s One Thing is already waiting.',
