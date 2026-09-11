@@ -39,6 +39,14 @@
   const HUB = (window.JOHN_HUB || localStorage.getItem('compassJohnHub') || '').replace(/\/$/, '');
   const HUB_TOKEN = window.JOHN_HUB_TOKEN || localStorage.getItem('compassJohnHubToken') || '';
 
+  /* Hat dieser Browser Johns Tür je erreicht? Wenn nie und wir nicht auf localhost sind, ist es
+     ein Handy oder ein fremder Rechner — dort startet niemand John, und das Fenster bleibt zu. */
+  const TUER_GESEHEN = 'compassJohnTuer';
+  const FERNGERAET = () => {
+    if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return false;
+    try { return !localStorage.getItem(TUER_GESEHEN); } catch (e) { return true; }
+  };
+
   const KEIN_JOHN = !API() && !location.port && !HUB && !/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
 
   const SNOOZE_MS = 10 * 60 * 1000;   // „Später" hält zehn Minuten
@@ -120,6 +128,7 @@
   async function runde() {
     const [tuer, server] = await Promise.all([fragTuer(), fragServer()]);
     Z.tuer = tuer;
+    if (tuer) { try { localStorage.setItem(TUER_GESEHEN, String(Date.now())); } catch (e) { } }
     if (server && server.ok) {
       Z.lage = 'ok'; Z.fehlschlaege = 0;
       return true;
@@ -134,7 +143,7 @@
       else if (tuer.serverOk === true) Z.lage = 'adresse';
       else if (tuer.serverLaeuft) Z.lage = 'haengt';
       else Z.lage = 'aus';
-    } else if (KEIN_JOHN) {
+    } else if (KEIN_JOHN || FERNGERAET()) {
       Z.lage = 'fremd';
     } else {
       Z.lage = 'unklar';
@@ -171,8 +180,8 @@
           startbar: true };
       case 'fremd':
         return { titel: 'John wohnt nicht auf diesem Gerät',
-          text: '<b>Von hier kann ich ihn nicht starten</b> — aber sein Stand steht unten, sobald die Rezeption eingerichtet ist.',
-          warum: 'Kein lokaler Coach-Server und keine Rezeption hinterlegt.',
+          text: '<b>Von hier kann ich ihn nicht starten</b> — er denkt auf deinem Rechner. Seine Kachel kommt hier aus seinem Zimmer im Netz; OK und ⏰ wirken trotzdem überall.',
+          warum: HUB ? 'Dieses Gerät hat Johns Tür noch nie erreicht — typisch fürs Handy oder einen fremden Rechner.' : 'Kein lokaler Coach-Server und keine Rezeption hinterlegt.',
           startbar: false };
       default:
         return { titel: 'John antwortet nicht',
@@ -194,30 +203,46 @@
     } catch (e) { return ''; }
   }
 
-  /* Johns letzter Stand: erst die Rezeption (gilt überall), sonst die Browser-Kopie des
-     Stapels (gilt nur hier — und das sagt die Zeile dann auch). */
-  function standHtml() {
-    let punkte = null, stand = '', quelle = '';
-    if (Z.hub && Z.hub.stapel && Array.isArray(Z.hub.stapel.punkte) && Z.hub.stapel.punkte.length) {
-      punkte = Z.hub.stapel.punkte.slice(0, 3); stand = Z.hub.stapel.stand; quelle = 'Rezeption';
-    } else {
-      try {
-        const roh = JSON.parse(localStorage.getItem('compassStapel') || 'null');
-        const arr = roh && (Array.isArray(roh) ? roh : roh.punkte);
-        if (arr && arr.length) { punkte = arr.slice(0, 3); stand = roh.stand || ''; quelle = 'Kopie in diesem Browser'; }
-      } catch (e) { }
-    }
-    if (!punkte) {
-      return '<div class="jlb-stand"><p class="jlb-kopf">Sein Stapel</p>'
-        + '<div class="jlb-p"><span>Kein Stand hinterlegt. <b style="display:inline;font-weight:600">Leer heißt hier nicht „nichts zu tun"</b> — es heißt: von dieser Stelle aus ist sein Stapel nicht lesbar.</span></div></div>';
-    }
-    return '<div class="jlb-stand"><p class="jlb-kopf">Sein Stapel'
-      + (stand ? ' · Stand ' + esc(uhr(stand)) : '') + (quelle ? ' · ' + esc(quelle) : '') + '</p>'
-      + punkte.map(p => '<div class="jlb-p"><b>' + esc(p.titel || p.text || '—') + '</b>'
-        + (p.warum ? '<span>' + esc(p.warum) + '</span>' : '') + '</div>').join('')
-      + '</div>';
+  /* Johns Stapel in der Lobby = derselbe wie auf der Kachel (11.09.2026): erst der gespiegelte
+     Compass-Stapel aus dem Zimmer, gefiltert wie stapelOffen() — sonst stand in der Lobby ein
+     anderer Stapel als eine Handbreit daneben auf der Kachel. Johns eigene Takt-Funde folgen
+     getrennt darunter; sie fließen erst beim nächsten Sortieren in die Kachel. */
+  function offenAus(punkte, stand) {
+    const jetzt = Date.now();
+    return (punkte || []).filter(p => {
+      const st = (stand || {})[p.key];
+      if (!st) return true;
+      if (st.status === 'ok') return false;
+      if (st.status === 'wieder') { const bis = Date.parse(st.bis || ''); return !(bis && bis > jetzt); }
+      return true;
+    });
   }
-
+  function zeilen(liste) {
+    return liste.map(p => '<div class="jlb-p"><b>' + esc(p.titel || p.text || '—') + '</b>'
+      + ((p.satz || p.warum) ? '<span>' + esc(p.satz || p.warum) + '</span>' : '') + '</div>').join('');
+  }
+  function standHtml() {
+    let punkte = null, um = '', quelle = '';
+    const c = Z.hub && Z.hub.compass;
+    if (c && Array.isArray(c.punkte) && c.punkte.length) {
+      punkte = offenAus(c.punkte, c.stand).slice(0, 3); um = c.stand_um; quelle = 'aus Johns Zimmer';
+    } else if (hatKachel() && (STAPEL.punkte || []).length && typeof stapelOffen === 'function') {
+      punkte = stapelOffen(); um = STAPEL.standUm; quelle = 'Kopie in diesem Browser';
+    }
+    let html;
+    if (!punkte) {
+      html = '<div class="jlb-stand"><p class="jlb-kopf">Sein Stapel</p>'
+        + '<div class="jlb-p"><span>Kein Stand hinterlegt. <b style="display:inline;font-weight:600">Leer heißt hier nicht „nichts zu tun"</b> — es heißt: von dieser Stelle aus ist sein Stapel nicht lesbar.</span></div></div>';
+    } else {
+      html = '<div class="jlb-stand"><p class="jlb-kopf">Sein Stapel' + (um ? ' · Stand ' + esc(uhr(um)) : '') + ' · ' + esc(quelle) + '</p>'
+        + (punkte.length ? zeilen(punkte) : '<div class="jlb-p"><span>Alles abgeräumt oder auf Wiedervorlage.</span></div>') + '</div>';
+    }
+    const t = Z.hub && Z.hub.stapel;
+    if (t && Array.isArray(t.punkte) && t.punkte.length) {
+      html += '<div class="jlb-stand"><p class="jlb-kopf">Von selbst gesehen · Takt ' + esc(uhr(t.stand)) + '</p>' + zeilen(t.punkte.slice(0, 3)) + '</div>';
+    }
+    return html;
+  }
   function fussHtml() {
     const teile = [];
     teile.push('Die Aufgabe „John Server" versucht es <b>jede Minute</b> von selbst — meist ist er von allein wieder da.');
@@ -357,7 +382,7 @@
     Z.pille.hidden = false;
     Z.pille.className = 'jlb-pille' + (Z.lage === 'aus' ? ' jlb-aus' : '');
     const wort = { belegt: 'John denkt', aus: 'John ist aus', haengt: 'John hängt',
-                   adresse: 'John: falsche Adresse', fremd: 'John: anderes Gerät' };
+                   adresse: 'John: falsche Adresse', fremd: 'John: anderes Gerät', schlaeft: 'Johns Hände schlafen' };
     Z.pille.innerHTML = '<span class="jlb-pkt"></span>🤵 ' + (wort[Z.lage] || 'John antwortet nicht');
   }
   function wiederDa() {
@@ -384,9 +409,169 @@
        jedes Vertrauen. Die Gegenprobe kommt aber schnell (4 s) — Bene soll nicht eine halbe
        Minute auf Karten starren, die „nicht erreichbar" sagen. */
     if (Z.fehlschlaege < 2) { takt(4000); return; }
+    /* Handy oder fremder Rechner (11.09.2026): hier kann niemand John starten, also springt auch
+       kein Fenster auf — bei jedem Besuch wäre das nur Lärm. Die Kachel kommt aus dem Zimmer.
+       Eine Pille gibt es nur, wenn John nirgends wach ist; läuft er auf dem Rechner, ist alles gut. */
+    if (Z.lage === 'fremd' && !Z.offen) {
+      if (Z.hub && Z.hub.wach) { if (Z.pille) Z.pille.hidden = true; }
+      else { Z.lage = Z.hub ? 'schlaeft' : 'fremd'; pilleZeigen(); Z.lage = 'fremd'; }
+      takt(PROBE_MS_ZU * 4); return;
+    }
     if (Z.offen) { malen(); takt(PROBE_MS_OFFEN); return; }
     if (Date.now() < Z.snoozeBis) { pilleZeigen(); takt(PROBE_MS_ZU); return; }
     oeffnen();
+  }
+
+  /* ---------- Johns Kachel überall (11.09.2026) ----------------------------------------
+     Die Kachel holt ihren Stapel vom Cockpit-Server auf Benes Rechner (stapelLaden). Am Handy
+     gibt es den nicht — die Kachel war dort leer. Der Worker spiegelt den Stapel in Johns
+     Zimmer (w=spiegel); hier liest die Kachel ihn dort, sobald der Server nicht erreichbar ist,
+     und jedes OK / ⏰ geht zusätzlich ins Zimmer (w=stapelstand). Der Worker reicht es an den
+     Server nach. So ist ein Punkt, der irgendwo abgeräumt wurde, überall weg.
+
+     Gebaut als Umhüllung der Seitenfunktionen (wie compass-live.js): Funktionsdeklarationen
+     sind überschreibbar, und die Aufrufer schlagen den Namen erst beim Aufruf nach.
+     Mail-Entwürfe und Claude-Aufträge liegen nicht im Zimmer (nurAmRechner) — dort sagt die
+     Kachel „am Rechner", statt einen leeren Entwurf zu öffnen. */
+  function hatKachel() {
+    try { return typeof STAPEL === 'object' && STAPEL && typeof stapelMalen === 'function' && typeof stapelLaden === 'function'; }
+    catch (e) { return false; }
+  }
+  /* Zeitstempel als Zeit vergleichen, nicht als Text: der Server schreibt „…+02:00", der
+     Browser „…Z" — als Zeichenkette verglichen gewinnt dann oft der ältere. */
+  const zeitVon = s => { const n = Date.parse(s || ''); return isNaN(n) ? 0 : n; };
+  function standAusZimmer(neu) {
+    const s = STAPEL.stand;
+    Object.keys(neu || {}).forEach(k => {
+      const a = neu[k], b = s[k];
+      if (!a || !a.status) return;
+      if (b && zeitVon(b.ts) > zeitVon(a.ts)) return;       // lokal jünger: bleibt
+      if (a.status === 'offen') delete s[k]; else s[k] = a;
+    });
+  }
+  async function kachelAusZimmer() {
+    if (!hatKachel() || !HUB || !HUB_TOKEN) return false;
+    const h = await fragHub();
+    if (!h || !h.compass || !Array.isArray(h.compass.punkte)) return false;
+    Z.hub = h;
+    if (!h.compass.punkte.length && !Object.keys(h.compass.stand || {}).length) return false;
+    STAPEL.punkte = h.compass.punkte;
+    standAusZimmer(h.compass.stand || {});
+    STAPEL.standUm = h.compass.stand_um || STAPEL.standUm;
+    STAPEL.geladen = true; STAPEL.fehler = null; STAPEL.ausZimmer = true;
+    try { stapelMerken(); } catch (e) { }
+    stapelMalen();
+    return true;
+  }
+  async function insZimmer(key, eintrag) {
+    if (!HUB || !HUB_TOKEN) return false;
+    try {
+      const r = await fetch(HUB + '/api.php?w=stapelstand', { method: 'POST', cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'X-John-Token': HUB_TOKEN },
+        body: JSON.stringify(Object.assign({ key }, eintrag)), signal: AbortSignal.timeout(8000) });
+      const j = await r.json(); return !!(j && j.ok);
+    } catch (e) { return false; }
+  }
+  if (!KEIN_JOHN && hatKachel()) {
+    const orgLaden = window.stapelLaden, orgAktion = window.stapelAktion, orgMalen = window.stapelMalen;
+    window.stapelLaden = async function (force) {
+      await orgLaden.apply(this, arguments);
+      if (STAPEL.offline || (!(STAPEL.punkte || []).length && !STAPEL.fehler)) await kachelAusZimmer();
+      else STAPEL.ausZimmer = false;
+    };
+    /* Neu geschrieben statt umhüllt: das Original meldet „nur lokal gemerkt", sobald der Server
+       fehlt — auch dann, wenn das Zimmer den Stand längst hat. Gleiche Felder, gleiche Wirkung. */
+    window.stapelStand = async function (key, status, extra) {
+      extra = extra || {};
+      const p = (STAPEL.punkte || []).find(x => x.key === key) || {};
+      const eintrag = { status, ts: new Date().toISOString(),
+        bis: status === 'wieder' ? new Date(Date.now() + (extra.stunden || 24) * 3600e3).toISOString() : '',
+        aktion: extra.aktion || '', titel: p.titel || extra.titel || '' };
+      if (status === 'offen') delete STAPEL.stand[key]; else STAPEL.stand[key] = eintrag;
+      try { stapelMerken(); } catch (e) { }
+      stapelMalen();
+      const zimmer = insZimmer(key, eintrag);
+      let server = false;
+      if (!STAPEL.ausZimmer) {
+        try {
+          const r = await fetch(API() + '/api/john/stapel/stand', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, status, aktion: eintrag.aktion, titel: eintrag.titel, stunden: extra.stunden || 24, auftrag: extra.auftrag || '' }),
+            signal: AbortSignal.timeout(15000) });
+          const j = await r.json();
+          if (j && j.ok) { if (typeof stapelStandMischen === 'function') stapelStandMischen(j.stand); try { stapelMerken(); } catch (e) { } server = true; }
+        } catch (e) { }
+      }
+      const imZimmer = await zimmer;
+      if (server) return true;
+      if (imZimmer) { sag('In Johns Zimmer gemerkt — dein Rechner übernimmt es, sobald er wach ist.', 'ok'); return true; }
+      sag('Stand nur lokal gemerkt — weder dein Rechner noch Johns Zimmer waren erreichbar.', 'warn');
+      return false;
+    };
+    window.stapelAktion = function (key) {
+      const p = (STAPEL.punkte || []).find(x => x.key === key);
+      if (p && p.aktion && p.aktion.nurAmRechner) {
+        sag('Den Entwurf dazu hat John auf deinem Rechner — dort ist es ein Klick. Von hier: ✓ OK oder ⏰ 24 h.', 'warn');
+        return;
+      }
+      return orgAktion.apply(this, arguments);
+    };
+    window.stapelMalen = function () {
+      orgMalen.apply(this, arguments);
+      const b = document.getElementById('stapelBody');
+      if (!b) return;
+      try {
+        if (STAPEL.ausZimmer && !b.querySelector('.jlb-zimmer')) {
+          const d = document.createElement('div');
+          d.className = 'hint jlb-zimmer';
+          d.innerHTML = '🏨 Aus Johns Zimmer' + (STAPEL.standUm ? ' · Stand ' + esc(uhr(STAPEL.standUm)) : '')
+            + ' — dein Rechner ist von hier nicht erreichbar. OK und ⏰ wirken trotzdem überall.';
+          b.prepend(d);
+        }
+      } catch (e) { }
+      try { taktBlock(b); } catch (e) { }
+    };
+    /* Johns Takt auf der Kachel (11.09.2026). Was John von selbst gefunden hat, stand bis hier nur
+       in john/coaching/takt.md — eine Datei, die niemand liest. Der Server liest sie zwar beim
+       Sortieren mit, sortiert aber nur alle paar Stunden neu; automatisch nachsortieren hieße einen
+       weiteren 90-Sekunden-Aufruf, der den Server blockiert. Also: die Funde hier zeigen, ohne
+       Aufruf, auf jedem Gerät — und Bene entscheidet mit einem Knopf, ob John neu sortiert.
+       „Gesehen" blendet diesen einen Takt auf diesem Gerät aus; der nächste Takt kommt wieder. */
+    const TAKT_GESEHEN = 'compassJohnTaktGesehen';
+    function taktBlock(b) {
+      const alt = b.querySelector('.jlb-takt'); if (alt) alt.remove();
+      const t = Z.hub && Z.hub.stapel;
+      if (!t || !Array.isArray(t.punkte) || !t.punkte.length || !t.stand) return;
+      const alter = Date.now() - zeitVon(t.stand);
+      if (alter > 12 * 3600e3) return;                                   // älter als ein halber Tag: vorbei
+      if (zeitVon(STAPEL.standUm) > zeitVon(t.stand)) return;             // die Kachel ist schon jünger sortiert
+      let gesehen = ''; try { gesehen = localStorage.getItem(TAKT_GESEHEN) || ''; } catch (e) { }
+      if (gesehen === t.stand) return;
+      const d = document.createElement('div');
+      d.className = 'jlb-takt';
+      d.style.cssText = 'margin:10px 0 4px;padding:10px 12px;border:1px dashed var(--line2,#39412f);border-radius:12px;font-size:12.5px;line-height:1.5';
+      d.innerHTML = '<div style="font-weight:600;margin:0 0 6px">🔔 Von selbst gesehen · Johns Takt ' + esc(uhr(t.stand)) + '</div>'
+        + t.punkte.slice(0, 3).map(p => '<div style="margin:0 0 6px"><b>' + esc(p.titel || '') + '</b>'
+          + (p.warum ? '<br><span class="muted">' + esc(p.warum) + '</span>' : '')
+          + (p.aktion ? '<br><span class="muted">→ ' + esc(p.aktion) + '</span>' : '') + '</div>').join('')
+        + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">'
+        + (STAPEL.ausZimmer ? '' : '<button class="jm2" data-jt="sortieren" title="John sortiert den Stapel neu — mit diesen Funden. Dauert bis zu 90 Sekunden.">↻ In den Stapel sortieren</button>')
+        + '<button class="jm2" data-jt="gesehen" title="Diesen Takt auf diesem Gerät ausblenden">✓ Gesehen</button></div>';
+      const fuss = b.querySelector('.spfuss');
+      if (fuss) b.insertBefore(d, fuss); else b.appendChild(d);
+      d.querySelectorAll('[data-jt]').forEach(k => k.addEventListener('click', () => {
+        if (k.getAttribute('data-jt') === 'gesehen') { try { localStorage.setItem(TAKT_GESEHEN, t.stand); } catch (e) { } d.remove(); }
+        else { try { localStorage.setItem(TAKT_GESEHEN, t.stand); } catch (e) { } stapelLaden(true); }
+      }));
+    }
+    /* Das Zimmer auch dann lesen, wenn der Server antwortet — sonst sieht die Kachel am Rechner
+       Johns Takt nie. Einmal nach dem Laden, dann alle fünf Minuten bei sichtbarer Seite. */
+    const zimmerLesen = async () => { if (!HUB || !HUB_TOKEN || document.hidden) return; const h = await fragHub(); if (h) { Z.hub = h; stapelMalen(); } };
+    setTimeout(zimmerLesen, 4000);
+    setInterval(zimmerLesen, 300000);
+    /* Der erste Aufbau lief schon, bevor diese Datei geladen war — einmal nachziehen, und
+       solange die Kachel aus dem Zimmer kommt, alle zwei Minuten nachsehen (OKs vom Rechner). */
+    setTimeout(() => { if (STAPEL.offline || !(STAPEL.punkte || []).length) kachelAusZimmer(); }, 3000);
+    setInterval(() => { if (STAPEL.ausZimmer && !document.hidden) kachelAusZimmer(); }, 120000);
   }
 
   /* ---------- Anlaufen ------------------------------------------------------------------ */
