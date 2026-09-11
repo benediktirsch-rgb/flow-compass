@@ -721,6 +721,10 @@ RepX '\n<!-- Madeleine \(07\.09\.2026\):.*?-->\n<script src="compass-madeleine\.
 # Kundeninstanz ihren eigenen Server hat (dann mit Adresse aus instanz.js, nicht mit localhost).
 RepX '\n<!-- Lobby \(10\.09\.2026,.*?-->\n<script src="compass-john-lobby\.js"></script>' '' 'Lobby nur in der eigenen Instanz'
 
+# Gesprächsraum (11.09.2026, von Astra): spricht wie die Lobby mit 127.0.0.1:8788 und der persoenlichen
+# Rezeption — beides gibt es nur in Benes Instanz. Kommentar und Skriptzeile raus, Datei nie kopiert.
+RepX '\n<!-- Gesprächsraum \(11\.09\.2026,.*?-->\n<script src="compass-gespraechsraum\.js"></script>' '' 'Gesprächsraum nur in der eigenen Instanz'
+
 # Erfolgs-Ausgabe (11.09.2026): compass-ausgabe.js macht aus der Anerkennungs-Folie ein Boulevardblatt aus
 # Benes Commits, Jira und Checkins (john-ausgabe.ps1). Ohne eigenen Server gibt es nichts zu drucken —
 # in der Demo bleibt die Anerkennung aus den Beispieldaten. Kommentar und Skriptzeile raus, Datei nie kopiert.
