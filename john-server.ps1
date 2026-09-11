@@ -260,6 +260,10 @@ param(
        name = 'JAP-&-FAP-Erinnerung';       wirkung = 'Slack-Erinnerung an Jan, Florian, Marwan' }
     @{ id = 'ki-trainer-wochencheck';       art = 'claude';  cron = '0 14 * * 5';       ktx = 'pr'
        name = 'KI-Trainer-Wochencheck';     wirkung = 'Lern-Tickets der Folgewoche, Confluence-Stand' }
+    @{ id = 'astra-postfach';               art = 'claude';  cron = '7,37 7-21 * * 1-5'; ktx = 'pr'
+       name = 'Astra-Postfach';             wirkung = 'Lieferungen von Astra (GitHub, Issue #1) bestätigen, prüfen, einbauen' }
+    @{ id = 'astra-postfach-wochenende';    art = 'claude';  cron = '13 10 * * 0,6';    ktx = 'pr'
+       name = 'Astra-Postfach (Wochenende)'; wirkung = 'derselbe Lauf, einmal am Tag' }
     @{ id = 'Vishnu Flow Compass publish';  art = 'windows'; cron = '*/30 * * * *';     ktx = 'pr'
        name = 'Compass veröffentlichen';    wirkung = 'baut Compass, Demo und Instanzen und lädt sie auf bene./demo./<team>.vishnuartists.com' }
     # 06.09.2026: fünf geplante Aufgaben fehlten hier. Aufgefallen beim Bauen des Mandats-Puls — der
