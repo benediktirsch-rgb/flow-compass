@@ -315,7 +315,7 @@
     const head = e('div', { class: 'jgr-head' });
     const close = e('button', { type: 'button', 'aria-label': 'Gesprächsraum schließen' }, 'Schließen');
     close.addEventListener('click', () => dialog.close());
-    head.append(e('h2', { id: 'jgr-title' }, 'Hotel Vaikuntha · Gesprächsraum'), close);
+    head.append(e('h2', { id: 'jgr-title' }, 'Hotel Vaikuntha · Lobby'), close);
     const settings = e('div', { class: 'jgr-setting' });
     const placeLabel = e('label', {}, 'Unser Ort'); place = e('select', { 'aria-label': 'Unser Ort' });
     for (const [value, label] of Object.entries(places)) place.append(e('option', { value }, label));
@@ -383,13 +383,22 @@
     opener = document.activeElement; dialog.showModal(); schedule(0);
   }
   function attach() {
-    const card = document.getElementById('stapelBody');
+    for (const target of ['rhythm', 'stapelBody']) {
+    const card = document.getElementById(target);
     if (card && !card.querySelector('.jgr-open')) {
-      const button = e('button', { type: 'button', class: 'jgr-open' }, 'Gespräch mit John & Madeleine');
+      const button = e('button', { type: 'button', class: 'jgr-open' }, 'Hotel-Lobby öffnen');
       button.addEventListener('click', open); card.prepend(button);
     }
   }
-  function start() { attach(); new MutationObserver(attach).observe(document.body, { childList: true, subtree: true }); }
+  }
+  function fromLink() { if (location.hash === '#hotel-lobby') open(); }
+  function start() {
+    const entryStyle = e('style');
+    entryStyle.textContent = '.jgr-open{font:inherit;padding:10px 15px;border:1px solid #aab795;border-radius:9px;background:#dbe7c0;color:#253b2a;cursor:pointer;margin:8px 0}.jgr-open:focus-visible{outline:3px solid #ad6b2a;outline-offset:3px}';
+    document.head.append(entryStyle);
+    attach(); new MutationObserver(attach).observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('hashchange', fromLink); fromLink();
+  }
   window.johnGespraechsraum = { oeffnen: open };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
 })();

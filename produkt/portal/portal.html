@@ -637,6 +637,7 @@ function zeichne(){
   /* portal.js › haupt: '<id>' macht eine andere Kachel zur ersten und hervorgehobenen
      (06.09.2026: bei Martin ist es das Raumschiff, nicht der Compass). */
   var liste = STANDARD.slice();
+  if (location.hostname === 'bene.vishnuartists.com') liste.push({id:'hotel-lobby',icon:'🏨',url:'./compass/#hotel-lobby',de:['Hotel-Lobby','John und Madeleine treffen — Bar, Berghütte, Goa, Anden oder Rom.'],en:['Hotel lobby','Meet John and Madeleine — bar, mountain cabin, Goa, Andes or Rome.']});
   if (P.haupt) liste.sort(function(a, b){ return (a.id === P.haupt ? 0 : 1) - (b.id === P.haupt ? 0 : 1); });
   liste.forEach(function(k){
     var u = ziel(k); if (!u) return;
