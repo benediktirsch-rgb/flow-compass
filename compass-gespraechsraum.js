@@ -107,14 +107,15 @@
       if (who === 'bene' && portraitUrl) {
         sprite.style.backgroundImage = 'url("' + portraitUrl + '")'; sprite.style.backgroundSize = 'contain'; sprite.style.backgroundPosition = 'center';
       }
-      portrait.append(sprite);
+      portrait.append(sprite); articulate(portrait, sprite);
       actor.append(portrait, e('figcaption', {}, (who === 'bene' ? 'Bene' : names[who]) + ' · ' + wardrobe[who][i]));
       if (who === 'john') actor.append(e('small', {}, 'Konzept · Foto noch offen'));
+      actor.append(e('small',{class:'jgr-motion-caption'}));
       cast.append(actor);
     }
     const grid = e('div', {class:'jgr-holo-grid', 'aria-hidden':'true'});
     stage.append(cast, grid, e('div',{class:'jgr-door jgr-door-left','aria-hidden':'true'}), e('div',{class:'jgr-door jgr-door-right','aria-hidden':'true'}));
-    animateSpeaker(); materialize();
+    animateSpeaker(); materialize(); performMotions();
   }
   function wardrobeControls() {
     const details = e('details',{class:'jgr-wardrobe'});
@@ -139,6 +140,47 @@
     sourceLabel.append(sourceSelect);panel.append(sourceLabel);
     panel.append(e('small',{},'Tageslooks wechseln nach Berliner Datum. Deine manuelle Auswahl bleibt erhalten. Rollen ändern hier den Look; Gesprächscharaktere folgen über John und Madeleine.'));
     details.append(panel); return details;
+  }
+
+  const motionNames = {auto:'Lebendig · automatisch',ruhe:'Ruhig stehen',gehen:'Im Raum gehen',tanzen:'Tanzen',strecken:'Strecken',gaehnen:'Gähnen',winken:'Begrüßen & gestikulieren'};
+  const motionChoice = {john:'auto',bene:'auto',madeleine:'auto'};
+  let motionInterval, motionRound = 0;
+  function articulate(portrait, sprite) {
+    sprite.remove();
+    for (const part of ['head','torso','left-arm','right-arm','left-leg','right-leg']) {
+      const piece = sprite.cloneNode(); piece.classList.add('jgr-part','jgr-part-' + part); portrait.append(piece);
+    }
+  }
+  function performMotions() {
+    if (!stage || !dialog?.open || document.hidden) return;
+    const sequence = ['ruhe','winken','gehen','ruhe','strecken','ruhe','gaehnen','tanzen'];
+    for (const [index,who] of ['john','bene','madeleine'].entries()) {
+      const actor = stage.querySelector('.jgr-person-' + who); if (!actor) continue;
+      const action = motionChoice[who] === 'auto' ? sequence[(motionRound + index * 2) % sequence.length] : motionChoice[who];
+      actor.dataset.motion = action;
+      const label = actor.querySelector('.jgr-motion-caption'); if (label) label.textContent = action === 'ruhe' ? '' : motionNames[action];
+      const limit = Math.max(0,stage.clientWidth * .075);
+      actor.style.setProperty('--walk-distance',limit + 'px');
+    }
+  }
+  function startMotions() {
+    clearInterval(motionInterval); performMotions();
+    motionInterval = setInterval(()=>{motionRound++;performMotions();},14000);
+  }
+  function motionControls() {
+    const details = e('details',{class:'jgr-wardrobe'}); details.append(e('summary',{},'Bewegung & Gesten'));
+    const panel = e('div',{class:'jgr-wardrobe-panel'});
+    for (const who of ['bene','madeleine','john']) {
+      const label = e('label',{},who === 'bene' ? 'Meine Bewegung' : names[who]);
+      const select = e('select',{'aria-label':who === 'bene' ? 'Meine Bewegung' : names[who] + ' Bewegung'});
+      for (const [value,name] of Object.entries(motionNames)) select.append(e('option',{value},name));
+      select.addEventListener('change',()=>{motionChoice[who]=select.value;performMotions();});
+      label.append(select);panel.append(label);
+    }
+    const pause = e('button',{type:'button'},'Alle zur Ruhe bringen');
+    pause.addEventListener('click',()=>{for(const who of Object.keys(motionChoice))motionChoice[who]='ruhe'; for(const s of panel.querySelectorAll('select'))s.value='ruhe'; performMotions();});
+    panel.append(pause,e('small',{},'Bewegliche Bildfiguren · 2,5D. Die Automatik pausiert im Hintergrund. Deine Einstellung für reduzierte Bewegung wird berücksichtigt.'));
+    details.append(panel);return details;
   }
 
   function animateSpeaker() {
@@ -334,6 +376,11 @@
 
 .jgr-avatar{position:relative;overflow:hidden}.jgr-sprite{position:absolute;left:50%;top:0;height:100%;transform:translateX(-50%);background-repeat:no-repeat}
 
+.jgr-actor{transform-origin:50% 95%}.jgr-avatar{border-radius:14px;mask-image:linear-gradient(to bottom,#000 94%,transparent)}.jgr-part{will-change:transform}.jgr-part-head{clip-path:polygon(25% 0,75% 0,75% 21%,25% 21%);transform-origin:50% 18%}.jgr-part-torso{clip-path:polygon(35% 18%,65% 18%,65% 61%,35% 61%);transform-origin:50% 55%}.jgr-part-left-arm{clip-path:polygon(0 18%,35% 18%,35% 61%,0 61%);transform-origin:35% 24%}.jgr-part-right-arm{clip-path:polygon(65% 18%,100% 18%,100% 61%,65% 61%);transform-origin:65% 24%}.jgr-part-left-leg{clip-path:polygon(0 60%,50% 60%,50% 100%,0 100%);transform-origin:46% 60%}.jgr-part-right-leg{clip-path:polygon(50% 60%,100% 60%,100% 100%,50% 100%);transform-origin:54% 60%}.jgr-motion-caption{display:block!important;min-height:12px;font-size:9px!important;color:#ffe5a1!important}.jgr-actor[data-motion=gehen]{animation:jgrWalkAcross 10s ease-in-out infinite alternate}.jgr-actor[data-motion=gehen] .jgr-part-left-leg{animation:jgrLeftStep 1s ease-in-out infinite}.jgr-actor[data-motion=gehen] .jgr-part-right-leg{animation:jgrRightStep 1s ease-in-out infinite}.jgr-actor[data-motion=gehen] .jgr-avatar{animation:jgrStepBob .5s ease-in-out infinite alternate}.jgr-actor[data-motion=tanzen]{animation:jgrDance 2s ease-in-out infinite}.jgr-actor[data-motion=tanzen] .jgr-part-left-arm{animation:jgrArmLeft 1.1s ease-in-out infinite alternate}.jgr-actor[data-motion=tanzen] .jgr-part-right-arm{animation:jgrArmRight .8s ease-in-out infinite alternate}.jgr-actor[data-motion=tanzen] .jgr-part-head{animation:jgrNod .8s ease-in-out infinite alternate}.jgr-actor[data-motion=strecken] .jgr-part-left-arm{animation:jgrStretchLeft 6s ease-in-out infinite}.jgr-actor[data-motion=strecken] .jgr-part-right-arm{animation:jgrStretchRight 6s ease-in-out infinite}.jgr-actor[data-motion=strecken] .jgr-avatar{animation:jgrStretchBody 6s ease-in-out infinite}.jgr-actor[data-motion=gaehnen] .jgr-part-head{animation:jgrYawnHead 6s ease-in-out infinite}.jgr-actor[data-motion=gaehnen] .jgr-part-right-arm{animation:jgrYawnHand 6s ease-in-out infinite}.jgr-actor[data-motion=winken] .jgr-part-right-arm{animation:jgrWave 2.2s ease-in-out infinite}.jgr-actor[data-motion=winken] .jgr-part-head{animation:jgrNod 3s ease-in-out infinite alternate}
+@keyframes jgrWalkAcross{0%{transform:translateX(calc(-1 * var(--walk-distance))) scale(.96)}50%{transform:translateY(-5px) scale(.92)}100%{transform:translateX(var(--walk-distance)) scale(1)}}@keyframes jgrLeftStep{0%,100%{transform:translateX(-50%) rotate(-7deg)}50%{transform:translateX(-50%) rotate(7deg)}}@keyframes jgrRightStep{0%,100%{transform:translateX(-50%) rotate(7deg)}50%{transform:translateX(-50%) rotate(-7deg)}}@keyframes jgrStepBob{to{translate:0 -3px}}@keyframes jgrDance{0%,100%{transform:rotate(-3deg) translateY(0)}25%{transform:rotate(2deg) translateY(-5px)}50%{transform:rotate(3deg)}75%{transform:rotate(-2deg) translateY(-5px)}}@keyframes jgrArmLeft{to{transform:translateX(-50%) rotate(18deg)}}@keyframes jgrArmRight{to{transform:translateX(-50%) rotate(-18deg)}}@keyframes jgrNod{to{transform:translateX(-50%) rotate(5deg)}}@keyframes jgrStretchLeft{0%,100%{transform:translateX(-50%)}35%,65%{transform:translateX(-50%) rotate(35deg)}}@keyframes jgrStretchRight{0%,100%{transform:translateX(-50%)}35%,65%{transform:translateX(-50%) rotate(-35deg)}}@keyframes jgrStretchBody{35%,65%{transform:translateY(-6px) scaleY(1.04)}}@keyframes jgrYawnHead{0%,100%{transform:translateX(-50%)}35%,65%{transform:translateX(-50%) rotate(-8deg) translateY(-3px)}}@keyframes jgrYawnHand{0%,100%{transform:translateX(-50%)}30%,70%{transform:translateX(-50%) rotate(-22deg) translateY(-5px)}}@keyframes jgrWave{0%,100%{transform:translateX(-50%)}30%,60%{transform:translateX(-50%) rotate(-28deg)}45%,75%{transform:translateX(-50%) rotate(-15deg)}}
+@media(prefers-reduced-motion:reduce){.jgr-actor,.jgr-part,.jgr-avatar{animation:none!important;transition:none!important}}
+@media(max-width:650px){.jgr{max-width:100%;margin:0;inset:0;width:100%}}
+
     `; document.head.append(style);
     dialog = e('dialog', { class: 'jgr', 'aria-labelledby': 'jgr-title' });
     const head = e('div', { class: 'jgr-head' });
@@ -399,15 +446,15 @@
       status.textContent = result.gestoppt ? 'Gespräch gestoppt.' : 'Es läuft und wartet gerade kein Zug.';
       lastRun = null; waiting = [];
     }));
-    main.append(status, error, log, stop, form); layout.append(side, main); dialog.append(head, settings, wardrobePanel, stage, layout); document.body.append(dialog);
-    dialog.addEventListener('close', () => { clearTimeout(timer); epoch++; saveDraft(); opener?.focus(); });
+    main.append(status, error, log, stop, form); layout.append(side, main); dialog.append(head, settings, wardrobePanel, motionControls(), stage, layout); document.body.append(dialog);
+    dialog.addEventListener('close', () => { clearInterval(motionInterval); clearTimeout(transitionTimer); clearTimeout(timer); epoch++; saveDraft(); opener?.focus(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(timer); else schedule(0); });
     controls();
   }
   function open() {
     if (!dialog) build();
     if (dialog.open) return;
-    opener = document.activeElement; dialog.showModal(); paintScene(); schedule(0);
+    opener = document.activeElement; dialog.showModal(); paintScene(); startMotions(); schedule(0);
   }
   function attach() {
     for (const target of ['rhythm', 'stapelBody']) {
