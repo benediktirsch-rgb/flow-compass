@@ -410,7 +410,8 @@ var BEREICHE = [
 
   /* Crew-Sicht wie raumschiff/index.php › $SICHT: was eine Rolle dort nicht sieht, wird gar
      nicht gerendert — also steht hier auch kein Link darauf. Der Finanzlauf ist davon getrennt
-     und hängt an den CRM-Rollen gruender/finanzen. */
+     und hängt an den CRM-Rollen gruender/finanzen. Seit 11.09.2026 sieht die Vertragsverwaltung
+     (Martin) alles außer Benes privaten Finanzen: Firma, Verein, Belege, Madeleine dazu. */
   { id:'raumschiff', icon:'🚀', url:VA + 'raumschiff/', crew:['kapitaen','firma','vertraege'], ersetzt:['finanzen','strategie','abos'],
     kick:['Finanzen','Finances'],
     de:['Finanz-Raumschiff','Firma, privat, Verein, Luxemburg — ein Cockpit, ein Kurs. Jede Entität hat ihren Platz.'],
@@ -419,9 +420,11 @@ var BEREICHE = [
       { de:'Entitäten', en:'Entities', links:[
         { id:'bruecke', icon:'🛸', url:VA + 'raumschiff/#bruecke',      crew:['kapitaen'],         de:'Brücke — das Gesamtbild', en:'Bridge — the whole picture' },
         { id:'privat',  icon:'👤', url:VA + 'raumschiff/#modul-privat', crew:['kapitaen'],         de:'Privat',                  en:'Private' },
-        { id:'firma',   icon:'🏢', url:VA + 'raumschiff/#modul-firma',  crew:['kapitaen','firma'], de:'Vishnu Artists GmbH',     en:'Vishnu Artists GmbH' },
+        { id:'firma',   icon:'🏢', url:VA + 'raumschiff/#modul-firma',  crew:['kapitaen','firma','vertraege'], de:'Vishnu Artists GmbH', en:'Vishnu Artists GmbH' },
         { id:'lux',     icon:'🇱🇺', url:VA + 'raumschiff/#modul-lux',    crew:['kapitaen'],         de:'Luxemburg',               en:'Luxembourg' },
-        { id:'verein',  icon:'🌿', url:VA + 'raumschiff/#modul-verein', crew:['kapitaen'],         de:'Vaikuntha e.V.',          en:'Vaikuntha e.V.' } ] },
+        { id:'verein',  icon:'🌿', url:VA + 'raumschiff/#modul-verein', crew:['kapitaen','vertraege'], de:'Vaikuntha e.V.',      en:'Vaikuntha e.V.' },
+        { id:'belege',  icon:'📎', url:VA + 'raumschiff/#belege',       crew:['kapitaen','firma','vertraege'], de:'Belege zur Klärung', en:'Receipts to clarify' },
+        { id:'madeleine', icon:'👩‍💼', url:VA + 'raumschiff/#madeleine', crew:['kapitaen','vertraege'], de:'Madeleine fragen',   en:'Ask Madeleine' } ] },
       { de:'Steuerung', en:'Steering', links:[
         { id:'vertraege',  icon:'📜', url:VA + 'raumschiff/#vertraege',  crew:['kapitaen','vertraege'], de:'Verträge & Darlehen', en:'Contracts & loans' },
         { id:'wechsel',    icon:'🔗', url:VA + 'raumschiff/#wechsel',    crew:['kapitaen'],             de:'Wechselwirkungen',    en:'Interactions' },
