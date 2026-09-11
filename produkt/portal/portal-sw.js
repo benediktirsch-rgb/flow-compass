@@ -1,4 +1,6 @@
-/* Mein Portal — Service Worker der Subdomain-Wurzel (04.09.2026)
+/* Die Brücke (bis 11.09.2026 „Mein Portal“) — Service Worker der Subdomain-Wurzel (04.09.2026)
+ *
+ * v2 (11.09.2026): Sternenkarte dazu (landkarte-ansicht.js + landkarte.js je Person).
  *
  * Zwei Aufgaben:
  *   1) Das Portal offline öffnen können (Netz zuerst, Cache als Rückfallebene —
@@ -13,12 +15,14 @@
  * Caches gelten pro Ursprung, nicht pro Scope. Wer hier pauschal alles Fremde löscht,
  * löscht dem Nachbarn seinen Cache — und der löscht zurück.
  */
-const CACHE = 'portal-v1';
+const CACHE = 'portal-v2';
 
 const GERUEST = [
   './',
   './index.html',
   './portal.js',
+  './landkarte-ansicht.js',
+  './landkarte.js',
   './fonts.css',
   './manifest.webmanifest',
   './app-icons/icon-192.png',

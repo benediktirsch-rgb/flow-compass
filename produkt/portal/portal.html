@@ -1,12 +1,13 @@
 <!doctype html>
 <!-- vishnu-portal v3 — an dieser Zeile erkennt build-portal.ps1, dass die Wurzel dieser
-     Subdomain bereits das Portal ist und nicht mehr der Compass (dann laeuft keine Migration). -->
+     Subdomain bereits die Brücke ist und nicht mehr der Compass (dann laeuft keine Migration).
+     Der Marker bleibt „vishnu-portal“, damit ältere Stände auf dem Server erkannt werden. -->
 <html lang="de">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>Mein Portal · Vishnu Artists</title>
+<title>Brücke · Vishnu Artists</title>
 <link rel="stylesheet" href="fonts.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#faf8f2">
@@ -14,10 +15,15 @@
 <link rel="apple-touch-icon" href="app-icons/apple-touch-icon.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Portal">
+<meta name="apple-mobile-web-app-title" content="Brücke">
 <style>
 /* ==========================================================================
-   Mein Portal — die Startseite einer persönlichen Subdomain (04.09.2026, v2 07.09.2026).
+   Die Brücke — die Startseite einer persönlichen Subdomain (04.09.2026, v2 07.09.2026).
+   Bis 11.09.2026 hieß sie „Mein Portal“. Bene: „nenn es überall in Brücke um“ — die
+   Subdomain ist der Kommandostand: Raumschiff (Finanzen), Holodeck (John & Madeleine) und
+   seit 11.09. die Sternenkarte (Nordsterne → Ziele → Initiativen → Projekte, landkarte.js).
+   Dateinamen (portal.js, build-portal.ps1, Service-Worker-Cache portal-*) bleiben, weil
+   Build, Upload und alle Instanzen daran hängen; umbenannt ist, was Menschen lesen.
    <vorname>.vishnuartists.com führt an einer Stelle zusammen, was vorher auf
    vier Adressen mit vier Logins lag: Backstage/Profil, Team-Cockpit, Vaikuntha
    und der Flow Compass (der liegt hier daneben in /compass/).
@@ -165,7 +171,7 @@ body.gross .grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
 </head>
 <body>
 <header class="top"><div class="wrap nav">
-  <a class="logo" href="./"><img src="app-icons/icon-192.png" alt="">Vishnu<b>Artists</b><span class="pill" id="pill">Mein Portal</span></a>
+  <a class="logo" href="./"><img src="app-icons/icon-192.png" alt="">Vishnu<b>Artists</b><span class="pill" id="pill">Brücke</span></a>
   <span class="sp"></span>
   <nav class="navlinks" id="navlinks"></nav>
   <button class="kn" id="knSprache" type="button">EN</button>
@@ -174,13 +180,16 @@ body.gross .grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
 
 <main class="wrap">
   <section class="hero">
-    <p class="kick" id="kick">Persönliches Portal</p>
+    <p class="kick" id="kick">Brücke</p>
     <h1 id="gruss">Willkommen</h1>
-    <p class="lead" id="lead">Deine Werkzeuge an einer Stelle. Ein Login, alle Wege.</p>
+    <p class="lead" id="lead">Dein Kommandostand: alle Werkzeuge an einer Stelle, ein Login, ein Kurs.</p>
     <p class="ebene" id="ebene" hidden></p>
   </section>
 
   <div class="grid" id="grid"></div>
+  <!-- Sternenkarte (11.09.2026): Nordstern → Mini-Nordsterne → Ziele → Initiativen → Projekte.
+       Inhalt aus landkarte.js (je Person, nie im Repo), gezeichnet von landkarte-ansicht.js. -->
+  <section class="sk" id="sternenkarte" hidden></section>
   <div id="bereiche"></div>
   <div class="mehr" id="mehr"></div>
 </main>
@@ -230,15 +239,15 @@ var R = {
 /* ---------- Sprache: Deutsch und Englisch (VA-13529: Marwan liest Englisch) ---------- */
 var TEXTE = {
   de: { gruss:['Guten Morgen','Guten Tag','Guten Abend'],
-        lead:'Deine Werkzeuge an einer Stelle. Ein Login, alle Wege.',
-        kick:'Persönliches Portal', oeffnen:'Öffnen', hier:'hier auf dieser Seite', extern:'extern',
-        fuss:'Persönliches Portal · geschützt wie das Team-Cockpit · Fragen an ', sprache:'EN', pill:'Mein Portal',
+        lead:'Dein Kommandostand: alle Werkzeuge an einer Stelle, ein Login, ein Kurs.',
+        kick:'Brücke', oeffnen:'Öffnen', hier:'hier auf dieser Seite', extern:'extern',
+        fuss:'Brücke · geschützt wie das Team-Cockpit · Fragen an ', sprache:'EN', pill:'Brücke',
         ebene:'Du siehst, was deine Rechte öffnen:', live:'laut Anmeldung', hinterlegt:'hinterlegt',
         crew:'Raumschiff', verein:'Verein', duHier:'du bist hier' },
   en: { gruss:['Good morning','Hello','Good evening'],
-        lead:'Your tools in one place. One login, every way in.',
-        kick:'Personal portal', oeffnen:'Open', hier:'here on this site', extern:'external',
-        fuss:'Personal portal · protected like the team cockpit · questions to ', sprache:'DE', pill:'My portal',
+        lead:'Your command deck: every tool in one place, one login, one course.',
+        kick:'Bridge', oeffnen:'Open', hier:'here on this site', extern:'external',
+        fuss:'Bridge · protected like the team cockpit · questions to ', sprache:'DE', pill:'Bridge',
         ebene:'You see what your access opens:', live:'from your sign-in', hinterlegt:'on file',
         crew:'Spaceship', verein:'Association', duHier:'you are here' }
 };
@@ -290,8 +299,8 @@ var STANDARD = [
     en:['Finance spaceship','Company, private, association, Luxembourg — one cockpit, one course.'] }
 ];
 
-/* Die Portale des Kollektivs (Liste wie $INSTANZEN in publish-compass.ps1 plus bene.).
-   Persönliche Portale öffnet die Tür nur der Person selbst und der Gründung
+/* Die Brücken des Kollektivs (Liste wie $INSTANZEN in publish-compass.ps1 plus bene.).
+   Persönliche Brücken öffnet die Tür nur der Person selbst und der Gründung
    (gate-config.php › $GATE_ROLLEN = gruender) — deshalb sehen alle anderen nur ihr eigenes. */
 var PORTALE = ['bene','philipp','jan','marwan','florian','domingo','martin'];
 function portalLinks(){
@@ -343,9 +352,9 @@ var BEREICHE = [
     ] },
 
   { id:'flow', icon:'🧭', url:'./compass/', nur:'compass', ersetzt:['kennzahlen'],
-    kick:['Flow & Portale','Flow & portals'],
-    de:['Flow Compass & Team-Cockpit','Direkt an die Stelle springen — und alle Portale des Kollektivs, die du öffnen darfst.'],
-    en:['Flow Compass & team cockpit','Jump straight to the spot — and every portal of the collective you may open.'],
+    kick:['Flow & Brücken','Flow & bridges'],
+    de:['Flow Compass & Team-Cockpit','Direkt an die Stelle springen — und alle Brücken des Kollektivs, die du öffnen darfst.'],
+    en:['Flow Compass & team cockpit','Jump straight to the spot — and every bridge of the collective you may open.'],
     spalten:[
       { de:'Flow Compass', en:'Flow Compass', nur:'compass', links:[
         { id:'heute',      icon:'🪷', url:'./compass/?go=heute',    de:'Heute im Blick',   en:'Today at a glance' },
@@ -363,7 +372,7 @@ var BEREICHE = [
         { id:'aging', icon:'⏳', url:'https://va.vishnuartists.com/?go=aging', de:'Aging — was liegt',    en:'Aging — what is stuck' },
         { id:'fl2',   icon:'🎯', url:'https://va.vishnuartists.com/?go=fl2',   de:'Flight Level 2+3',     en:'Flight levels 2+3' },
         { id:'ziff',  icon:'🏁', url:'https://va.vishnuartists.com/?go=ziff',  de:'Flow-Challenge',       en:'Flow challenge' } ] },
-      { de:'Portale im Kollektiv', en:'Portals of the collective', offen:true, links: portalLinks() }
+      { de:'Brücken im Kollektiv', en:'Bridges of the collective', offen:true, links: portalLinks() }
     ] },
 
   { id:'crm', icon:'🗂️', url:VA + 'crm.php?v=start', darf:R.crm, ersetzt:['crm'],
@@ -418,7 +427,7 @@ var BEREICHE = [
     en:['Finance spaceship','Company, private, association, Luxembourg — one cockpit, one course. Every entity has its place.'],
     spalten:[
       { de:'Entitäten', en:'Entities', links:[
-        { id:'bruecke', icon:'🛸', url:VA + 'raumschiff/#bruecke',      crew:['kapitaen'],         de:'Brücke — das Gesamtbild', en:'Bridge — the whole picture' },
+        { id:'bruecke', icon:'🛸', url:VA + 'raumschiff/#bruecke',      crew:['kapitaen'],         de:'Raumschiff-Brücke — das Gesamtbild', en:'Spaceship bridge — the whole picture' },
         { id:'privat',  icon:'👤', url:VA + 'raumschiff/#modul-privat', crew:['kapitaen'],         de:'Privat',                  en:'Private' },
         { id:'firma',   icon:'🏢', url:VA + 'raumschiff/#modul-firma',  crew:['kapitaen','firma','vertraege'], de:'Vishnu Artists GmbH', en:'Vishnu Artists GmbH' },
         { id:'lux',     icon:'🇱🇺', url:VA + 'raumschiff/#modul-lux',    crew:['kapitaen'],         de:'Luxemburg',               en:'Luxembourg' },
@@ -771,5 +780,8 @@ if ('serviceWorker' in navigator) {
   if (q.get('go')) location.replace('./compass/' + location.search + location.hash);
 })();
 </script>
+<!-- Sternenkarte: build-portal.ps1 nimmt beide Zeilen heraus, wenn es keine landkarte.js gibt. -->
+<script src="landkarte.js" onerror="void 0"></script>
+<script src="landkarte-ansicht.js" onerror="void 0"></script>
 </body>
 </html>

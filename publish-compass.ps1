@@ -105,6 +105,13 @@ if ($hatRemote) {
 #    bauen, dann das Portal an die Wurzel. Die .htaccess bleibt an der Wurzel und schuetzt
 #    beides; build-compass.ps1 prueft sie ueber -Wurzel weiterhin an der richtigen Stelle.
 $beneWurzel = Join-Path $repo 'site\compass'
+# Sternenkarte der Bruecke (11.09.2026): Benes Landkarte pflegt der Skill nordstern-landkarte —
+# eine Stelle zum Anpassen, 30 Minuten spaeter ist bene.vishnuartists.com nachgezogen.
+$landkarte = Join-Path $env:USERPROFILE '.claude\skills\nordstern-landkarte\landkarte.js'
+if (Test-Path $landkarte) {
+  try { Copy-Item -LiteralPath $landkarte -Destination (Join-Path $beneWurzel 'landkarte.js') -Force }
+  catch { Log "WARNUNG: landkarte.js nicht kopiert: $($_.Exception.Message)" }
+}
 try {
   & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-portal.ps1') -Ziel $beneWurzel -NurMigrieren | Out-Null
   & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass.ps1') -Ziel (Join-Path $beneWurzel 'compass') -Wurzel $beneWurzel | Out-Null

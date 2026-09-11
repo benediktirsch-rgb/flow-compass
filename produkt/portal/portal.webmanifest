@@ -1,7 +1,7 @@
 {
-  "name": "Mein Portal · Vishnu Artists",
-  "short_name": "Portal",
-  "description": "Deine Werkzeuge an einer Stelle: Flow Compass, Team-Cockpit, Backstage und Vaikuntha.",
+  "name": "Brücke · Vishnu Artists",
+  "short_name": "Brücke",
+  "description": "Dein Kommandostand: Flow Compass, Team-Cockpit, Backstage, Vaikuntha, Raumschiff, Holodeck und die Sternenkarte deiner Ziele.",
   "lang": "de",
   "dir": "ltr",
   "start_url": "./?app=1",
@@ -24,6 +24,8 @@
     { "name": "Morgencheck starten", "short_name": "Morgencheck", "url": "./compass/?app=1&go=morgen",
       "icons": [{ "src": "app-icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Mein Board", "short_name": "Board", "url": "./compass/?app=1&go=board",
+      "icons": [{ "src": "app-icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Sternenkarte", "short_name": "Sterne", "url": "./?app=1#sternenkarte",
       "icons": [{ "src": "app-icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

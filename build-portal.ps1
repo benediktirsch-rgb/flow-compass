@@ -1,4 +1,9 @@
-﻿# build-portal.ps1 — macht aus einer Compass-Subdomain ein persoenliches Portal (04.09.2026)
+﻿# build-portal.ps1 — macht aus einer Compass-Subdomain eine Bruecke (04.09.2026)
+#
+#   Seit 11.09.2026 heisst die Startseite „Brücke“ (vorher „Mein Portal“, Bene: „nenn es
+#   überall in Brücke um“). Datei- und Skriptnamen bleiben portal*, weil Upload, Hash-Staende
+#   und alle Instanzen daran haengen. Neu: die Sternenkarte (landkarte-ansicht.js + je Person
+#   eine landkarte.js, die dieses Skript nie anlegt und nie ueberschreibt).
 #
 #   Bis heute lag auf <vorname>.vishnuartists.com nur der Flow Compass, an der Wurzel.
 #   Benes Entscheidung vom 04.09.2026: "Auf der Subdomain liegen alle persoenlichen
@@ -85,9 +90,17 @@ if (-not (Test-Path (Join-Path $Ziel 'compass\instanz.js'))) {
   $seite = [Text.RegularExpressions.Regex]::Replace($seite, '(?m)^<script src="compass/instanz\.js".*\r?\n', '')
   Write-Host 'compass\instanz.js fehlt — Verweis aus der Portalseite entfernt (Anrede kommt aus portal.js).'
 }
+# Sternenkarte (11.09.2026): die Ansicht kommt immer mit, die Inhalte (landkarte.js) gibt es
+# nur, wo jemand sie von Hand hinlegt — sie sind persoenlich, es gibt keine Vorlage-Kopie.
+# Ohne landkarte.js fallen beide Zeilen aus der Seite (sonst ein 404 in jeder Konsole).
+if (-not (Test-Path (Join-Path $Ziel 'landkarte.js'))) {
+  $seite = [Text.RegularExpressions.Regex]::Replace($seite, '(?m)^<script src="landkarte(-ansicht)?\.js".*\r?\n', '')
+  Write-Host 'landkarte.js fehlt — die Brücke zeigt keine Sternenkarte.'
+}
 Write-Lf (Join-Path $Ziel 'index.html')           $seite
 Write-Lf (Join-Path $Ziel 'sw.js')                (Read-Utf8 (Join-Path $prod 'portal-sw.js'))
 Write-Lf (Join-Path $Ziel 'manifest.webmanifest') (Read-Utf8 (Join-Path $prod 'portal.webmanifest'))
+Write-Lf (Join-Path $Ziel 'landkarte-ansicht.js') (Read-Utf8 (Join-Path $prod 'landkarte-ansicht.js'))
 
 # portal.js: nur anlegen, nie ueberschreiben
 $pj = Join-Path $Ziel 'portal.js'

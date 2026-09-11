@@ -1,6 +1,8 @@
 /* ============================================================================
-   portal.js — die eine Datei, in der steht, wem dieses Portal gehört und welche
-   Kacheln es zeigt. Sie wird beim Einrichten je Person aus dieser Vorlage kopiert
+   portal.js — die eine Datei, in der steht, wem diese Brücke gehört und welche
+   Kacheln sie zeigt (bis 11.09.2026 hieß die Seite „Mein Portal“; der Dateiname bleibt).
+   Eine Sternenkarte (Nordstern → Ziele → Projekte) kommt nicht hierher, sondern als
+   eigene landkarte.js daneben — Schema in landkarte.example.js. Sie wird beim Einrichten je Person aus dieser Vorlage kopiert
    (build-portal.ps1 legt sie an, wenn keine da ist) und danach nie überschrieben —
    ein Rebau zieht nur den Portalcode nach, deine Einträge bleiben stehen.
 
