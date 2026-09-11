@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- vishnu-portal v2 — an dieser Zeile erkennt build-portal.ps1, dass die Wurzel dieser
+<!-- vishnu-portal v3 — an dieser Zeile erkennt build-portal.ps1, dass die Wurzel dieser
      Subdomain bereits das Portal ist und nicht mehr der Compass (dann laeuft keine Migration). -->
 <html lang="de">
 <head>
@@ -28,6 +28,16 @@
    unter den Kacheln die BEREICHE — CRM, Freelancer-Pool (FAP & JAP), Finanz-Raumschiff
    mit allen Entitäten, Vishnu-Backend, Vaikuntha-Backend. Jeder Bereich ist opt-in
    (portal.js › bereiche), weil er Rückseiten zeigt, die nicht jede Person etwas angehen.
+
+   v3 (11.09.2026, Bene: „gib allen Zugriff auf eine Übersicht wie bene. — auf der
+   Berechtigungsebene, auf der sie stehen — Links zu allen Portalen mit Unterlinks"): die
+   Bereiche sind nicht mehr opt-in, sondern folgen den Rechten. Jeder Bereich, jede Spalte,
+   jede Zeile trägt, was ihre Zielseite verlangt (darf = CRM-Rollen, crew = Raumschiff-Rolle,
+   verein = Stufe bei Vaikuntha) — abgeschrieben aus den Prüfungen der Zielseiten, nicht
+   geraten. Die Rollen kommen live aus der Tür (gate.php?wer=1, aus weiter.php beim Anmelden),
+   Rückfall ist portal.js › rollen. Neu dazu: „Mein Vishnu“ und „Flow“ mit den Absprüngen in
+   Compass und Team-Cockpit und allen Portalen des Kollektivs. Ein Link ist keine Berechtigung —
+   jede Zielseite prüft weiter selbst; das Portal zeigt nur nicht, was ohnehin verschlossen wäre.
 
    Farben sind die Tokens der Website (f/vf.css), damit das Portal zum Auftritt
    des Kollektivs gehört und nicht wie ein zweites Produkt aussieht. Der
@@ -83,6 +93,10 @@ header.top{position:sticky;top:0;z-index:60;background:var(--top);backdrop-filte
 /* ---------- Begrüßung ---------------------------------------------------------------- */
 .hero{padding:44px 0 30px}
 .hero h1{font-size:clamp(36px,5.2vw,60px);margin:10px 0 0;max-width:18ch}
+.ebene{margin:14px 0 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12.5px;color:var(--sub)}
+.ebene .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:2px 10px;font-weight:600;color:var(--ink)}
+.ebene .chip.v{border-color:var(--violet-soft);background:var(--violet-soft)}
+.ebene .chip.a{border-color:var(--amber-soft);background:var(--amber-soft)}
 
 /* ---------- Kacheln: die Karten der Website (.card), eine Reihe für die Hauptwege ----- */
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(196px,1fr));gap:16px}
@@ -124,6 +138,9 @@ html[data-theme="dark"] .btn.ghost{color:var(--ink)}
 .spalte a:hover,.spalte a:focus-visible{background:var(--green-soft);color:var(--green-d);outline:none}
 .spalte a .ic2{font-size:14px;flex:none;width:19px}
 .spalte a .ext{margin-left:auto;font-size:11px;color:var(--sub);font-weight:600}
+.spalte a.hier{font-weight:700}
+.spalte a.hier .ext{color:var(--green-d)}
+@media(max-width:900px){ .navlinks{display:none} }
 
 /* ---------- Zweite Ebene: selten gebraucht, ohne Kachel-Optik ------------------------- */
 .mehr{margin-top:40px;padding-top:22px;border-top:1px solid var(--line);
@@ -160,6 +177,7 @@ body.gross .grid{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
     <p class="kick" id="kick">Persönliches Portal</p>
     <h1 id="gruss">Willkommen</h1>
     <p class="lead" id="lead">Deine Werkzeuge an einer Stelle. Ein Login, alle Wege.</p>
+    <p class="ebene" id="ebene" hidden></p>
   </section>
 
   <div class="grid" id="grid"></div>
@@ -180,16 +198,56 @@ var NAME = P.name || I.name || '';
 var INSTANZ = P.person || I.kunde || '';
 if (P.gross) document.body.classList.add('gross');
 
+/* ---------- Berechtigungsebene (v3, 11.09.2026) --------------------------------------
+   ROLLEN  CRM-Rollen der Person, die gerade schaut. Zuerst aus portal.js (Stand beim
+           Einrichten), dann live aus der Tür (gate.php?wer=1 — die Tür bekommt sie beim
+           Anmelden von weiter.php). Live gewinnt: wer eine Rolle verliert, verliert den Link.
+   CREW    Rolle im Finanz-Raumschiff (kapitaen · firma · vertraege). Keine CRM-Rolle,
+           sondern eine feste Liste in raumschiff/zugang.php — deshalb nur aus portal.js.
+   VEREIN  Stufe bei Vaikuntha (admin · vorstand · beirat · mitglied). Das CRM von
+           vishnuartists.com kennt sie nicht (Zwei Häuser, 02.09.2026) — nur aus portal.js. */
+var ROLLEN = Array.isArray(P.rollen) ? P.rollen.slice() : [];
+var ROLLEN_QUELLE = ROLLEN.length ? 'hinterlegt' : '';   /* 'live' nach der Antwort der Tür */
+var CREW = String(P.crew || '');
+var VEREIN = String(P.verein || '');
+var VSTUFE = { mitglied:2, beirat:3, vorstand:4, admin:5 };
+/* Was die Zielseiten verlangen — abgeschrieben aus ihren Prüfungen (Stand 11.09.2026):
+     crm.php:64                         gruender · intern · finanzen
+     portal-admin.php, pool-kpi.php,
+     dubletten.php (vf_portal_pflegt)   gruender · intern
+     finanzlauf/*                       gruender · finanzen
+     portal.php (VF_PORTAL_ROLLEN)      Kollektiv + Anwärter + finanzen
+     va./gate-config.php                gruender · intern · vertrag · coach · trainer */
+var R = {
+  crm:     ['gruender','intern','finanzen'],
+  pflege:  ['gruender','intern'],
+  finanz:  ['gruender','finanzen'],
+  portal:  ['gruender','intern','vertrag','freelancer','trainer','coach','partner','aspirant','alumni','finanzen'],
+  cockpit: ['gruender','intern','vertrag','coach','trainer'],
+  gruender:['gruender']
+};
+
 /* ---------- Sprache: Deutsch und Englisch (VA-13529: Marwan liest Englisch) ---------- */
 var TEXTE = {
   de: { gruss:['Guten Morgen','Guten Tag','Guten Abend'],
         lead:'Deine Werkzeuge an einer Stelle. Ein Login, alle Wege.',
         kick:'Persönliches Portal', oeffnen:'Öffnen', hier:'hier auf dieser Seite', extern:'extern',
-        fuss:'Persönliches Portal · geschützt wie das Team-Cockpit · Fragen an ', sprache:'EN', pill:'Mein Portal' },
+        fuss:'Persönliches Portal · geschützt wie das Team-Cockpit · Fragen an ', sprache:'EN', pill:'Mein Portal',
+        ebene:'Du siehst, was deine Rechte öffnen:', live:'laut Anmeldung', hinterlegt:'hinterlegt',
+        crew:'Raumschiff', verein:'Verein', duHier:'du bist hier' },
   en: { gruss:['Good morning','Hello','Good evening'],
         lead:'Your tools in one place. One login, every way in.',
         kick:'Personal portal', oeffnen:'Open', hier:'here on this site', extern:'external',
-        fuss:'Personal portal · protected like the team cockpit · questions to ', sprache:'DE', pill:'My portal' }
+        fuss:'Personal portal · protected like the team cockpit · questions to ', sprache:'DE', pill:'My portal',
+        ebene:'You see what your access opens:', live:'from your sign-in', hinterlegt:'on file',
+        crew:'Spaceship', verein:'Association', duHier:'you are here' }
+};
+var NAMEN = {
+  gruender:['Gründung','Founders'], intern:['Kern-Team','Core team'], finanzen:['Finanzen','Finance'],
+  vertrag:['Vertrag','Contract'], freelancer:['Freelancer','Freelancer'], trainer:['Trainer:in','Trainer'],
+  coach:['Coach','Coach'], partner:['Partner','Partner'], aspirant:['Aspirant:in','Aspirant'], alumni:['Alumni','Alumni'],
+  kapitaen:['Kapitän','Captain'], firma:['Firma','Company'], vertraege:['Verträge','Contracts'],
+  admin:['Administration','Admin'], vorstand:['Vorstand','Board'], beirat:['Beirat','Advisory board'], mitglied:['Mitglied','Member']
 };
 var SPR = (function(){
   try { var g = localStorage.getItem('portalSprache'); if (g) return g; } catch(e){}
@@ -232,15 +290,83 @@ var STANDARD = [
     en:['Finance spaceship','Company, private, association, Luxembourg — one cockpit, one course.'] }
 ];
 
-/* ---------- Bereiche: die Rückseiten (07.09.2026) -----------------------------------
-   Alle opt-in — portal.js › bereiche: { crm:true, fap:true, raumschiff:true, vishnu:true,
-   vaikuntha:true }. true = an, false/fehlt = aus, Text = eigene Hauptadresse. Einzelne
-   Zeilen: portal.js › links: { 'fap.stajira': false, 'crm.start': 'https://…' }.
+/* Die Portale des Kollektivs (Liste wie $INSTANZEN in publish-compass.ps1 plus bene.).
+   Persönliche Portale öffnet die Tür nur der Person selbst und der Gründung
+   (gate-config.php › $GATE_ROLLEN = gruender) — deshalb sehen alle anderen nur ihr eigenes. */
+var PORTALE = ['bene','philipp','jan','marwan','florian','domingo','martin'];
+function portalLinks(){
+  var eigen = location.host.split('.')[0];
+  var l = PORTALE.map(function(s){
+    var x = { id:'p-' + s, icon:'🪷', url:'https://' + s + '.vishnuartists.com/', de:s + '.vishnuartists.com', en:s + '.vishnuartists.com' };
+    if (s === eigen) { x.hier = true; x.offen = true; } else { x.darf = R.gruender; }
+    return x;
+  });
+  l.push({ id:'va',   icon:'📊', url:'https://va.vishnuartists.com/',          darf:R.cockpit, de:'va.vishnuartists.com — Team-Cockpit', en:'va.vishnuartists.com — team cockpit' });
+  l.push({ id:'demo', icon:'🎬', url:'https://demo.vishnuartists.com/',        offen:true,     de:'demo.vishnuartists.com — Compass-Demo', en:'demo.vishnuartists.com — Compass demo' });
+  l.push({ id:'demo-cockpit', icon:'🎬', url:'https://demo.vishnuartists.com/cockpit/', offen:true, de:'demo.vishnuartists.com/cockpit — Cockpit-Starter', en:'demo.vishnuartists.com/cockpit — cockpit starter' });
+  return l;
+}
+
+/* ---------- Bereiche: die Rückseiten (07.09.2026, v3 11.09.2026) --------------------
+   Seit v3 folgen sie den Rechten: ein Bereich erscheint, sobald die Person mindestens eine
+   seiner Zeilen öffnen darf. Die Regel steht am Link, sonst an der Spalte, sonst am Bereich:
+     darf:[…]      eine dieser CRM-Rollen      crew:[…]   eine dieser Raumschiff-Rollen
+     verein:'…'    mindestens diese Stufe      nur:'<kachel>'  nur, wenn die Kachel an ist
+     offen:true    ohne Einschränkung (für Angemeldete)
+   portal.js › bereiche: { crm:false } blendet trotzdem aus, ein Text setzt die Hauptadresse.
+   Einzelne Zeilen: portal.js › links: { 'fap.stajira': false, 'crm.start': 'https://…' }.
    `ersetzt` nennt die Zeilen der zweiten Ebene, die derselbe Bereich schon enthält —
-   sie fallen weg, sobald der Bereich an ist (zwei Wege zum selben Ziel verwirren).
-   Jede Adresse wurde am 07.09.2026 live geprüft — keine erfundenen Einträge. */
+   sie fallen weg, sobald der Bereich zu sehen ist (zwei Wege zum selben Ziel verwirren).
+   Jede Adresse wurde am 07.09. bzw. 11.09.2026 live geprüft — keine erfundenen Einträge. */
 var BEREICHE = [
-  { id:'crm', icon:'🗂️', url:VA + 'crm.php?v=start', ersetzt:['crm'],
+  { id:'ich', icon:'🪷', url:VA + 'mein-vishnu.html', darf:R.portal, ersetzt:['profil','freelancerportal','team','academy','buchung','jira'],
+    kick:['Mein Vishnu','My Vishnu'],
+    de:['Mein Vishnu','Profil, Rang, Unterlagen und Lernen — was dich im Kollektiv betrifft.'],
+    en:['My Vishnu','Profile, rank, documents and learning — what concerns you in the collective.'],
+    spalten:[
+      { de:'Ich', en:'Me', links:[
+        /* profil.html, nicht profil.php: die .php ist die JSON-Schnittstelle (ohne Anmeldung 401) —
+           bis v2 zeigte „Mein Profil pflegen“ dorthin. */
+        { id:'profil',     icon:'👤', url:VA + 'profil.html',              de:'Mein Profil pflegen',        en:'Edit my profile' },
+        { id:'meinvishnu', icon:'🪷', url:VA + 'mein-vishnu.html',         de:'Mein Vishnu — Rang & Punkte', en:'My Vishnu — rank & points' },
+        { id:'backstage',  icon:'🎭', url:VA + 'backstage.html',           de:'Backstage — Rollenbild & Unterlagen', en:'Backstage — role & documents' },
+        { id:'freelancerportal', icon:'🎒', url:VA + 'portal.html',        de:'Mein Freelancer-Portal',     en:'My freelancer portal' } ] },
+      { de:'Lernen & Menschen', en:'Learning & people', links:[
+        { id:'academy',  icon:'🎓', url:VA + 'academy.html',  de:'Academy',               en:'Academy' },
+        { id:'buchung',  icon:'📅', url:VA + 'buchung.html',  de:'Training buchen',       en:'Book a training' },
+        { id:'erwachen', icon:'🌸', url:VA + 'erwachen.html', de:'Stufen des Erwachens',  en:'Stages of awakening' },
+        { id:'team',     icon:'👥', url:VA + 'team.html',     de:'Menschen & Profile',    en:'People & profiles' } ] },
+      { de:'Zugang', en:'Access', links:[
+        { id:'passkeys', icon:'🔐', url:VA + 'anmelden.php?passkeys=1', de:'Passkeys verwalten', en:'Manage passkeys' },
+        { id:'passwort', icon:'🔑', url:VA + 'anmelden.php?passwort=1', de:'Passwort setzen',    en:'Set a password' },
+        { id:'jira',     icon:'🎫', url:'https://vishnuartists.atlassian.net/jira/projects', de:'Jira — alle Projekte', en:'Jira — all projects', zeigt:'atlassian.net' } ] }
+    ] },
+
+  { id:'flow', icon:'🧭', url:'./compass/', nur:'compass', ersetzt:['kennzahlen'],
+    kick:['Flow & Portale','Flow & portals'],
+    de:['Flow Compass & Team-Cockpit','Direkt an die Stelle springen — und alle Portale des Kollektivs, die du öffnen darfst.'],
+    en:['Flow Compass & team cockpit','Jump straight to the spot — and every portal of the collective you may open.'],
+    spalten:[
+      { de:'Flow Compass', en:'Flow Compass', nur:'compass', links:[
+        { id:'heute',      icon:'🪷', url:'./compass/?go=heute',    de:'Heute im Blick',   en:'Today at a glance' },
+        { id:'schritte',   icon:'⚡', url:'./compass/?go=schritte', de:'Nächste Schritte', en:'Next steps' },
+        { id:'board',      icon:'🧭', url:'./compass/?go=board',    de:'Mein Board',       en:'My board' },
+        { id:'arbeit',     icon:'🎫', url:'./compass/?go=arbeit',   de:'Arbeit & Tickets', en:'Work & tickets' },
+        { id:'rhythmus',   icon:'🎮', url:'./compass/?go=rhythmus', de:'Rhythmus & Level', en:'Rhythm & level' },
+        { id:'morgen',     icon:'🌅', url:'./compass/?go=morgen',   de:'Morgencheck starten', en:'Start the morning check' },
+        { id:'kennzahlen', icon:'📈', url:'./compass/kennzahlen.html', de:'Meine Kennzahlen', en:'My metrics' } ] },
+      /* ?go=… versteht va-app.js (Einstiegspunkte seit 19.08.2026) — nach der Tür ohne zweites Login. */
+      { de:'Team-Cockpit', en:'Team cockpit', darf:R.cockpit, nur:'cockpit', links:[
+        { id:'start', icon:'🏠', url:'https://va.vishnuartists.com/?go=start', de:'Start & Ranglisten',   en:'Start & leaderboards' },
+        { id:'me',    icon:'👤', url:'https://va.vishnuartists.com/?go=me',    de:'Mein Flow',            en:'My flow' },
+        { id:'team',  icon:'👥', url:'https://va.vishnuartists.com/?go=team',  de:'Team-Kennzahlen',      en:'Team metrics' },
+        { id:'aging', icon:'⏳', url:'https://va.vishnuartists.com/?go=aging', de:'Aging — was liegt',    en:'Aging — what is stuck' },
+        { id:'fl2',   icon:'🎯', url:'https://va.vishnuartists.com/?go=fl2',   de:'Flight Level 2+3',     en:'Flight levels 2+3' },
+        { id:'ziff',  icon:'🏁', url:'https://va.vishnuartists.com/?go=ziff',  de:'Flow-Challenge',       en:'Flow challenge' } ] },
+      { de:'Portale im Kollektiv', en:'Portals of the collective', offen:true, links: portalLinks() }
+    ] },
+
+  { id:'crm', icon:'🗂️', url:VA + 'crm.php?v=start', darf:R.crm, ersetzt:['crm'],
     kick:['Menschen & Kunden','People & clients'],
     de:['CRM','Eine Akte je Mensch und Organisation — Rollen, Fähigkeiten, Pipeline, Kurse.'],
     en:['CRM','One record per person and organisation — roles, skills, pipeline, courses.'],
@@ -261,7 +387,7 @@ var BEREICHE = [
         { id:'aufraeumen',icon:'🧹', url:VA + 'dubletten.php',       de:'Dubletten zusammenführen', en:'Merge duplicates' } ] }
     ] },
 
-  { id:'fap', icon:'🎒', url:VA + 'portal-admin.php?v=bewerbungen', ersetzt:['bewerbungen','portalpflege'],
+  { id:'fap', icon:'🎒', url:VA + 'portal-admin.php?v=bewerbungen', darf:R.pflege, ersetzt:['bewerbungen','portalpflege'],
     kick:['Freelancer-Pool','Freelancer pool'],
     de:['FAP & JAP','Aufnahme ins Kollektiv (FAP) und Einsatz beim Kunden (JAP) — von der Bewerbung bis zum Placement.'],
     en:['FAP & JAP','Joining the collective (FAP) and client placements (JAP) — from application to placement.'],
@@ -282,26 +408,30 @@ var BEREICHE = [
         { id:'stajira',    icon:'🎫', url:JIRA + 'STA/boards',      de:'Jira STA',           en:'Jira STA' } ] }
     ] },
 
-  { id:'raumschiff', icon:'🚀', url:VA + 'raumschiff/', ersetzt:['finanzen','strategie','abos'],
+  /* Crew-Sicht wie raumschiff/index.php › $SICHT: was eine Rolle dort nicht sieht, wird gar
+     nicht gerendert — also steht hier auch kein Link darauf. Der Finanzlauf ist davon getrennt
+     und hängt an den CRM-Rollen gruender/finanzen. */
+  { id:'raumschiff', icon:'🚀', url:VA + 'raumschiff/', crew:['kapitaen','firma','vertraege'], ersetzt:['finanzen','strategie','abos'],
     kick:['Finanzen','Finances'],
     de:['Finanz-Raumschiff','Firma, privat, Verein, Luxemburg — ein Cockpit, ein Kurs. Jede Entität hat ihren Platz.'],
     en:['Finance spaceship','Company, private, association, Luxembourg — one cockpit, one course. Every entity has its place.'],
     spalten:[
       { de:'Entitäten', en:'Entities', links:[
-        { id:'bruecke', icon:'🛸', url:VA + 'raumschiff/#bruecke',      de:'Brücke — das Gesamtbild', en:'Bridge — the whole picture' },
-        { id:'privat',  icon:'👤', url:VA + 'raumschiff/#modul-privat', de:'Privat',                  en:'Private' },
-        { id:'firma',   icon:'🏢', url:VA + 'raumschiff/#modul-firma',  de:'Vishnu Artists GmbH',     en:'Vishnu Artists GmbH' },
-        { id:'lux',     icon:'🇱🇺', url:VA + 'raumschiff/#modul-lux',    de:'Luxemburg',               en:'Luxembourg' },
-        { id:'verein',  icon:'🌿', url:VA + 'raumschiff/#modul-verein', de:'Vaikuntha e.V.',          en:'Vaikuntha e.V.' } ] },
+        { id:'bruecke', icon:'🛸', url:VA + 'raumschiff/#bruecke',      crew:['kapitaen'],         de:'Brücke — das Gesamtbild', en:'Bridge — the whole picture' },
+        { id:'privat',  icon:'👤', url:VA + 'raumschiff/#modul-privat', crew:['kapitaen'],         de:'Privat',                  en:'Private' },
+        { id:'firma',   icon:'🏢', url:VA + 'raumschiff/#modul-firma',  crew:['kapitaen','firma'], de:'Vishnu Artists GmbH',     en:'Vishnu Artists GmbH' },
+        { id:'lux',     icon:'🇱🇺', url:VA + 'raumschiff/#modul-lux',    crew:['kapitaen'],         de:'Luxemburg',               en:'Luxembourg' },
+        { id:'verein',  icon:'🌿', url:VA + 'raumschiff/#modul-verein', crew:['kapitaen'],         de:'Vaikuntha e.V.',          en:'Vaikuntha e.V.' } ] },
       { de:'Steuerung', en:'Steering', links:[
-        { id:'vertraege',  icon:'📜', url:VA + 'raumschiff/#vertraege',  de:'Verträge & Darlehen', en:'Contracts & loans' },
-        { id:'wechsel',    icon:'🔗', url:VA + 'raumschiff/#wechsel',    de:'Wechselwirkungen',    en:'Interactions' },
+        { id:'vertraege',  icon:'📜', url:VA + 'raumschiff/#vertraege',  crew:['kapitaen','vertraege'], de:'Verträge & Darlehen', en:'Contracts & loans' },
+        { id:'wechsel',    icon:'🔗', url:VA + 'raumschiff/#wechsel',    crew:['kapitaen'],             de:'Wechselwirkungen',    en:'Interactions' },
         { id:'kurs',       icon:'🧭', url:VA + 'raumschiff/#kurs',       de:'Kurskorrekturen',     en:'Course corrections' },
-        { id:'pruefstand', icon:'🦅', url:VA + 'raumschiff/#pruefstand', de:'Prüfstand',           en:'Test bench' },
-        { id:'anlage',     icon:'📈', url:VA + 'raumschiff/#anlage',     de:'Anlage & Trading',    en:'Investing & trading' },
-        { id:'fragen',     icon:'❓', url:VA + 'raumschiff/#fragen',     de:'Offene Fragen',       en:'Open questions' },
-        { id:'logbuch',    icon:'📓', url:VA + 'raumschiff/#logbuch',    de:'Logbuch',             en:'Logbook' } ] },
-      { de:'Finanzlauf GmbH', en:'Company finance run', links:[
+        { id:'pruefstand', icon:'🦅', url:VA + 'raumschiff/#pruefstand', crew:['kapitaen'],             de:'Prüfstand',           en:'Test bench' },
+        { id:'anlage',     icon:'📈', url:VA + 'raumschiff/#anlage',     crew:['kapitaen'],             de:'Anlage & Trading',    en:'Investing & trading' },
+        { id:'fragen',     icon:'❓', url:VA + 'raumschiff/#fragen',     crew:['kapitaen','vertraege'], de:'Offene Fragen',       en:'Open questions' },
+        { id:'logbuch',    icon:'📓', url:VA + 'raumschiff/#logbuch',    crew:['kapitaen','vertraege'], de:'Logbuch',             en:'Logbook' },
+        { id:'vorschlaege',icon:'💡', url:VA + 'raumschiff/#vorschlaege', de:'Verbesserungsvorschläge', en:'Suggestions' } ] },
+      { de:'Finanzlauf GmbH', en:'Company finance run', darf:R.finanz, links:[
         { id:'finanzen',  icon:'💶', url:VA + 'finanzlauf/',              de:'Übersicht',            en:'Overview' },
         { id:'lauf',      icon:'🗓️', url:VA + 'finanzlauf/lauf.php',      de:'Monatslauf & Belege',  en:'Monthly run & receipts' },
         { id:'strategie', icon:'🧮', url:VA + 'finanzlauf/strategie.php', de:'Strategie Liquidität', en:'Liquidity strategy' },
@@ -309,54 +439,63 @@ var BEREICHE = [
         { id:'sync',      icon:'🤝', url:VA + 'finanzlauf/sync.php',      de:'GF-Sync',              en:'Management sync' } ] }
     ] },
 
-  { id:'vishnu', icon:'🎛️', url:'', ersetzt:['jira'],
+  /* Backstage, Team, Academy, Mein Vishnu, Stufen des Erwachens und das Team-Cockpit stehen seit
+     v3 in „Mein Vishnu“ bzw. „Flow“ — hier nur, was hinter der Website liegt. GitHub, KAS,
+     Fastbill und Stripe sind Konten der Gründung. */
+  { id:'vishnu', icon:'🎛️', url:'', darf:R.portal, ersetzt:[],
     kick:['Vishnu Artists','Vishnu Artists'],
     de:['Vishnu-Backend','Die Rückseite von vishnuartists.com: Pflege, Zahlen und die Werkzeuge dahinter.'],
     en:['Vishnu backend','Behind vishnuartists.com: admin, numbers and the tools underneath.'],
     spalten:[
       { de:'Pflege & Zahlen', en:'Admin & numbers', links:[
-        { id:'portaladmin', icon:'🛠️', url:VA + 'portal-admin.php',  de:'Portal-Pflege',          en:'Portal admin' },
-        { id:'zustand',     icon:'🩺', url:VA + 'crm.php?v=zustand', de:'Zustand des CRM',        en:'CRM health' },
-        { id:'kennzahlen',  icon:'📊', url:VA + 'kennzahlen.html',   de:'Kennzahlen der Website', en:'Website metrics' },
-        { id:'erwachen',    icon:'🌸', url:VA + 'erwachen.html',     de:'Stufen des Erwachens',   en:'Stages of awakening' },
-        { id:'cockpit',     icon:'📈', url:'https://va.vishnuartists.com/', de:'Team-Cockpit',      en:'Team cockpit' } ] },
+        { id:'portaladmin', icon:'🛠️', url:VA + 'portal-admin.php',  darf:R.pflege, de:'Portal-Pflege',          en:'Portal admin' },
+        { id:'zustand',     icon:'🩺', url:VA + 'crm.php?v=zustand', darf:R.crm,    de:'Zustand des CRM',        en:'CRM health' },
+        { id:'kennzahlen',  icon:'📊', url:VA + 'kennzahlen.html',   de:'Kennzahlen der Website', en:'Website metrics' } ] },
       { de:'Website', en:'Website', links:[
-        { id:'start',     icon:'🌐', url:VA,                     de:'Startseite',   en:'Home page' },
-        { id:'backstage', icon:'🎭', url:VA + 'backstage.html',  de:'Backstage',    en:'Backstage' },
-        { id:'team',      icon:'👥', url:VA + 'team.html',       de:'Team',         en:'Team' },
-        { id:'academy',   icon:'🎓', url:VA + 'academy.html',    de:'Academy',      en:'Academy' },
-        { id:'meinvishnu',icon:'🪷', url:VA + 'mein-vishnu.html',de:'Mein Vishnu',  en:'My Vishnu' } ] },
+        { id:'start',      icon:'🌐', url:VA,                       de:'Startseite',           en:'Home page' },
+        { id:'insights',   icon:'📰', url:VA + 'blog.html',         de:'Insights',             en:'Insights' },
+        { id:'freelancer', icon:'🤝', url:VA + 'freelancer.html',   de:'Freelancer-Seite',     en:'Freelancer page' },
+        { id:'produkt',    icon:'🧭', url:VA + 'flow-compass.html', de:'Flow Compass — Produktseite', en:'Flow Compass — product page' } ] },
       { de:'Werkzeuge', en:'Tools', links:[
         { id:'jira',     icon:'🎫', url:JIRA + 'VA/boards',                    de:'Jira VA',            en:'Jira VA', zeigt:'atlassian.net' },
-        { id:'github',   icon:'🐙', url:'https://github.com/benediktirsch-rgb', de:'GitHub (Repos)',     en:'GitHub (repos)', zeigt:'github.com' },
-        { id:'kas',      icon:'🖥️', url:'https://kas.all-inkl.com/',            de:'KAS — Hosting',      en:'KAS — hosting', zeigt:'all-inkl.com' },
-        { id:'fastbill', icon:'🧾', url:'https://my.fastbill.com/',             de:'Fastbill — Rechnungen', en:'Fastbill — invoices', zeigt:'fastbill.com' },
-        { id:'stripe',   icon:'💳', url:'https://dashboard.stripe.com/',        de:'Stripe — Zahlungen', en:'Stripe — payments', zeigt:'stripe.com' } ] }
+        { id:'github',   icon:'🐙', url:'https://github.com/benediktirsch-rgb', darf:R.gruender, de:'GitHub (Repos)',     en:'GitHub (repos)', zeigt:'github.com' },
+        { id:'kas',      icon:'🖥️', url:'https://kas.all-inkl.com/',            darf:R.gruender, de:'KAS — Hosting',      en:'KAS — hosting', zeigt:'all-inkl.com' },
+        { id:'fastbill', icon:'🧾', url:'https://my.fastbill.com/',             darf:R.gruender, de:'Fastbill — Rechnungen', en:'Fastbill — invoices', zeigt:'fastbill.com' },
+        { id:'stripe',   icon:'💳', url:'https://dashboard.stripe.com/',        darf:R.gruender, de:'Stripe — Zahlungen', en:'Stripe — payments', zeigt:'stripe.com' } ] }
     ] },
 
-  { id:'vaikuntha', icon:'🌿', url:wp('vk-cockpit'), zeigt:'vaikuntha.eu', ersetzt:[],
+  /* Vaikuntha (Stand Plugins 09.09.2026): jede wp-admin-Seite verlangt mindestens edit_posts, die
+     meisten edit_others_posts oder manage_options — Konten, die die Plugins anlegen, sind
+     Abonnenten und werden nach /einstieg/ umgeleitet. Deshalb wp-admin nur für verein:'admin';
+     Vorstand, Beirat und Mitglieder bekommen die Vorderseiten (Mein Bereich, Camp-Kasse,
+     Social-Plan), die dieselben Rollen serverseitig prüfen. */
+  { id:'vaikuntha', icon:'🌿', url:function(){ return VEREIN === 'admin' ? wp('vk-cockpit') : vk('/mein-bereich/'); },
+    zeigt:'vaikuntha.eu', verein:'mitglied', ersetzt:[],
     kick:['Verein','Association'],
-    de:['Vaikuntha-Backend','Das WordPress-Cockpit von vaikuntha.eu — angemeldet über dein Vishnu-Konto, kein zweites Login.'],
-    en:['Vaikuntha backend','The WordPress cockpit of vaikuntha.eu — signed in through your Vishnu account, no second login.'],
+    de:['Vaikuntha','Der Verein auf vaikuntha.eu — Mitgliederbereich, Camp und je nach Amt das WordPress-Cockpit. Angemeldet über dein Vishnu-Konto.'],
+    en:['Vaikuntha','The association on vaikuntha.eu — member area, camp and, depending on your office, the WordPress cockpit. Signed in through your Vishnu account.'],
     spalten:[
-      { de:'Cockpit & Mitglieder', en:'Cockpit & members', links:[
+      { de:'Mitgliederbereich', en:'Member area', links:[
+        { id:'bereich',   icon:'🪷', url:vk('/mein-bereich/'), de:'Mein Bereich',  en:'My area' },
+        /* unter:'admin' — die Vorderseiten braucht nur, wer nicht ins wp-admin darf. */
+        { id:'campkasse', icon:'💰', url:vk('/camp-kasse/'),   unter:'admin', de:'Camp-Kasse',    en:'Camp cash desk' },
+        { id:'socialplan',icon:'📣', url:vk('/social-plan/'),  verein:'beirat', unter:'admin', de:'Social-Plan', en:'Social plan' },
+        { id:'site',      icon:'🌐', url:'https://vaikuntha.eu/', de:'vaikuntha.eu', en:'vaikuntha.eu' } ] },
+      { de:'Cockpit & Mitglieder', en:'Cockpit & members', verein:'admin', links:[
         { id:'cockpit',  icon:'🏠', url:wp('vk-cockpit'),                   de:'Vaikuntha Cockpit',   en:'Vaikuntha cockpit' },
         { id:'crm',      icon:'📇', url:wp('vk-crm'),                       de:'CRM & Kontakte',      en:'CRM & contacts' },
         { id:'freigabe', icon:'🔐', url:vk('/wp-admin/users.php?page=vk-freigabe'), de:'Zugänge freigeben', en:'Approve access' },
         { id:'beitraege',icon:'💶', url:wp('vk-beitraege'),                 de:'Mitgliedsbeiträge',   en:'Membership fees' },
         { id:'wpadmin',  icon:'⚙️', url:vk('/wp-admin/'),                   de:'WordPress-Admin',     en:'WordPress admin' } ] },
-      { de:'Camp & Programm', en:'Camp & programme', links:[
+      { de:'Camp & Programm', en:'Camp & programme', verein:'admin', links:[
         { id:'sommercamp', icon:'⛺', url:wp('vk_sc_admin'),      de:'Sommercamp',       en:'Summer camp' },
         { id:'verwaltung', icon:'📋', url:wp('vk_sc_verwaltung'), de:'Camp-Verwaltung',  en:'Camp admin' },
         { id:'kasse',      icon:'💰', url:wp('vk-camp-kasse'),    de:'Camp-Kasse',       en:'Camp cash desk' },
         { id:'gebuehren',  icon:'🧾', url:wp('vk_sc_fee'),        de:'Gebühren-Report',  en:'Fee report' },
         { id:'yoga',       icon:'🧘', url:wp('vk_yk_admin'),      de:'YogaKuntha',       en:'YogaKuntha' },
         { id:'goa',        icon:'🌴', url:wp('vk-goa'),           de:'Goa-Trip 2026/27', en:'Goa trip 2026/27' },
-        { id:'social',     icon:'📣', url:wp('vk-social-plan'),   de:'Social-Plan',      en:'Social plan' } ] },
-      { de:'Außen', en:'Outside', links:[
-        { id:'site',    icon:'🌐', url:'https://vaikuntha.eu/',   de:'vaikuntha.eu',      en:'vaikuntha.eu' },
-        { id:'bereich', icon:'🪷', url:vk('/mein-bereich/'),      de:'Mein Bereich',      en:'My area' },
-        { id:'jira',    icon:'🎫', url:JIRA + 'VAIKWEB/boards',   de:'Jira VAIKWEB',      en:'Jira VAIKWEB', zeigt:'atlassian.net' } ] }
+        { id:'social',     icon:'📣', url:wp('vk-social-plan'),   de:'Social-Plan',      en:'Social plan' },
+        { id:'jira',       icon:'🎫', url:JIRA + 'VAIKWEB/boards', de:'Jira VAIKWEB',    en:'Jira VAIKWEB', zeigt:'atlassian.net' } ] }
     ] }
 ];
 
@@ -366,7 +505,7 @@ var BEREICHE = [
    true = Standardadresse, false = weg, Text = eigene Adresse. Aus Gründen der
    Abwärtskompatibilität wirkt auch der alte Block `neben` weiter. */
 var MEHR = [
-  { gruppe:'ich', id:'profil', icon:'👤', std:true, url:VA + 'profil.php',
+  { gruppe:'ich', id:'profil', icon:'👤', std:true, url:VA + 'profil.html',
     de:'Mein Profil pflegen', en:'Edit my profile' },
   { gruppe:'ich', id:'kennzahlen', icon:'📈', std:true, url:'./compass/kennzahlen.html',
     de:'Meine Kennzahlen', en:'My metrics' },
@@ -403,23 +542,50 @@ var GRUPPEN = [
   { id:'lernen',   de:'Lernen & Termine', en:'Learning & dates' }
 ];
 
-/* Adresse einer Kachel: nichts gesagt = Standard, false = aus, Text = eigene Adresse. */
+/* Adresse einer Kachel: nichts gesagt = Standard, false = aus, Text = eigene Adresse.
+   Raumschiff und Vaikuntha haben keine Standardadresse — seit v3 schalten sie sich an,
+   wenn portal.js eine Crew-Rolle bzw. eine Vereinsstufe nennt. */
+function kachelStandard(k){
+  if (k.url) return k.url;
+  if (k.id === 'raumschiff' && CREW) return VA + 'raumschiff/';
+  if (k.id === 'vaikuntha' && VSTUFE[VEREIN]) return vk('/mein-bereich/');
+  return '';
+}
 function ziel(k){
   var c = P.kacheln || {};
-  if (!(k.id in c)) return k.url;
+  if (!(k.id in c)) return kachelStandard(k);
   var v = c[k.id];
   if (v === false) return '';
-  if (v === true) return k.url;
+  if (v === true) return kachelStandard(k);
   return String(v || '');
 }
-/* Dasselbe für einen Bereich (Standard: aus) und für eine einzelne Zeile darin. */
+function kachelAn(id){
+  var k = STANDARD.filter(function(x){ return x.id === id; })[0];
+  return !k || !!ziel(k);
+}
+/* Die Regel eines Links: die eigene, sonst die der Spalte, sonst die des Bereichs. */
+function regel(){
+  for (var i = 0; i < arguments.length; i++) {
+    var o = arguments[i];
+    if (o && (o.darf || o.crew || o.verein || o.nur || o.offen)) return o;
+  }
+  return {};
+}
+function erlaubt(o){
+  if (o.darf && !o.darf.some(function(r){ return ROLLEN.indexOf(r) >= 0; })) return false;
+  if (o.crew && o.crew.indexOf(CREW) < 0) return false;
+  if (o.verein && (VSTUFE[VEREIN] || 0) < VSTUFE[o.verein]) return false;
+  if (o.nur && !kachelAn(o.nur)) return false;
+  return true;
+}
+/* Ein Bereich: portal.js › bereiche[id] === false blendet aus, ein Text ist die eigene
+   Hauptadresse. Sonst entscheiden die Rechte (siehe zeichne()). */
+function bereichAus(b){ var c = P.bereiche || {}; return c[b.id] === false; }
 function bereichZiel(b){
   var c = P.bereiche || {};
-  if (!(b.id in c)) return null;               /* aus */
-  var v = c[b.id];
-  if (v === false) return null;
-  if (v === true) return b.url;                /* '' erlaubt: Bereich ohne Hauptknopf */
-  return String(v || '');
+  if (typeof c[b.id] === 'string') return c[b.id];
+  if (!erlaubt(b)) return '';                  /* Bereich sichtbar, Hauptknopf nicht */
+  return typeof b.url === 'function' ? b.url() : (b.url || '');
 }
 function linkZiel(b, l){
   var c = P.links || {};
@@ -454,6 +620,15 @@ function zeichne(){
   document.getElementById('pill').textContent = T.pill;
   document.getElementById('knSprache').textContent = T.sprache;
 
+  /* ---- Ebene: woher die Auswahl kommt, sichtbar statt stillschweigend ---- */
+  var ix = SPR === 'en' ? 1 : 0, eb = '';
+  ROLLEN.forEach(function(r){ if (NAMEN[r]) eb += '<span class="chip">' + esc(NAMEN[r][ix]) + '</span>'; });
+  if (CREW && NAMEN[CREW]) eb += '<span class="chip v">🚀 ' + esc(T.crew) + ': ' + esc(NAMEN[CREW][ix]) + '</span>';
+  if (VEREIN && NAMEN[VEREIN]) eb += '<span class="chip a">🌿 ' + esc(T.verein) + ': ' + esc(NAMEN[VEREIN][ix]) + '</span>';
+  var ebEl = document.getElementById('ebene');
+  ebEl.innerHTML = eb ? esc(T.ebene) + ' ' + eb + (ROLLEN_QUELLE ? ' <span>· ' + esc(ROLLEN_QUELLE === 'live' ? T.live : T.hinterlegt) + '</span>' : '') : '';
+  ebEl.hidden = !eb;
+
   /* ---- Kacheln ---- */
   var n = 0, html = '';
   /* portal.js › haupt: '<id>' macht eine andere Kachel zur ersten und hervorgehobenen
@@ -475,19 +650,24 @@ function zeichne(){
   /* ---- Bereiche ---- */
   var ersetzt = {}, bh = '', nav = '';
   BEREICHE.forEach(function(b){
-    var u = bereichZiel(b); if (u === null) return;
-    (b.ersetzt || []).forEach(function(id){ ersetzt[id] = true; });
+    if (bereichAus(b)) return;
     var t = b[SPR] || b.de, kick = b.kick[SPR === 'en' ? 1 : 0];
     var sp = '';
     b.spalten.forEach(function(s){
       var zeilen = '';
       s.links.forEach(function(l){
+        if (!erlaubt(regel(l, s, b))) return;
+        if (l.unter && (VSTUFE[VEREIN] || 0) >= VSTUFE[l.unter]) return;
         var lu = linkZiel(b, l); if (!lu) return;
-        zeilen += '<li>' + aTag(lu) + '<span class="ic2">' + l.icon + '</span>' + esc(l[SPR] || l.de) +
-                  (l.zeigt ? '<span class="ext">' + esc(l.zeigt) + '</span>' : '') + '</a></li>';
+        zeilen += '<li>' + aTag(lu, l.hier ? 'hier' : '') + '<span class="ic2">' + l.icon + '</span>' + esc(l[SPR] || l.de) +
+                  (l.hier ? '<span class="ext">' + esc(T.duHier) + '</span>' : (l.zeigt ? '<span class="ext">' + esc(l.zeigt) + '</span>' : '')) + '</a></li>';
       });
       if (zeilen) sp += '<div class="spalte"><h4>' + esc(s[SPR] || s.de) + '</h4><ul>' + zeilen + '</ul></div>';
     });
+    /* Nichts darin, was die Person öffnen dürfte → der Bereich erscheint gar nicht. */
+    if (!sp) return;
+    var u = bereichZiel(b);
+    (b.ersetzt || []).forEach(function(id){ ersetzt[id] = true; });
     bh += '<section class="bereich" id="b-' + esc(b.id) + '"><div class="bk">' +
           '<span class="bic">' + b.icon + '</span><div class="bt"><p class="kick">' + esc(kick) + '</p>' +
           '<h2>' + esc(t[0]) + '</h2><p class="sub">' + esc(t[1]) + '</p></div>' +
@@ -517,6 +697,7 @@ function zeichne(){
     if (zeilen) mehr += '<div><h3>' + esc(g[SPR] || g.de) + '</h3><ul>' + zeilen + '</ul></div>';
   });
   document.getElementById('mehr').innerHTML = mehr;
+  document.getElementById('mehr').hidden = !mehr;
 
   var mail = P.mail || I.mail || 'hallo@vishnuartists.com';
   document.getElementById('fuss').innerHTML =
@@ -557,6 +738,23 @@ document.addEventListener('keydown', function(e){
 
 themeAn();
 zeichne();
+
+/* ---------- Rollen live aus der Tür (v3) ---------------------------------------------
+   gate.php kennt die Rollen seit dem 11.09.2026 aus weiter.php und gibt sie über ?wer=1
+   zurück. rollen:null heißt: Türcookie von vorher, ohne Rollen — dann bleibt es bei
+   portal.js, bis die Tür das Cookie spätestens nach vier Stunden neu ausstellt. Lokal (ohne
+   Tür) antwortet niemand, und die Seite bleibt, wie sie ist. */
+(function(){
+  if (!window.fetch || location.protocol !== 'https:') return;
+  fetch('/gate.php?wer=1', { credentials:'same-origin', cache:'no-store' })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      if (!j || !j.ok || !Array.isArray(j.rollen)) return;
+      ROLLEN = j.rollen; ROLLEN_QUELLE = 'live';
+      zeichne();
+    })
+    .catch(function(){});
+})();
 
 /* ---------- Als App installierbar ---------------------------------------------------- */
 if ('serviceWorker' in navigator) {

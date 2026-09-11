@@ -81,10 +81,24 @@ function g_seite( $code, $titel, $text, $knopf = '' ) {
 	exit;
 }
 
-/* ————— Cookie: signiert, kurz, ohne Serverspeicher ————— */
-function g_cookie_bauen( $person, $mail, $name = '' ) {
+/* ————— Cookie: signiert, kurz, ohne Serverspeicher —————
+   'r' (11.09.2026, Bene: „gib allen eine Übersicht wie bene. — auf der Berechtigungsebene, auf der sie
+   stehen"): die CRM-Rollen aus weiter.php. Das Portal fragt sie über ?wer=1 ab und zeigt nur die
+   Bereiche, deren Seiten die Person auch öffnen darf. Die Rollen sind hier nur Wegweiser — geprüft
+   wird weiter auf jeder Zielseite selbst. Nur Kennungen aus Kleinbuchstaben, höchstens zwölf. */
+function g_rollen_sauber( $rollen ) {
+	$aus = array();
+	foreach ( (array) $rollen as $r ) {
+		$r = strtolower( trim( (string) $r ) );
+		if ( preg_match( '/^[a-z_-]{2,30}$/', $r ) && ! in_array( $r, $aus, true ) ) { $aus[] = $r; }
+		if ( count( $aus ) >= 12 ) { break; }
+	}
+	return $aus;
+}
+function g_cookie_bauen( $person, $mail, $name = '', $rollen = array() ) {
 	global $GEHEIM, $STUNDEN;
-	$d = g_b64( json_encode( array( 'p' => (int) $person, 'm' => (string) $mail, 'n' => (string) $name, 'exp' => time() + $STUNDEN * 3600 ) ) );
+	$d = g_b64( json_encode( array( 'p' => (int) $person, 'm' => (string) $mail, 'n' => (string) $name,
+		'r' => g_rollen_sauber( $rollen ), 'exp' => time() + $STUNDEN * 3600 ) ) );
 	return $d . '.' . hash_hmac( 'sha256', $d, $GEHEIM );
 }
 function g_cookie_lesen() {
@@ -167,7 +181,7 @@ if ( isset( $_GET['vf_t'] ) ) {
 			. 'Persönliche Instanzen öffnen nur die Person selbst und die Geschäftsführung. Wenn das ein Irrtum ist: kurz melden, wir tragen es ein.',
 			'<a class="b" href="https://vishnuartists.com/mein-vishnu.html">Zu Mein Vishnu</a>' );
 	}
-	$wert = g_cookie_bauen( (int) $d['person'], (string) $d['mail'], (string) ( $d['name'] ?? '' ) );
+	$wert = g_cookie_bauen( (int) $d['person'], (string) $d['mail'], (string) ( $d['name'] ?? '' ), $d['rollen'] ?? array() );
 	setcookie( 'vf_gate', $wert, array( 'expires' => time() + $STUNDEN * 3600, 'path' => '/',
 		'secure' => true, 'httponly' => true, 'samesite' => 'Lax' ) );
 	header( 'Cache-Control: no-store' );
@@ -185,7 +199,10 @@ if ( isset( $_GET['wer'] ) ) {
 	header( 'Cache-Control: no-store' );
 	$ich = g_cookie_lesen();
 	if ( ! $ich || ! file_exists( $KONFIG ) ) { echo json_encode( array( 'ok' => false ) ); exit; }
-	echo json_encode( array( 'ok' => true, 'person' => (int) $ich['p'], 'mail' => (string) $ich['m'], 'name' => (string) ( $ich['n'] ?? '' ) ), JSON_UNESCAPED_UNICODE );
+	/* rollen: null = Cookie von vor dem 11.09.2026 (ohne Rollen) — das Portal nimmt dann die Rollen
+	   aus portal.js, bis das Cookie spätestens nach $STUNDEN Stunden neu ausgestellt ist. */
+	echo json_encode( array( 'ok' => true, 'person' => (int) $ich['p'], 'mail' => (string) $ich['m'], 'name' => (string) ( $ich['n'] ?? '' ),
+		'rollen' => isset( $ich['r'] ) ? g_rollen_sauber( $ich['r'] ) : null ), JSON_UNESCAPED_UNICODE );
 	exit;
 }
 

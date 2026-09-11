@@ -11,7 +11,20 @@
    sich auf der Subdomain anmeldet.
    ============================================================================ */
 window.PORTAL = {
-  version: 2,
+  version: 3,
+
+  /* Berechtigungsebene (v3, 11.09.2026). Das Portal zeigt jeder Person die Bereiche, die
+     ihre Rechte öffnen — wie auf bene.vishnuartists.com, nur auf ihrer Ebene.
+       rollen  CRM-Rollen wie in f/rollen.php › vf_roster(). Nur Rückfall: angemeldet
+               liefert die Tür (gate.php?wer=1) die echten Rollen und die gewinnen.
+               gruender · intern · finanzen · vertrag · freelancer · trainer · coach …
+       crew    Rolle im Finanz-Raumschiff (raumschiff/zugang.php): 'kapitaen' | 'firma' |
+               'vertraege' | '' — keine CRM-Rolle, deshalb nur hier.
+       verein  Stufe bei Vaikuntha: 'admin' (wp-admin) | 'vorstand' | 'beirat' | 'mitglied' | ''
+               — das Vishnu-CRM kennt sie nicht (Zwei Häuser, 02.09.2026). */
+  rollen: [],
+  crew:   '',
+  verein: '',
 
   /* Anrede und Fußzeile. Leer lassen = aus compass/instanz.js übernehmen. */
   name:   '',
@@ -36,30 +49,23 @@ window.PORTAL = {
        compass    ./compass/                                (immer hier auf der Subdomain)
        cockpit    https://va.vishnuartists.com/
        backstage  https://vishnuartists.com/backstage.html
-       vaikuntha  aus — nur für Menschen im Verein (dann die Adresse eintragen)
-       raumschiff aus — zeigt private Konten, nur für die Crew (dann die Adresse eintragen)
+       vaikuntha  an, sobald `verein` gesetzt ist (Mein Bereich über das Sprungbrett)
+       raumschiff an, sobald `crew` gesetzt ist
      false = Kachel ausblenden · true = Standardadresse · 'https://…' = eigene Adresse. */
-  kacheln: {
-    /* Vereinsmenschen: 'https://vaikuntha.eu/' — oder, damit die Anmeldung mitkommt,
-       der Umweg über das Sprungbrett (SSO, 04.09.2026):
-       'https://vishnuartists.com/weiter.php?zu=https%3A%2F%2Fvaikuntha.eu%2Fwp-json%2Fvishnu%2Fv1%2Fanmelden%3Fzu%3D%252Fmein-bereich%252F' */
-    vaikuntha: false
-  },
+  kacheln: {},
 
-  /* Die Bereiche (07.09.2026): ganze Rückseiten mit ihren Unterseiten, jeweils eine
-     Sektion mit drei Spalten unter den Kacheln. Alle standardmäßig AUS — sie zeigen
-     Verwaltung, Finanzen und Backends, die nicht jede Person etwas angehen.
-       crm         CRM: Akten, Vertrieb & Termine, Pflege
-       fap         Freelancer-Pool: Bewerbungen FAP & JAP, Unterlagen, Pool-KPIs
-       raumschiff  Finanz-Raumschiff: alle Entitäten (Privat, GmbH, Luxemburg, Verein),
-                   Steuerung, Finanzlauf der GmbH
-       vishnu      Vishnu-Backend: Pflege & Zahlen, Website, Werkzeuge (Jira, GitHub, KAS …)
-       vaikuntha   Vaikuntha-Backend: WordPress-Cockpit über das Sprungbrett (SSO)
-     true = an, false = aus, 'https://…' = eigene Hauptadresse für den Knopf „Öffnen“.
-     Ein Bereich, der an ist, ersetzt die gleichnamigen Zeilen der zweiten Ebene. */
-  bereiche: {
-    /* crm: true, fap: true, raumschiff: true, vishnu: true, vaikuntha: true */
-  },
+  /* Die Bereiche: ganze Rückseiten mit ihren Unterseiten, je eine Sektion mit Spalten.
+     Seit v3 erscheinen sie von selbst, sobald die Rechte mindestens eine Zeile öffnen:
+       ich         Mein Vishnu: Profil, Rang, Backstage, Freelancer-Portal, Lernen, Zugang
+       flow        Flow Compass (?go=…), Team-Cockpit (?go=…), alle Portale des Kollektivs
+       crm         CRM (gruender · intern · finanzen)
+       fap         Freelancer-Pool FAP & JAP (gruender · intern)
+       raumschiff  Finanz-Raumschiff je Crew-Rolle, Finanzlauf (gruender · finanzen)
+       vishnu      Vishnu-Backend: Pflege & Zahlen, Website, Werkzeuge
+       vaikuntha   Verein je Stufe: Mitgliederbereich, bei 'admin' das WordPress-Cockpit
+     false = trotzdem ausblenden, 'https://…' = eigene Hauptadresse für den Knopf „Öffnen“.
+     Ein Bereich, der zu sehen ist, ersetzt die gleichnamigen Zeilen der zweiten Ebene. */
+  bereiche: {},
 
   /* Einzelne Zeilen eines Bereichs: '<bereich>.<zeile>': false = ausblenden,
      'https://…' = eigene Adresse. Die Kennungen stehen in portal.html › BEREICHE,
@@ -75,8 +81,9 @@ window.PORTAL = {
        firma     finanzen · strategie · abos
        menschen  bewerbungen (FAP & JAP) · crm · portalpflege
      true = Standardadresse, false = ausblenden, 'https://…' = eigene Adresse.
-     Wer sein Profil lieber im CRM pflegt, trägt die eigene Personenseite ein
-     (die Nummer steht in der Adresse, wenn man sie im CRM öffnet):
+     Seit v3 übernimmt „Mein Vishnu“ die meisten dieser Zeilen; hier bleibt, was
+     keinem Bereich gehört. Wer sein Profil lieber im CRM pflegt, trägt die eigene
+     Personenseite ein (die Nummer steht in der Adresse, wenn man sie im CRM öffnet):
        profil: 'https://vishnuartists.com/crm.php?v=person&id=<nr>' */
   mehr: {
     /* finanzen: true, strategie: true, bewerbungen: true, crm: true */
