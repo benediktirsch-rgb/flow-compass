@@ -275,6 +275,13 @@
     'Aus deinen laufenden Initiativen. Antippen streicht eine Sache, fehlt etwas: hier notieren.': ['From your running initiatives. Tap to strike something, if anything is missing: note it here.', 'من مبادراتك الجارية. انقر لشطب أمر، وإن نقص شيء فدوّنه هنا.'],
     'Startklar, noch nicht gezogen:': ['Ready to start, not yet pulled:', 'جاهزة للبدء ولم تُسحب بعد:'],
     'Jira hat nicht geantwortet — das ist die Handliste, nicht der heutige Stand.': ['Jira did not answer — this is the manual list, not today’s state.', 'لم يستجب Jira — هذه القائمة اليدوية وليست حالة اليوم.'],
+    'Wochenende: aus Trello „Bene privat“ und Vaikuntha. Antippen streicht eine Sache, fehlt etwas: hier notieren.':
+      ['Weekend: from Trello “Bene privat” and Vaikuntha. Tap to strike something, if anything is missing: note it here.',
+       'عطلة نهاية الأسبوع: من Trello „Bene privat“ ومن فايكونتا. انقر لشطب أمر، وإن نقص شيء فدوّنه هنا.'],
+    'Nichts Digitales für heute — Familie, Sport, Erholung.': ['Nothing digital for today — family, sport, rest.', 'لا شيء رقمي لليوم — عائلة ورياضة وراحة.'],
+    'Vishnu und Porsche ruhen bis Montag — {1} Vorgänge in Arbeit warten dort.': ['Vishnu and Porsche rest until Monday — {1} items in progress are waiting there.', 'فيشنو وبورشه في راحة حتى الاثنين — {1} بنود قيد العمل تنتظر هناك.'],
+    'Vishnu und Porsche ruhen bis Montag.': ['Vishnu and Porsche rest until Monday.', 'فيشنو وبورشه في راحة حتى الاثنين.'],
+    'Trello und Jira haben nicht geantwortet — das ist die Handliste „Privat“, nicht der heutige Stand.': ['Trello and Jira did not answer — this is the hand-kept “Private” list, not today’s state.', 'لم يُجب Trello ولا Jira — هذه القائمة اليدوية „خاص“، لا حالة اليوم.'],
     'Keine laufende Initiative mit offenem Schritt': ['No running initiative with an open step', 'لا مبادرة جارية بخطوة مفتوحة'],
     'Antippen = für heute streichen (noch einmal = zurückholen)': ['Tap = strike for today (tap again = bring back)', 'انقر = اشطب لليوم (مرة أخرى = استرجاع)'],
     'Heute schon gemacht — kein zusätzliches XP.': ['Already done today — no extra XP.', 'أُنجز اليوم — لا نقاط إضافية.'],

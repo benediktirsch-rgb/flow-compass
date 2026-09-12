@@ -1609,7 +1609,53 @@ function trafficTeil(ic,name,s){
    Kontextübergreifend: der Morgencheck fragt nach dem ganzen Tag, nicht nach dem Tab, der zuletzt offen
    war. Ohne Jira-Antwort gibt es null → der Schritt zeigt die Handliste und sagt, dass es eine ist.       */
 const HEUTE_MAX=6;
+/* Wochenende (12.09.2026, Bene: „am Wochenende Privates im Vordergrund — wenn wir sie digital haben:
+   Arbeit aus Privatbereich und Vaikuntha“). Sa/So zeigt der Schritt keine Vishnu-/Porsche-Storys mehr:
+     1. Trello „Bene privat“: in Arbeit zuerst, dann heute Fälliges/Überfälliges, dann Bereites (max. 3);
+     2. Vaikuntha: Termine heute/morgen (Events-API, liegt schon in WETTER) und Vereins-Vorgänge
+        (VAEV/VAIKWEB/VSAS): in Arbeit, fällig, bereit, sonst Pool of Ideas (max. 2);
+     3. das Privatprojekt, das der letzte Abendcheck gewählt hat — als Erinnerung, nicht als Pflicht.
+   Die Arbeit ruht bis Montag; die Zeile darunter sagt nur, wie viele Vorgänge dort in Arbeit warten.
+   Ohne Trello UND ohne Jira gibt es null → Handliste des Kontexts (am Wochenende „Privat“).        */
+const WOCHENENDE=()=>{ const t=new Date().getDay(); return t===0||t===6; };
+const VK_PROJEKTE=/^(VAEV|VAIKWEB|VSAS)$/;
+const jiraProjekt=i=>i.projekt||String(i.key||'').split('-')[0];
+function heuteWochenende(){
+  const tr=PK.trello.privat, j=PK.jira, jiraDa=!!(j&&Array.isArray(j.issues));
+  if(!(tr&&tr.lists)&&!jiraDa) return null;
+  const Z=[], h=trelloDatumLokal(new Date()), morgen=trelloDatumLokal(new Date(Date.now()+864e5));
+  const dd=d=>String(d).slice(8,10)+'.'+String(d).slice(5,7)+'.';
+  const erledigt=x=>/^check/i.test(String((x&&x.status)||''));
+  if(tr&&tr.lists){
+    const due=c=>c.due?trelloDatumLokal(c.due):'';
+    const rang=c=>c.col==='doing'?0:(due(c)&&due(c)<=h)?1:c.col==='bereit'?2:c.col==='wartet'?4:3;
+    pkQuellen().filter(c=>c.src==='trello-privat'&&c.col!=='done'&&!c.dueComplete)
+      .sort((a,b)=>rang(a)-rang(b)||(due(a)||'9').localeCompare(due(b)||'9')).slice(0,3)
+      .forEach(c=>{ const d=due(c), r=rang(c);
+        Z.push({ic:r===0?'▶️':d&&d<h?'⏰':d===h?'📅':'🗂️',titel:vaKurz(c.name,90),
+          detail:['Privat · Trello',c.liste,d?(d<h?'überfällig seit '+dd(d):d===h?'heute fällig':'fällig '+dd(d)):''].filter(Boolean).join(' · '),url:c.url}); });
+  }
+  ((WETTER.data||{}).tage||[]).filter(t=>t.datum===h||t.datum===morgen).forEach(t=>(t.termine||[]).forEach(ev=>
+    Z.push({ic:'🌿',titel:vaKurz(ev.titel,90),detail:['Vaikuntha · Termin',t.datum===h?'heute':'morgen',ev.ganztags?'ganztags':(ev.uhrzeit||'')].filter(Boolean).join(' · '),url:ev.url})));
+  if(jiraDa){
+    /* In Arbeit zuerst, dann Fälliges, dann Bereites, dann der Rest — die Vereinsvorgänge liegen meist
+       im „Pool of Ideas“; ohne diesen Rest stünde Vaikuntha am Wochenende nie auf der Liste. */
+    const rangVk=x=>x.col==='doing'?0:(x.d&&x.d<=h)?1:x.col==='bereit'?2:3;
+    j.issues.filter(i=>VK_PROJEKTE.test(jiraProjekt(i))&&!erledigt(i)&&!i.strategisch)
+      .map(i=>({i,col:pkJiraCol(i.status),d:i.due?String(i.due).slice(0,10):''}))
+      .sort((a,b)=>rangVk(a)-rangVk(b)||(b.d||'').localeCompare(a.d||''))
+      .slice(0,2).forEach(({i,col,d})=>Z.push({ic:d&&d<h?'⏰':'🌿',titel:i.key+' '+vaKurz(i.titel,80),
+        detail:['Vaikuntha',col==='doing'?'in Arbeit':(i.status||''),d?(d<h?'überfällig seit '+dd(d):d===h?'heute fällig':'fällig '+dd(d)):''].filter(Boolean).join(' · '),url:i.url}));
+  }
+  const ab=letzterAbendcheck();
+  if(ab&&ab.projekt&&!/Heute nicht/.test(ab.projekt)) Z.push({ic:'🎓',titel:ab.projekt,detail:'Privatprojekt · am '+dd(ab.datum)+' gewählt — heute eine Runde?'});
+  const ruht=jiraDa?j.issues.filter(i=>!VK_PROJEKTE.test(jiraProjekt(i))&&!erledigt(i)&&pkJiraCol(i.status)==='doing').length:null;
+  const st=j&&j.stand?new Date(j.stand):null;
+  return { zeilen:Z.slice(0,HEUTE_MAX), startklar:[], wochenende:true, ruht,
+           stand:st&&!isNaN(st)?st.toLocaleTimeString(LOC(),{hour:'2-digit',minute:'2-digit'}):'' };
+}
 function heuteInitiativen(){
+  if(WOCHENENDE()) return heuteWochenende();
   const j=PK.jira; if(!j||!Array.isArray(j.issues)) return null;
   const Z=[], h=trelloDatumLokal(new Date()), ohneMd=t=>String(t||'').replace(/\*\*|`/g,'').trim();
   /* „Checking“ heißt im Vishnu-Jira erledigt, nur nicht abgenommen — kein Schritt für heute. */
@@ -1692,13 +1738,15 @@ function koerper(s){
     FLOW.heuteWeg = FLOW.heuteWeg||{};
     const zeilen=FLOW.heuteListe.map((z,i)=>`<div class="zeile hz${FLOW.heuteWeg[i]?' weg':''}" data-hz="${i}" role="button" tabindex="0" title="Antippen = für heute streichen (noch einmal = zurückholen)">
         <span>${z.ic}</span><span class="hzt">${esc(z.titel)}${z.detail?`<small>${esc(z.detail)}</small>`:''}</span>${z.url?`<a class="hzl" href="${esc(z.url)}" target="_blank" rel="noopener" title="In Jira öffnen">↗</a>`:''}</div>`).join('');
+    const we=!!(hi&&hi.wochenende);
     const herkunft = hi
-      ? `<span>Aus deinen laufenden Initiativen. Antippen streicht eine Sache, fehlt etwas: hier notieren.</span>${hi.stand?` <span class="tg" title="Stand der Jira-Daten">Jira ${esc(hi.stand)}</span>`:''}`
+      ? `<span>${we?'Wochenende: aus Trello „Bene privat“ und Vaikuntha. Antippen streicht eine Sache, fehlt etwas: hier notieren.':'Aus deinen laufenden Initiativen. Antippen streicht eine Sache, fehlt etwas: hier notieren.'}</span>${hi.stand?` <span class="tg" title="Stand der Jira-Daten">Jira ${esc(hi.stand)}</span>`:''}`
       : `Aus „${esc(c.name)}“. Reicht dir das? Sonst hier notieren:`;
-    return `${kalHtml}<div class="qa">${zeilen||'<div class="zeile"><span>🕊️</span><span>Keine laufende Initiative mit offenem Schritt</span></div>'}</div>
+    return `${kalHtml}<div class="qa">${zeilen||`<div class="zeile"><span>🕊️</span><span>${we?'Nichts Digitales für heute — Familie, Sport, Erholung.':'Keine laufende Initiative mit offenem Schritt'}</span></div>`}</div>
       ${hi&&hi.startklar.length?`<div class="hint" style="margin-top:8px">🚦 Startklar, noch nicht gezogen: ${hi.startklar.map(i=>`<b>${esc(i.key)}</b> ${esc(vaKurz(i.titel,48))}`).join(' · ')}</div>`:''}
-      ${ab&&ab.ablegen?`<div class="hint" style="margin-top:8px">🧺 Am ${esc(ab.datum.slice(8,10)+'.'+ab.datum.slice(5,7)+'.')} bewusst abgelegt: <b>${esc(ab.ablegen)}</b> — heute wieder aufnehmen oder weiter liegen lassen.</div>`:''}
-      ${!hi&&PK.geladen?`<div class="hint" style="margin-top:8px">⚠️ Jira hat nicht geantwortet — das ist die Handliste, nicht der heutige Stand.</div>`:''}
+      ${we?`<div class="hint" style="margin-top:8px">🛌 ${hi.ruht?`Vishnu und Porsche ruhen bis Montag — ${hi.ruht} Vorgänge in Arbeit warten dort.`:'Vishnu und Porsche ruhen bis Montag.'}</div>`:''}
+      ${ab&&ab.ablegen&&!we?`<div class="hint" style="margin-top:8px">🧺 Am ${esc(ab.datum.slice(8,10)+'.'+ab.datum.slice(5,7)+'.')} bewusst abgelegt: <b>${esc(ab.ablegen)}</b> — heute wieder aufnehmen oder weiter liegen lassen.</div>`:''}
+      ${!hi&&PK.geladen?`<div class="hint" style="margin-top:8px">⚠️ ${WOCHENENDE()?'Trello und Jira haben nicht geantwortet — das ist die Handliste „Privat“, nicht der heutige Stand.':'Jira hat nicht geantwortet — das ist die Handliste, nicht der heutige Stand.'}</div>`:''}
       <div class="hint" style="margin-top:10px">${herkunft}</div>
       <input type="text" id="ovIn" placeholder="Was noch heute passieren muss …">`;
   }
