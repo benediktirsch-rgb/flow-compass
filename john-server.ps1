@@ -190,7 +190,7 @@ param(
   # (Druckvorschau, Memory porsche-outlook-print-abzug). Je Datum+Startzeit werden die Titel der Reihe nach
   # verbraucht; ein Block ohne Treffer heißt ehrlich "Belegt". Mehrere Dateien mit ';' trennen, fehlende
   # werden übergangen. kalender-titel.tsv neben dem Skript ist die lokale Ergänzung (steht in .gitignore).
-  [string]$KalenderTitelTsv = 'C:\Users\bened\.claude\scheduled-tasks\kalender-morgencheck\state\porsche-termine.tsv;' + (Join-Path $PSScriptRoot 'kalender-titel.tsv'),
+  [string]$KalenderTitelTsv = 'C:\dev\_tools\kalender-morgencheck\state\porsche-termine.tsv;' + (Join-Path $PSScriptRoot 'kalender-titel.tsv'),
   # Arbeitsfenster für "freie Stunden heute" (Lotus-Blüte im Compass). Termine außerhalb zählen nicht als belegt.
   [string]$ArbeitszeitVon = '09:00',
   [string]$ArbeitszeitBis = '18:00',
