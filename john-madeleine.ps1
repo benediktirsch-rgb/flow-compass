@@ -193,13 +193,14 @@ function Get-MadeleinePrivat {
 # Finanz-Raumschiff (raumschiff-madeleine.ps1). Ohne diesen Namen redete Madeleine ihn als Bene an
 # und hätte ihm Zahlen genannt, die er auf der Seite gar nicht sieht; deshalb kommt mit ihm eine
 # Schranke mit, kein bloßes Namensschild.
-function Format-MadeleineVerlauf($msgs, $context, $fragt) {
+# $assistent (12.09.2026): wer die bisherigen Antworten gab. Im Rückfall ist das John, nicht Madeleine.
+function Format-MadeleineVerlauf($msgs, $context, $fragt, $assistent = 'Madeleine') {
   $name = $(if ($fragt -and $fragt.name) { [string]$fragt.name } else { $NutzerName })
   $sb = New-Object Text.StringBuilder
   if ($msgs.Count -gt 1) {
     [void]$sb.AppendLine('Bisheriger Verlauf dieses Chats (Kontext — nicht neu beantworten):'); [void]$sb.AppendLine()
     foreach ($m in $msgs[0..($msgs.Count - 2)]) {
-      $wer = $(if ($m.role -eq 'user') { $name } else { 'Madeleine' })
+      $wer = $(if ($m.role -eq 'user') { $name } else { $assistent })
       [void]$sb.AppendLine("$wer`: $($m.content)"); [void]$sb.AppendLine()
     }
     [void]$sb.AppendLine('---'); [void]$sb.AppendLine()
@@ -231,6 +232,30 @@ function Madeleine-Chat($messages, $context, $fragt) {
   $s = Split-MadeleineNotiz $c.text
   $tools = @(); foreach ($n in $s.notizen) { Add-MadeleineNotiz $n; $tools += 'notiz' }
   return @{ text = $s.text; stop_reason = 'end_turn'; model = $c.model; tools = $tools; geladen = $sys.geladen; backend = 'codex'; systemChars = $sys.text.Length }
+}
+
+# ---------- Rückfall: Madeleine vertritt John (12.09.2026) ----------
+# Bene: „wenn John nicht erreichbar ist, Madeleine dran lassen." Fällt Johns Weg zur KI aus — Claude Code nicht
+# angemeldet, Nutzungsfenster zu, Guthaben leer, Timeout —, bekommt der John-Chat trotzdem eine Antwort: von
+# Madeleine über Codex. Sie bekommt denselben Verlauf (Johns Antworten heißen dort John), ihren eigenen
+# Systemtext (nie Johns Kontext — die Brandmauer bleibt) und den Hinweis, dass sie einspringt. Der Wechsel steht
+# sichtbar an der Antwort: die model-Zeile im Compass nennt „Madeleine vertritt John" samt Johns Fehlercode, und
+# ihr erster Satz sagt es. Was der Rückfall nicht ersetzt: den Server selbst — läuft er nicht, erreicht die Frage
+# weder John noch sie. Abwählbar je Anfrage mit {rueckfall:false}.
+function Test-MadeleineBereit { return ([bool](Find-CodexExe) -and [bool](Get-CodexLogin).ok) }
+function John-Rueckfall($messages, $context, [string]$grund, [string]$grundText) {
+  $sys = Build-SystemMadeleine
+  $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })
+  $fragt = @{ name = $NutzerName; hinweis = ("Du springst für John ein. $NutzerName hat John gefragt, nicht dich — Johns Weg zur KI ist gerade " +
+    "ausgefallen ($grund" + $(if ($grundText) { ": $grundText" } else { '' }) + "). Die bisherigen Antworten im Verlauf stammen von John, nicht von dir. " +
+    "Antworte aus deiner eigenen Sicht (Finanzen, Steuern, Organisation, Gesamtbild) und sag im ersten Satz kurz, dass du für John einspringst. " +
+    "Was außerhalb deines Wissens liegt — Johns Coaching-Details, Pipeline-Interna —, benennst du als offen für John, statt es zu erfinden.") }
+  $prompt = $sys.text + "`n`n" + $MadeleineHinweis + "`n`n" + (Format-MadeleineVerlauf $msgs $context $fragt 'John')
+  $c = Invoke-CodexCli $prompt @{ timeout = 240 }
+  $s = Split-MadeleineNotiz $c.text
+  $tools = @(); foreach ($n in $s.notizen) { Add-MadeleineNotiz $n; $tools += 'notiz' }
+  return @{ text = $s.text; stop_reason = 'end_turn'; model = "Madeleine vertritt John · $($c.model) · John: $grund"; tools = $tools
+            geladen = $sys.geladen; backend = 'codex'; vertretung = @{ fuer = 'John'; grund = $grund; hint = $grundText }; systemChars = $sys.text.Length }
 }
 
 # ---------- Beraterrunde: John → Madeleine → John, alles in john\coaching\beraterrunde.md ----------

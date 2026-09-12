@@ -4686,8 +4686,27 @@ try {
         catch {
           $m = $_.Exception.Message
           $f = Get-JohnFehler $m
-          if ($f) { Write-Host "  John: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ error = $f.code; hint = $f.hint } $f.status }
-          else { Write-Host "  Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ error = $m } 502 }
+          $code = $(if ($f) { $f.code } else { 'FEHLER' }); $hint = $(if ($f) { [string]$f.hint } else { $m })
+          Write-Host "  John: $code" -ForegroundColor Red
+          # Rückfall (12.09.2026, Bene: „wenn John nicht erreichbar ist, Madeleine dran lassen"): Johns Weg zur KI
+          # ist weg, der Server steht — also übernimmt Madeleine über Codex (John-Rueckfall in john-madeleine.ps1),
+          # sofern Codex da und angemeldet ist und der Compass es nicht mit {rueckfall:false} abwählt. Klappt auch
+          # das nicht, bekommt der Compass Johns Fehler wie bisher — mit dem Satz, warum sie nicht einspringen konnte.
+          $rueckfall = -not ($in.PSObject.Properties['rueckfall'] -and $in.rueckfall -eq $false)
+          $erledigt = $false
+          if ($rueckfall -and (Test-MadeleineBereit)) {
+            Write-Host "  Rückfall → Madeleine vertritt John" -ForegroundColor Yellow
+            try { $out = John-Rueckfall $msgs $in.context $code $hint; Send-Json $ctx $out; $erledigt = $true }
+            catch {
+              $m2 = $_.Exception.Message; $f2 = Get-MadeleineFehler $m2
+              Write-Host "  Madeleine auch nicht: $(if ($f2) { $f2.code } else { $m2 })" -ForegroundColor Red
+              $hint = ($hint + ' Madeleine konnte auch nicht einspringen: ' + $(if ($f2) { $f2.hint } else { $m2 })).Trim()
+            }
+          }
+          if (-not $erledigt) {
+            if ($f) { Send-Json $ctx @{ error = $f.code; hint = $hint; rueckfall = $rueckfall } $f.status }
+            else { Send-Json $ctx @{ error = $m; hint = $hint; rueckfall = $rueckfall } 502 }
+          }
         }
         continue
       }
