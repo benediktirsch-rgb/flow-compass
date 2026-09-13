@@ -13,13 +13,16 @@
   const hub = (window.JOHN_HUB || '').replace(/\/$/, '');
   // Der eigene Build setzt den Browser-Schlüssel; niemals Geräte-Token einsetzen.
   const token = window.JOHN_HUB_TOKEN_BROWSER || window.JOHN_HUB_TOKEN || '';
-  const names = { bene: 'Du', john: 'John', madeleine: 'Madeleine', system: 'Hinweis' };
+  const names = { bene: 'Du', john: 'John', madeleine: 'Madeleine', picard: 'Picard · Empfang', system: 'Hinweis' };
   const labels = { offen: 'Wartet', laeuft: 'Denkt gerade', fertig: 'Beendet', gestoppt: 'Stopp angefordert', verfallen: 'Verfallen' };
   const drafts = new Map();
   let mode = 'unknown', id = '', turns = new Map(), timer, round = 0, epoch = 0;
   let busy = false, polling = false, opener, rooms = [], lastRun = null, waiting = [];
   let dialog, list, log, status, error, form, input, topic, recipient, stop, send, fresh, stage, place;
   let portraitUrl = '', listSignature = '';
+  let holo3d = null, holoLoading = false, use3d = true, holoVersion = 0;
+  let syncViewControls = () => {};
+  const engineBase = new URL('holodeck-engine/', document.currentScript?.src || location.href).href;
   const places = { bar: 'Bar im Hotel Vaikuntha', huette: 'Berghütte', goa: 'Goa', anden: 'Anden', rom: 'Altstadt von Rom' };
   const e = (tag, attrs = {}, text) => {
     const node = document.createElement(tag);
@@ -62,7 +65,7 @@
     john: ['Resort-Luxus', 'CEO', 'Kurta', 'Sherwani', 'Goa-Party', 'An der Bar']
   };
   const costume = {}, wardrobeSelects = {};
-  let madeleineSource = 'madeleine';
+  let madeleineSource = 'mona';
   const localDay = () => new Intl.DateTimeFormat('sv-SE', {timeZone:'Europe/Berlin'}).format(new Date());
   function outfitIndex(who) {
     if (costume[who] !== undefined && costume[who] !== 'auto') return Number(costume[who]);
@@ -81,7 +84,41 @@
   function holoSymbol() {
     return '<svg viewBox="0 0 160 50" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.5"><path d="M25 39Q3 31 10 16Q25 19 25 39Q18 18 25 5Q36 20 25 39Q47 30 40 16Q28 22 25 39ZM10 40H40"/><circle cx="80" cy="25" r="19"/><circle cx="80" cy="25" r="5"/><path d="M80 6V20M80 30V44M61 25H75M85 25H99M67 12L77 22M83 28L93 38M67 38L77 28M83 22L93 12M127 39Q153 25 145 13Q135 1 124 14Q116 28 138 24Q149 31 127 39ZM126 39L123 46L134 42"/></g></svg>';
   }
+  function briefingMessage(item) {
+    if (!dialog?.open || document.hidden) return 'Gespräch pausiert. Bitte den Raum öffnen.';
+    if (mode !== 'local') return 'Die lokale Tür ist nicht erreichbar. Dein Thema bleibt hier zur Auswahl; es wurde nichts gesendet.';
+    if (busy || lastRun || waiting.length || input.value.trim()) return 'Im Gespräch liegt bereits ein Entwurf oder ein laufender Zug. Bitte dort fortsetzen und das Thema danach auswählen.';
+    endVoice('Das Gespräch beginnt schriftlich. Starte den Sprachmodus, um neue Antworten zu hören.');
+    const an = ['john', 'madeleine', 'beide'].includes(item.an) ? item.an : 'beide';
+    input.value = item.prompt; recipient.value = an; controls(); form.requestSubmit();
+    return (an === 'john' ? 'John nimmt' : an === 'madeleine' ? 'Madeleine nimmt' : 'John und Madeleine nehmen') + ' den Faden auf. Die Antworten findest Du direkt unter dem Raum.';
+  }
+  async function load3d() {
+    if (holoLoading || !use3d || !stage) return;
+    holoLoading = true; const version = ++holoVersion;
+    try {
+      const module = await import(engineBase + 'cinema.js');
+      if (version !== holoVersion || !use3d) return;
+      stage.classList.add('jgr-three');
+      holo3d = module.mountHolodeck(stage, {place:place.value,places,context:location.hostname==='bene.vaikuntha.eu'?'verein':'personal',onRecipient:who=>{if(recipient)recipient.value=who;input?.focus({preventScroll:true});},onPlace:value=>{place.value=value;},onBriefing:briefingMessage,getLanguage:()=>language.value,getHostVoice:()=>castVoice('picard')});
+      for (const who of Object.keys(wardrobe)) holo3d.setOutfit(who,outfitIndex(who));
+      if (!dialog?.open) holo3d.pause();
+    } catch (_) {
+      if (version !== holoVersion || !use3d) return;
+      use3d = false; stage.classList.remove('jgr-three'); syncViewControls(); paintScene();
+      if (error) error.textContent = 'Die Filmszene konnte nicht geladen werden. Die Fotoporträt-Ansicht und das Gespräch bleiben verfügbar.';
+    } finally { if (version === holoVersion) holoLoading = false; }
+  }
   function paintScene() {
+    if (use3d && holo3d) { holo3d.setPlace(place.value); for(const who of Object.keys(wardrobe))holo3d.setOutfit(who,outfitIndex(who)); return; }
+    if (use3d) {
+      if (!stage.querySelector('.jgr-studio-loading')) {
+        const loading = e('div', {class:'jgr-studio-loading',role:'status'}, 'Picard erwartet Dich. Der Empfang wird vorbereitet …');
+        loading.style.cssText = 'display:grid;place-items:center;aspect-ratio:1672/941;min-height:180px;padding:32px;box-sizing:border-box;background:#080c12;color:#e1d4b7;text-align:center;font:16px/1.6 Georgia,serif';
+        stage.replaceChildren(loading);
+      }
+      load3d(); return;
+    }
     const theme = place.value;
     stage.replaceChildren();
     stage.dataset.place = theme;
@@ -95,31 +132,32 @@
     for (const who of ['john','bene','madeleine']) {
       const i = outfitIndex(who), cols = who === 'bene' ? 4 : 3;
       const actor = e('figure', {class:'jgr-actor jgr-person-' + who});
-      const portrait = e('div', {class:'jgr-avatar', role:'img', 'aria-label':(who === 'bene' ? 'Bene' : names[who]) + ' · ' + wardrobe[who][i] + (who === 'john' ? ' · vorläufiger Konzeptavatar' : ' · nach Fotovorlage')});
+      const portrait = e('div', {class:'jgr-avatar', role:'img', 'aria-label':(who === 'bene' ? 'Bene' : names[who]) + ' · ' + wardrobe[who][i] + (who === 'john' ? ' · nach Fotovorlage' : ' · nach Fotovorlage')});
       const sprite = e('div',{class:'jgr-sprite'});
       const source = who === 'madeleine' ? madeleineSource : who;
-      const split = {bene:500,john:496,madeleine:488,mona:512}[source];
-      const rowHeight = Math.floor(i / cols) ? 1024 - split : split;
-      sprite.style.aspectRatio = String((1536 / cols) / rowHeight);
-      sprite.style.backgroundImage = 'url("' + assetBase + source + '-wardrobe.png")';
-      sprite.style.backgroundSize = (cols * 100) + '% ' + (1024 / rowHeight * 100) + '%';
+      sprite.style.aspectRatio = '0.65';
+      const atlas = new Image();
+      atlas.onload = () => { sprite.style.aspectRatio = String((atlas.naturalWidth / cols) / (atlas.naturalHeight / 2)); };
+      atlas.src = assetBase + source + '-wardrobe-v2.png';
+      sprite.style.backgroundImage = 'url("' + atlas.src + '")';
+      sprite.style.backgroundSize = (cols * 100) + '% 200%';
       sprite.style.backgroundPosition = ((i % cols) * 100 / (cols - 1)) + '% ' + (Math.floor(i / cols) * 100) + '%';
       if (who === 'bene' && portraitUrl) {
         sprite.style.backgroundImage = 'url("' + portraitUrl + '")'; sprite.style.backgroundSize = 'contain'; sprite.style.backgroundPosition = 'center';
       }
-      portrait.append(sprite); articulate(portrait, sprite);
+      portrait.append(sprite);
       actor.append(portrait, e('figcaption', {}, (who === 'bene' ? 'Bene' : names[who]) + ' · ' + wardrobe[who][i]));
-      if (who === 'john') actor.append(e('small', {}, 'Konzept · Foto noch offen'));
+      if (who === 'john') actor.append(e('small', {}, 'Nach Deiner Fotovorlage'));
       actor.append(e('small',{class:'jgr-motion-caption'}));
       cast.append(actor);
     }
     const grid = e('div', {class:'jgr-holo-grid', 'aria-hidden':'true'});
     stage.append(cast, grid, e('div',{class:'jgr-door jgr-door-left','aria-hidden':'true'}), e('div',{class:'jgr-door jgr-door-right','aria-hidden':'true'}));
-    animateSpeaker(); materialize(); performMotions();
+    animateSpeaker(); materialize();
   }
   function wardrobeControls() {
     const details = e('details',{class:'jgr-wardrobe'});
-    details.append(e('summary',{},'Garderobe & Rollen · täglich neu'));
+    details.append(e('summary',{},'Fotoporträt-Garderobe · täglich neu'));
     const panel = e('div',{class:'jgr-wardrobe-panel'});
     for (const who of ['bene','madeleine','john']) {
       const label = e('label',{},who === 'bene' ? 'Meine Rolle' : names[who]);
@@ -131,14 +169,9 @@
       select.addEventListener('change',()=>{ costume[who] = select.value; try { localStorage.setItem('holodeckOutfit-' + who,select.value); } catch (_) {} paintScene(); });
       label.append(select); panel.append(label);
     }
-    const sourceLabel = e('label',{},'Madeleines Fotovorlage');
-    const sourceSelect = e('select',{'aria-label':'Madeleines Fotovorlage'});
-    sourceSelect.append(e('option',{value:'madeleine'},'Erste Fotovorlage'),e('option',{value:'mona'},'Mona'));
-    try { if (localStorage.getItem('holodeckMadeleineSource') === 'mona') sourceSelect.value = 'mona'; } catch (_) {}
-    madeleineSource = sourceSelect.value;
-    sourceSelect.addEventListener('change',()=>{ madeleineSource = sourceSelect.value; try { localStorage.setItem('holodeckMadeleineSource',madeleineSource); } catch (_) {} paintScene(); });
-    sourceLabel.append(sourceSelect);panel.append(sourceLabel);
-    panel.append(e('small',{},'Tageslooks wechseln nach Berliner Datum. Deine manuelle Auswahl bleibt erhalten. Rollen ändern hier den Look; Gesprächscharaktere folgen über John und Madeleine.'));
+    madeleineSource = 'mona';
+    panel.append(e('small',{},'Madeleine nach der freigegebenen Mona-Vorlage · dunkle Haare.'));
+    panel.append(e('small',{},'Tageslooks wechseln in der Fotoporträt-Ansicht nach Berliner Datum. Die Filmszenen haben ihre jeweils inszenierte Kleidung. Deine manuelle Auswahl bleibt erhalten.'));
     details.append(panel); return details;
   }
 
@@ -174,20 +207,256 @@
       const label = e('label',{},who === 'bene' ? 'Meine Bewegung' : names[who]);
       const select = e('select',{'aria-label':who === 'bene' ? 'Meine Bewegung' : names[who] + ' Bewegung'});
       for (const [value,name] of Object.entries(motionNames)) select.append(e('option',{value},name));
-      select.addEventListener('change',()=>{motionChoice[who]=select.value;performMotions();});
+      select.addEventListener('change',()=>{motionChoice[who]=select.value;holo3d?.setAction(who,select.value);performMotions();});
       label.append(select);panel.append(label);
     }
     const pause = e('button',{type:'button'},'Alle zur Ruhe bringen');
-    pause.addEventListener('click',()=>{for(const who of Object.keys(motionChoice))motionChoice[who]='ruhe'; for(const s of panel.querySelectorAll('select'))s.value='ruhe'; performMotions();});
-    panel.append(pause,e('small',{},'Bewegliche Bildfiguren · 2,5D. Die Automatik pausiert im Hintergrund. Deine Einstellung für reduzierte Bewegung wird berücksichtigt.'));
+    pause.addEventListener('click',()=>{for(const who of Object.keys(motionChoice)){motionChoice[who]='ruhe';holo3d?.setAction(who,'ruhe');} for(const s of panel.querySelectorAll('select'))s.value='ruhe'; performMotions();});
+    panel.append(pause,e('small',{},'Im 3D-Raum bewegen sich Figuren mit Gelenken. Fotoporträts bleiben als alternative Ansicht verfügbar. Reduzierte Bewegung wird berücksichtigt.'));
     details.append(panel);return details;
+  }
+
+  // Browser voice is opt-in per session. No recordings or transcripts in browser storage.
+  const SpeechInput = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let voiceOn = false, recognition = null, voiceTimer, voiceGeneration = 0;
+  let voiceButton, voiceStatus, voiceConsent, voiceAuto, voiceLocal, voiceReply, voiceInterrupt;
+  let voiceSeen = new Set(), voiceQueue = [], speaking = false, awaitingReply = false, heardReply = false;
+  let voiceCurrent = null, silenceCount = 0, voiceBreathTimer = null;
+  const voiceSelectors = {};
+  let language;
+  const languages = {'de-DE':'Deutsch','en-US':'English','hi-IN':'हिन्दी','it-IT':'Italiano','fr-FR':'Français'};
+  // Installed voice labels documented by Microsoft; this never installs or requests a voice.
+  // https://support.microsoft.com/en-us/accessibility/windows/narrator/appendix-a-supported-languages-and-voices
+  const voiceRoster = {
+    de:{male:['stefan','conrad','michael','karsten'],female:['katja','hedda']},
+    en:{male:['david','mark','george','ravi','sean','ryan','prabhat'],female:['zira','hazel','susan','heera','sonia','neerja']},
+    hi:{male:['hemant'],female:['kalpana']},
+    it:{male:['cosimo'],female:['elsa']},
+    fr:{male:['paul','henri','claude','guillaume'],female:['julie','hortense','hortence','denise','caroline']}
+  };
+  let voicePreferences = {};
+  try { const saved=JSON.parse(localStorage.getItem('holodeckVoiceCasting-v1')||'{}'); if(saved&&typeof saved==='object'&&!Array.isArray(saved))voicePreferences=saved; } catch (_) {}
+  const voicePreferenceKey = who => language.value+'|'+who;
+  function castVoice(who,automatic=false) {
+    const lang=language?.value||'de-DE',prefix=lang.split('-')[0],roster=voiceRoster[prefix]||{male:[],female:[]};
+    const voices=(window.speechSynthesis?.getVoices()||[]).filter(v=>v.lang.split('-')[0]===prefix);
+    const assigned={};
+    const labelKind = voice => {
+      const tokens=voice.name.toLowerCase().split(/[^a-z]+/);
+      for(const kind of ['male','female']){const rank=roster[kind].findIndex(name=>tokens.includes(name));if(rank>=0)return {kind,rank};}
+      return {kind:'unknown',rank:0};
+    };
+    for(const actor of ['john','madeleine','picard']) {
+      const explicit=automatic&&actor===who?'':voicePreferences[lang+'|'+actor];
+      const manual=voices.find(v=>v.voiceURI===explicit);
+      const desired=actor==='madeleine'?'female':'male';
+      const score = voice => {
+        const label=labelKind(voice),reuse=Object.values(assigned).some(v=>v?.voiceURI===voice.voiceURI);
+        return (label.kind===desired?1000:label.kind==='unknown'?100:0)-label.rank+(voice.lang===lang?20:0)+(voice.localService?10:0)-(reuse?50:0);
+      };
+      assigned[actor]=manual||voices.slice().sort((a,b)=>score(b)-score(a))[0];
+    }
+    return assigned[who];
+  }
+  function voiceNote(text) { if (voiceStatus) voiceStatus.textContent = text; }
+  function haltMic() {
+    clearTimeout(voiceTimer);
+    holo3d?.setListening(false);
+    if (recognition) { const old = recognition; recognition = null; old.onend = old.onresult = old.onerror = null; old.abort(); }
+  }
+  function endVoice(message = 'Mikrofon und Vorlesen sind aus.') {
+    voiceOn = false; voiceGeneration++; clearTimeout(voiceBreathTimer); voiceBreathTimer = null; haltMic(); holo3d?.setSpeaker(null); holo3d?.setSubtitle(null);
+    voiceQueue = []; speaking = false; awaitingReply = heardReply = false;
+    if (voiceCurrent) window.speechSynthesis?.cancel(); voiceCurrent = null;
+    stage?.querySelectorAll('.jgr-speaking').forEach(n => n.classList.remove('jgr-speaking'));
+    if (voiceButton) { voiceButton.textContent = 'Sprachgespräch starten'; voiceButton.setAttribute('aria-pressed', 'false'); }
+    voiceNote(message);
+  }
+  function listenNext() {
+    clearTimeout(voiceTimer);
+    if (!voiceOn || recognition || speaking || voiceBreathTimer || voiceQueue.length || busy || awaitingReply || lastRun || waiting.length || document.hidden || !dialog.open || mode !== 'local') return;
+    if (window.speechSynthesis?.speaking) { voiceTimer = setTimeout(listenNext, 300); return; }
+    if (input.value.trim()) { voiceNote('Dein Entwurf bleibt stehen. Senden oder leeren, bevor Du weitersprichst.'); return; }
+    const version = voiceGeneration, room = id;
+    const rec = new SpeechInput(); recognition = rec;
+    rec.lang = language.value; rec.continuous = false; rec.interimResults = true;
+    if (voiceLocal.checked) {
+      if (!('processLocally' in rec)) { endVoice('Dieser Browser unterstützt keine lokale Spracherkennung. Nutze den Browserdienst oder tippe.'); return; }
+      rec.processLocally = true;
+    }
+    let finalText = '';
+    rec.onresult = event => {
+      if (recognition !== rec || version !== voiceGeneration || id !== room) return;
+      let interim = ''; finalText = '';
+      for (const result of event.results) { if (result.isFinal) finalText += result[0].transcript + ' '; else interim += result[0].transcript; }
+      voiceNote('Ich höre: ' + (finalText + interim));
+    };
+    rec.onerror = event => {
+      if (recognition !== rec) return;
+      if (event.error === 'no-speech') return;
+      const messages = { 'not-allowed': 'Mikrofon nicht freigegeben.', 'service-not-allowed': 'Spracherkennungsdienst nicht erlaubt.', 'audio-capture': 'Kein verfügbares Mikrofon.', 'network': 'Spracherkennungsdienst nicht erreichbar.', 'language-not-supported': 'Lokales deutsches Sprachpaket fehlt. Wähle den Browserdienst oder tippe.' };
+      endVoice(messages[event.error] || 'Spracherkennung beendet. Bitte erneut starten.');
+    };
+    rec.onend = () => {
+      if (recognition !== rec || version !== voiceGeneration || id !== room) return;
+      recognition = null; holo3d?.setListening(false);
+      if (!voiceOn) return;
+      const text = finalText.trim();
+      if (!text) { if (++silenceCount >= 3) endVoice('Keine Sprache erkannt. Mikrofon pausiert.'); else voiceTimer = setTimeout(listenNext, 700); return; }
+      silenceCount = 0;
+      if (input.value.trim()) { endVoice('Es liegt bereits ein Entwurf vor. Deine Spracheingabe wurde nicht darübergeschrieben.'); return; }
+      input.value = text; controls();
+      if (voiceAuto.checked && !send.disabled) form.requestSubmit();
+      else voiceNote('Erkannt. Prüfe den Text und drücke Senden.');
+    };
+    try { rec.start(); holo3d?.setListening(true); voiceNote('Mikrofon an · Du bist dran.'); }
+    catch (_) { endVoice('Mikrofon konnte nicht starten. Bitte Browserfreigabe prüfen.'); }
+  }
+  function speakNext() {
+    if (!voiceOn || speaking || voiceBreathTimer || document.hidden || !dialog.open) return;
+    if (!voiceQueue.length) { if (heardReply && !lastRun && !waiting.length) awaitingReply = false; listenNext(); return; }
+    haltMic(); speaking = true;
+    const next = voiceQueue.shift(), version = voiceGeneration;
+    const utterance = new SpeechSynthesisUtterance(next.text);
+    voiceCurrent = utterance; utterance.lang = language.value; utterance.rate = next.wer === 'john' ? .94 : 1.01; utterance.pitch = next.wer === 'john' ? .88 : 1.06;
+    utterance.voice = castVoice(next.wer);
+    if (!utterance.voice) { endVoice('Für diese Sprache ist keine Stimme installiert. Die Antwort steht im Gespräch.'); return; }
+    const actor = stage?.querySelector('.jgr-person-' + next.wer);
+    holo3d?.setSpeaker(next.wer);
+    holo3d?.setSubtitle(next.wer,next.text);
+    utterance.onboundary = event => {if(version === voiceGeneration)holo3d?.setSubtitle(next.wer,next.text,event.charIndex,event.charLength);};
+    actor?.classList.add('jgr-speaking'); voiceNote((names[next.wer] || 'Gast') + ' spricht.');
+    const finished = () => {
+      if (version !== voiceGeneration) return;
+      holo3d?.setSpeaker(null);
+      actor?.classList.remove('jgr-speaking'); speaking = false; voiceCurrent = null;
+      voiceBreathTimer = setTimeout(() => { voiceBreathTimer = null; if (version === voiceGeneration) speakNext(); }, voiceQueue.length && voiceQueue[0].wer !== next.wer ? 500 : 250);
+    };
+    utterance.onend = finished;
+    utterance.onerror = () => { if (version === voiceGeneration) endVoice('Vorlesen konnte nicht fortgesetzt werden. Die Antwort steht im Gespräch.'); };
+    window.speechSynthesis.speak(utterance);
+  }
+  function voiceTurns(data) {
+    if (!voiceOn) return;
+    for (const turn of [...data].sort((a,b) => a.zug - b.zug)) {
+      if (voiceSeen.has(turn.zug)) continue;
+      voiceSeen.add(turn.zug);
+      if (['john','madeleine'].includes(turn.wer) && turn.text) {
+        heardReply = true;
+        if (voiceReply.checked && turn.weitergeben !== false) voiceQueue.push({wer:turn.wer,text:turn.text});
+      }
+      if (turn.wer === 'system' && awaitingReply) { endVoice('Der Lauf wurde beendet oder meldet ein Problem. Bitte den Gesprächsverlauf prüfen.'); return; }
+    }
+    speakNext();
+  }
+  function voiceControls() {
+    const panel = e('details', {class:'jgr-voice', 'aria-label':'Sprache und Mikrofon'});
+    panel.append(e('summary', {}, 'Mikrofon & Stimmen · Sprachgespräch starten'));
+    const setting = (text, checked) => { const label = e('label'); const box = e('input',{type:'checkbox'}); box.checked = checked; label.append(box,document.createTextNode(' '+text)); panel.append(label); return box; };
+    voiceConsent = setting('Browser-Sprachdienst verwenden: Audio kann beim Browseranbieter verarbeitet werden. Ich aktiviere das Mikrofon bewusst.', false);
+    voiceLocal = setting('Nur auf diesem Gerät erkennen (Browser und passendes Sprachpaket erforderlich)', false);
+    voiceAuto = setting('Nach der Sprechpause automatisch senden', true);
+    voiceReply = setting('Neue Antworten vorlesen', true);
+    const options = e('div',{class:'jgr-actions'});
+    const languageLabel=e('label',{},'Gesprächssprache'); language=e('select',{'aria-label':'Gesprächssprache'});
+    for(const [value,label] of Object.entries(languages)) language.append(e('option',{value},label));
+    languageLabel.append(language); options.append(languageLabel);
+    for (const who of ['john','madeleine','picard']) {
+      const label = e('label',{},names[who]+' · synthetische Stimme');
+      const choice = e('select',{'aria-label':names[who]+' · synthetische Stimme'}); voiceSelectors[who]=choice;
+      choice.addEventListener('change',()=>{voicePreferences[voicePreferenceKey(who)]=choice.value;try{localStorage.setItem('holodeckVoiceCasting-v1',JSON.stringify(voicePreferences));}catch(_){}fillVoices();});
+      label.append(choice); options.append(label);
+    }
+    const fillVoices = () => {
+      const voices = (window.speechSynthesis?.getVoices() || []).filter(v=>v.lang.split('-')[0]===language.value.split('-')[0]).sort((a,b)=>Number(b.localService)-Number(a.localService));
+      for (const [who,choice] of Object.entries(voiceSelectors)) {
+        const selected=voicePreferences[voicePreferenceKey(who)],automatic=castVoice(who,true);
+        choice.replaceChildren(e('option',{value:''},automatic?'Automatisch · '+automatic.name:'Keine Stimme in dieser Sprache verfügbar'));
+        for (const v of voices) choice.append(e('option',{value:v.voiceURI},v.name+(v.localService?' · lokal':' · Browserdienst')));
+        if (voices.some(v=>v.voiceURI===selected)) choice.value=selected;
+      }
+    };
+    language.addEventListener('change',()=>{endVoice('Sprache geändert. Bitte Sprachgespräch neu starten.');fillVoices();});
+    fillVoices(); window.speechSynthesis?.addEventListener('voiceschanged',fillVoices);
+    voiceButton=e('button',{type:'button','aria-pressed':'false'},'Sprachgespräch starten');
+    voiceButton.addEventListener('click',()=>{
+      if(voiceOn){endVoice();return;}
+      if(!SpeechInput || !window.speechSynthesis){voiceNote('Dieser Browser bietet keinen vollständigen Sprachmodus. Texteingabe funktioniert weiterhin.');return;}
+      if(!voiceConsent.checked && !voiceLocal.checked){voiceNote('Bitte lokale Erkennung wählen oder der Verarbeitung durch den Browserdienst zustimmen.');return;}
+      if(mode!=='local' || busy || (id && !turns.size)){voiceNote('Sprachgespräche brauchen die erreichbare lokale Tür und einen geladenen Raum.');return;}
+      voiceOn=true; voiceGeneration++; voiceSeen=new Set(turns.keys()); silenceCount=0;
+      voiceButton.textContent='Mikrofon und Vorlesen ausschalten'; voiceButton.setAttribute('aria-pressed','true');
+      voiceNote('Sprachmodus an. Bei einem laufenden Zug warte ich auf die Antwort.'); listenNext();
+    });
+    voiceInterrupt=e('button',{type:'button'},'Unterbrechen · ich bin dran');
+    voiceInterrupt.addEventListener('click',()=>{
+      holo3d?.stopGuide();
+      endVoice('Ton aus. Laufender Zug wird gestoppt; danach Sprachgespräch neu starten.');
+      if(mode==='local' && id && !busy) mutate(async()=>{await local('/stopp',{id});lastRun=null;waiting=[];});
+    });
+    for(const box of [voiceConsent,voiceLocal])box.addEventListener('change',()=>endVoice('Erkennungsmodus geändert. Bitte Sprachgespräch neu starten.'));
+    voiceReply.addEventListener('change',()=>{if(voiceOn)endVoice('Vorlesen geändert. Bitte Sprachgespräch neu starten.');});
+    voiceStatus=e('p',{role:'status'},'Mikrofon aus. Keine Aufnahme beim Öffnen.');
+    panel.append(options,voiceButton,voiceInterrupt,voiceStatus,e('small',{},'Gespräch in Sprechzügen: Während einer Antwort pausiert das Mikrofon. „Unterbrechen“ stoppt Stimme und Modell. Die Rezeption erhält keine Gesprächssätze oder Audiodateien.'));
+    return panel;
+  }
+
+  const guestProfiles = {
+    nietzsche:{name:'Friedrich Nietzsche',expertise:'Philosophie, Werte und Selbstüberwindung',style:'Prüfe Werte und Widersprüche mit philosophischen Gegenfragen. Trenne Interpretation und belegte Zitate.'},
+    merz:{name:'Friedrich Merz',expertise:'Deutsche Politik und Wirtschaftspolitik',style:'Diskutiere konservative wirtschaftspolitische Argumente, Gegenargumente und Zielkonflikte. Behaupte keine aktuellen Ämter oder Nachrichten ohne Beleg.'},
+    trump:{name:'Donald Trump',expertise:'Verhandlung und politische Kommunikation',style:'Untersuche Verhandlungstaktik, Inszenierung und ihre Folgen kritisch. Behaupte keine privaten Absichten, aktuellen Ämter oder Nachrichten ohne Beleg.'},
+    picard:{name:'Jean-Luc Picard',expertise:'Führung, Diplomatie und ethische Entscheidungen',style:'Antworte als besonnene fiktive Sternenflotten-Führungsfigur: diplomatisch, neugierig und prinzipientreu.'}
+  };
+  const invitedGuests = new Map(), guestRooms = new Set();
+  let guestSummary, guestBrief, guestSuggestion = null, guestInvite;
+  function guestInstruction() {
+    const guest=invitedGuests.get(id);
+    if(!guest)return guestRooms.has(id)?'Holodeck: Die Gastdarstellung ist beendet. John und Madeleine antworten wieder in ihren eigenen Rollen.':'';
+    return 'Holodeck · ausdrücklich eingeladene KI-Gastdarstellung durch John: '+guest.name+'. Thema: '+guest.expertise+'. '+guest.style+' Du bist eine KI-Darstellung, nicht die reale Person; keine echte Stimme oder echte Aussagen vortäuschen. Kennzeichne Deine Antwort mit „'+guest.name+' · KI-Gast“. Antworte gesprächsnah in 2 bis 4 Sätzen. Madeleine bleibt in ihrer eigenen Rolle.';
+  }
+  function updateGuest() {
+    if(!guestSummary)return;
+    const guest=invitedGuests.get(id);
+    guestSummary.textContent=guest ? guest.name+' ist eingeladen · John stellt die Rolle ab Deiner nächsten Nachricht dar.' : 'Kein Gast eingeladen. John und Madeleine sind bei Dir.';
+    guestBrief.textContent=guestInstruction() || 'Ein Vorschlag betritt den Raum erst mit Deinem Klick auf „Einladen“. Rollenaufträge werden sichtbar mit Deiner Nachricht übergeben.';
+    stage?.querySelector('.jgr-guest-presence')?.remove();
+    if(guest)stage?.append(e('div',{class:'jgr-guest-presence'},guest.name+' · KI-Gast bei John'));
+  }
+  function guestControls() {
+    const panel=e('details',{class:'jgr-guest'});panel.append(e('summary',{},'Gäste einladen'));
+    const inner=e('div',{class:'jgr-settings'});
+    const expertise=e('input',{type:'text',maxlength:'120','aria-label':'Gewünschte Expertise',placeholder:'Wobei brauchst Du eine andere Perspektive?'});
+    const suggest=e('button',{type:'button'},'Passenden Gast vorschlagen');
+    const choice=e('select',{'aria-label':'Vorbereitete Gäste'});choice.append(e('option',{value:''},'Oder einen Gast auswählen …'));
+    for(const [key,guest] of Object.entries(guestProfiles))choice.append(e('option',{value:key},guest.name+' · '+guest.expertise));
+    const recommendation=e('p',{role:'status'},'Nietzsche, Merz, Trump und Picard stehen als KI-Rollen bereit.');
+    const propose=guest=>{guestSuggestion=guest;recommendation.textContent='Vorschlag: '+guest.name+' · '+guest.expertise;guestInvite.disabled=false;};
+    suggest.addEventListener('click',()=>{
+      const value=expertise.value.trim();if(!value){recommendation.textContent='Nenne zuerst die gewünschte Expertise.';return;}
+      const key=/nietzsche|philosoph|werte|sinn/i.test(value)?'nietzsche':/merz|deutsch.*politik|wirtschaftspolitik/i.test(value)?'merz':/trump|verhandl|deal|kommunikation/i.test(value)?'trump':/picard|führung|diplom|ethik|team/i.test(value)?'picard':null;
+      propose(key?guestProfiles[key]:{name:'Fachgast für '+value,expertise:value,style:'Fiktive fachliche Perspektive. Erläutere Annahmen, Unsicherheit und praktische nächste Schritte; erfinde keine Qualifikationen.'});
+    });
+    choice.addEventListener('change',()=>{if(guestProfiles[choice.value])propose(guestProfiles[choice.value]);});
+    guestInvite=e('button',{type:'button'},'Einladen');guestInvite.disabled=true;
+    guestInvite.addEventListener('click',()=>{
+      if(!guestSuggestion || busy)return;
+      endVoice('Gast eingeladen. Starte den Sprachmodus, wenn Du mit ihm sprechen möchtest.');
+      invitedGuests.set(id,{...guestSuggestion});guestRooms.add(id);recipient.value='beide';updateGuest();
+    });
+    const dismiss=e('button',{type:'button'},'Gast verabschieden');
+    dismiss.addEventListener('click',()=>{if(busy)return;endVoice();invitedGuests.delete(id);updateGuest();});
+    guestSummary=e('p',{role:'status'});guestBrief=e('p',{class:'jgr-note'});
+    inner.append(expertise,suggest,choice,recommendation,guestInvite,dismiss,guestSummary,e('strong',{},'Sichtbarer Rollenauftrag für die nächste Nachricht'),guestBrief,e('small',{},'Gastrollen sind Interpretationen. Keine Originalstimmen. Auswahl gilt für diesen Raum in dieser Browser-Sitzung.'));
+    panel.append(inner);updateGuest();return panel;
   }
 
   function animateSpeaker() {
     if (!stage) return;
+    if (!speaking) holo3d?.setSpeaker(null);
     for (const who of ['john', 'madeleine']) stage.querySelector('.jgr-person-' + who)?.classList.toggle('jgr-active', mode === 'local' && lastRun?.an === who);
   }
   function fail(cause, mutation = false) {
+    if (voiceOn) endVoice('Verbindung oder Auftrag nicht bestätigt. Bitte den Stand prüfen; es wird nichts erneut gesendet.');
     error.textContent = (cause instanceof TypeError || cause.name === 'AbortError')
       ? (mutation ? 'Keine Bestätigung erhalten. Bitte den Stand prüfen, bevor Du erneut sendest.' : 'Die Verbindung ist unterbrochen. Der angezeigte Stand kann veraltet sein.')
       : cause.message;
@@ -196,7 +465,7 @@
     const writable = mode === 'local' && !busy;
     form.hidden = mode !== 'local';
     input.disabled = topic.disabled = recipient.disabled = !writable;
-    send.disabled = !writable || !input.value.trim() || [...input.value].length > 8000;
+    send.disabled = !writable || !input.value.trim() || [...(input.value + guestInstruction())].length + 4 > 8000;
     fresh.disabled = !writable;
     stop.hidden = mode !== 'local';
     stop.disabled = !writable || !id || (!lastRun && !waiting.length);
@@ -205,11 +474,12 @@
   function saveDraft() { drafts.set(id, { text: input.value, topic: topic.value, an: recipient.value }); }
   function select(nextId) {
     if (busy) return;
+    endVoice();
     saveDraft();
     id = nextId; epoch++; turns = new Map(); lastRun = null; waiting = [];
     const draft = drafts.get(id) || { text: '', topic: '', an: 'beide' };
     input.value = draft.text; topic.value = draft.topic; recipient.value = draft.an;
-    topic.closest('label').hidden = !!id;
+    topic.closest('label').hidden = !!id; updateGuest();
     log.replaceChildren(e('p', {}, id ? 'Beiträge werden geladen …' : 'Neuer Raum. Mit Deiner ersten Nachricht beginnt das Gespräch.'));
     status.textContent = id ? 'Raum wird geladen …' : 'Bereit für ein neues Gespräch.';
     error.textContent = '';
@@ -274,8 +544,10 @@
     if (lastRun && waiting.length) status.textContent += ' · Danach: ' + waiting.map(who => names[who] || who).join(', ');
     animateSpeaker();
     if (changed) paintTurns();
+    voiceTurns(data.zuege || []);
   }
   async function remoteStand() {
+    endVoice('Die lokale Tür ist nicht erreichbar. Mikrofon und Vorlesen sind aus.');
     mode = 'remote'; animateSpeaker(); controls(); list.replaceChildren();
     status.textContent = 'Die lokale Tür ist nicht erreichbar. Hier sind nur Stand und Stopp verfügbar.';
     if (!hub || !token) {
@@ -341,7 +613,9 @@
     }
   }
   function build() {
+    document.head.append(e('link',{rel:'stylesheet',href:engineBase+'cinema.css'}));
     const style = e('style'); style.textContent = `
+      .jgr-voice,.jgr-guest{padding:12px;border:1px solid #485b65;border-radius:10px;margin:10px 0}.jgr-voice>label{display:block;margin:8px 0}.jgr-voice input[type=checkbox]{width:auto;display:inline}.jgr-voice button{margin:4px}.jgr-guest-presence{position:absolute;bottom:8px;left:20px;right:20px;text-align:center;background:#182633ed;color:#f2d49a;padding:8px;border-radius:8px;z-index:5}.jgr-speaking .jgr-avatar{filter:drop-shadow(0 0 12px #f4cf81)}
       .jgr{--panel:#141c23;--panel2:#202d37;--ink:#e9eee4;--line2:#485b65;box-sizing:border-box;width:min(1040px,calc(100% - 24px));max-height:92vh;padding:0;border:1px solid var(--line2,#48533d);border-radius:16px;background:var(--panel,#141712);color:var(--ink,#e9eee4);font:16px/1.5 system-ui,sans-serif}
       .jgr::backdrop{background:#080b09b8}.jgr [hidden]{display:none!important}.jgr *{box-sizing:border-box}
       .jgr button,.jgr select,.jgr input,.jgr textarea{font:inherit;color:inherit;background:var(--panel2,#20271c);border:1px solid var(--line2,#48533d);border-radius:8px;padding:9px 12px}
@@ -405,8 +679,13 @@
       if (portraitUrl) URL.revokeObjectURL(portraitUrl);
       portraitUrl = URL.createObjectURL(file); paintScene();
     });
-    photoLabel.append(photo); settings.append(placeLabel, photoLabel, e('small', {}, 'Dein Foto bleibt in dieser Browser-Sitzung.'));
-    const wardrobePanel = wardrobeControls();
+    const photoNote = e('small', {}, 'Dein Foto bleibt in dieser Browser-Sitzung.'); photoNote.hidden = use3d;
+    photoLabel.append(photo); settings.append(placeLabel, photoLabel, photoNote);
+    const viewSwitch = e('button',{type:'button',class:'jgr-three-switch'},'Fotoporträts ansehen');
+    viewSwitch.addEventListener('click',()=>{use3d=!use3d;holoVersion++;holoLoading=false;holo3d?.dispose();holo3d=null;stage.classList.remove('jgr-three');syncViewControls();paintScene();});
+    settings.append(viewSwitch);
+    const wardrobePanel = wardrobeControls(); wardrobePanel.hidden = use3d; photoLabel.hidden = use3d;
+    syncViewControls = () => {viewSwitch.textContent=use3d?'Fotoporträts ansehen':'Zu den Filmszenen';wardrobePanel.hidden=use3d;photoLabel.hidden=use3d;photoNote.hidden=use3d;};
     stage = e('div', { class: 'jgr-scene' }); paintScene();
     const layout = e('div', { class: 'jgr-layout' }), side = e('nav', { class: 'jgr-side', 'aria-label': 'Räume' });
     fresh = e('button', { type: 'button' }, 'Neuer Raum'); fresh.addEventListener('click', () => select(''));
@@ -422,39 +701,50 @@
     input = e('textarea', { rows: '3', maxlength: '8000', placeholder: 'Was möchtest Du besprechen?' }); inputLabel.append(input);
     input.addEventListener('input', controls);
     const actions = e('div', { class: 'jgr-actions' }), to = e('label', {}, 'Antwort von');
-    recipient = e('select');
+    recipient = e('select', {'aria-label':'Antwort von'});
     for (const [value, label] of [['beide', 'John, dann Madeleine'], ['john', 'John'], ['madeleine', 'Madeleine']]) recipient.append(e('option', { value }, label));
     to.append(recipient); send = e('button', { type: 'submit', class: 'jgr-send' }, 'Senden');
     actions.append(to, send);
     form.append(topicLabel, inputLabel, actions, e('p', { class: 'jgr-note' }, 'Bis 8000 Zeichen. „Nicht weitergeben“ gilt für künftige Antworten.'));
     form.addEventListener('submit', event => {
       event.preventDefault(); if (mode !== 'local' || send.disabled) return;
-      const text = input.value.trim();
+      const brief = guestInstruction();
+      const languageBrief = language.value === 'de-DE' ? '' : '\n\n[Gesprächssprache: '+languages[language.value]+' ('+language.value+'). Bitte beide Charaktere in dieser Sprache antworten lassen.]';
+      const text = input.value.trim() + (brief ? '\n\n' + brief : '') + languageBrief;
+      if(text.length>8000){error.textContent='Nachricht samt Rollen- und Sprachauftrag ist zu lang (maximal 8000 Zeichen).';return;}
+      haltMic();
+      if (voiceOn) { awaitingReply = true; heardReply = false; voiceNote('Nachricht wird übergeben …'); }
       mutate(async () => {
         const previous = id;
         // Neutrales Thema verhindert, dass der Server den ersten Satz als Hub-Thema übernimmt.
         const result = await local('/raum', { ...(id ? { id } : { thema: topic.value.trim() || 'Gespräch' }), text, an: recipient.value });
         id = result.id; input.value = ''; drafts.delete(previous); turns = previous === id ? turns : new Map();
+        if (previous !== id) {
+          if (invitedGuests.has(previous)) { invitedGuests.set(id,invitedGuests.get(previous)); invitedGuests.delete(previous); }
+          if (guestRooms.delete(previous)) guestRooms.add(id);
+          updateGuest();
+        }
         topic.closest('label').hidden = true;
         status.textContent = result.wartet ? 'Wartet — John ist beschäftigt. Der Raum ist eingereiht.' : 'Nachricht übergeben. Die Antwort wird vorbereitet.';
         round = 0;
       });
     });
     stop = e('button', { type: 'button' }, 'Gespräch stoppen');
-    stop.addEventListener('click', () => mutate(async () => {
+    stop.addEventListener('click', () => { endVoice(); mutate(async () => {
       const result = await local('/stopp', { id });
       status.textContent = result.gestoppt ? 'Gespräch gestoppt.' : 'Es läuft und wartet gerade kein Zug.';
       lastRun = null; waiting = [];
-    }));
-    main.append(status, error, log, stop, form); layout.append(side, main); dialog.append(head, settings, wardrobePanel, motionControls(), stage, layout); document.body.append(dialog);
-    dialog.addEventListener('close', () => { clearInterval(motionInterval); clearTimeout(transitionTimer); clearTimeout(timer); epoch++; saveDraft(); opener?.focus(); });
-    document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(timer); else schedule(0); });
+    }); });
+    main.append(status, error, voiceControls(), guestControls(), log, stop, form); layout.append(side, main); dialog.append(head, settings, wardrobePanel, stage, layout); document.body.append(dialog);
+    dialog.addEventListener('close', () => { if (dialog.open) return; endVoice(); holo3d?.pause(); clearInterval(motionInterval); clearTimeout(transitionTimer); clearTimeout(timer); epoch++; saveDraft(); opener?.focus(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { clearTimeout(timer); endVoice('Im Hintergrund pausiert. Zum Sprechen erneut starten.'); } else schedule(0); });
     controls();
   }
   function open() {
     if (!dialog) build();
     if (dialog.open) return;
-    opener = document.activeElement; dialog.showModal(); paintScene(); startMotions(); schedule(0);
+    endVoice(); holo3d?.pause();
+    opener = document.activeElement; dialog.showModal(); holo3d?.resume(); paintScene(); updateGuest(); schedule(0);
   }
   function attach() {
     for (const target of ['rhythm', 'stapelBody']) {

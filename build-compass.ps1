@@ -150,7 +150,16 @@ $holoQuelle = Join-Path $Quelle 'holodeck-assets'
 if (Test-Path $holoQuelle) {
   $holoZiel = Join-Path $Ziel 'holodeck-assets'
   if (-not (Test-Path $holoZiel)) { New-Item -ItemType Directory -Force $holoZiel | Out-Null }
-  Get-ChildItem $holoQuelle -File -Filter *.png | ForEach-Object { Copy-Item $_.FullName (Join-Path $holoZiel $_.Name) -Force }
+  Get-ChildItem -LiteralPath $holoQuelle -File | Where-Object { $_.Extension -in @('.png','.webp') -or $_.Name -eq 'manifest.json' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $holoZiel $_.Name) -Force }
+}
+
+# Holodeck-Filmszenen: Module werden dynamisch geladen, deshalb explizit im eigenen Build.
+$holoEngineZiel = Join-Path $Ziel 'holodeck-engine'
+if (-not (Test-Path $holoEngineZiel)) { New-Item -ItemType Directory -Force $holoEngineZiel | Out-Null }
+foreach ($datei in @('scenes.js','production.js','cinema.js','cinema.css','studio-audio.js','studio-direction.js','sternenszenen.js')) {
+  $src = Join-Path $Quelle "holodeck-engine/$datei"
+  if (-not (Test-Path $src)) { throw "Holodeck-Modul fehlt: $datei" }
+  Copy-Item $src (Join-Path $holoEngineZiel $datei) -Force
 }
 
 # 3b) Vollständigkeitsprüfung — was die gebauten Seiten referenzieren, muss im Zielordner

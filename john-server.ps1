@@ -5011,6 +5011,16 @@ try {
         continue
       }
 
+      # --- Sternenkarte fuers Holodeck (13.09.2026): lokal aus dem Skill nordstern-landkarte; live liegt sie an der Wurzel der Bruecke ---
+      if ($path -eq '/landkarte.js') {
+        $karte = Join-Path $env:USERPROFILE '.claude/skills/nordstern-landkarte/landkarte.js'
+        if (Test-Path $karte -PathType Leaf) {
+          $res.StatusCode = 200; $res.ContentType = 'text/javascript; charset=utf-8'; $res.AddHeader('Cache-Control', 'no-store')
+          $bytes = [IO.File]::ReadAllBytes($karte); $res.ContentLength64 = $bytes.Length; $res.OutputStream.Write($bytes, 0, $bytes.Length); $res.Close()
+        } else { $res.StatusCode = 404; $res.Close() }
+        continue
+      }
+
       # --- statische Dateien ---
       if ($path -eq '/' ) { $path = '/dashboard.html' }
       $file = [IO.Path]::GetFullPath((Join-Path $RootFull $path.TrimStart('/')))
