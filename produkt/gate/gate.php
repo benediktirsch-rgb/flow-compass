@@ -470,7 +470,7 @@ $typen = array(
 	'woff2' => 'font/woff2', 'woff' => 'font/woff', 'ttf' => 'font/ttf',
 	'txt' => 'text/plain; charset=utf-8', 'md' => 'text/plain; charset=utf-8',
 	'pdf' => 'application/pdf', 'csv' => 'text/csv; charset=utf-8',
-	'mp4' => 'video/mp4', 'webm' => 'video/webm', 'mp3' => 'audio/mpeg', 'wav' => 'audio/wav',
+	'mp4' => 'video/mp4', 'webm' => 'video/webm', 'mp3' => 'audio/mpeg', 'wav' => 'audio/wav', 'm4a' => 'audio/mp4',
 	'xml' => 'application/xml; charset=utf-8', 'vtt' => 'text/vtt; charset=utf-8',
 	/* Das Compass-Server-Paket laedt der Einrichtungs-Assistent aus dem Ordner der Instanz
 	   (Schritt „Dein Coach“). Ohne diesen Eintrag antwortet die Tuer mit 403 „Diesen Dateityp
