@@ -1,0 +1,110 @@
+<mxfile host="app.diagrams.net" modified="2026-09-14T22:00:00.000Z" agent="Claude" version="24.7.0" type="device">
+  <diagram id="vishnu-infra" name="Vishnu Artists — Infrastruktur 09/2026">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="g_nutzer" value="Menschen" style="swimlane;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="40" width="260" height="240" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_bene" value="Bene&#10;Browser / Handy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g_nutzer">
+          <mxGeometry x="20" y="40" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_team" value="Kern-Team&#10;Philipp · Jan · Marwan&#10;Florian · Domingo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g_nutzer">
+          <mxGeometry x="140" y="40" width="100" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="n_kunden" value="Kundschaft / Interessierte&#10;(Demo, Vertrieb)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="g_nutzer">
+          <mxGeometry x="20" y="140" width="220" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="g_kas" value="ALL-INKL KAS w01e7219 — Webspace (PHP, kein Dauerprozess)" style="swimlane;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="360" y="40" width="520" height="330" as="geometry"/>
+        </mxCell>
+        <mxCell id="k_site" value="vishnuartists.com&#10;Website · Login (anmelden.php) · CRM · FAP-Portal&#10;Finanzlauf · Raumschiff · Backstage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;" vertex="1" parent="g_kas">
+          <mxGeometry x="20" y="40" width="230" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="k_bene" value="bene.vishnuartists.com&#10;Brücke (Portal) + Flow Compass&#10;hinter gate.php" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;" vertex="1" parent="g_kas">
+          <mxGeometry x="270" y="40" width="230" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="k_team" value="philipp. · jan. · marwan. · florian. · domingo. · martin.&#10;Team-Instanzen (Portal + Compass)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;" vertex="1" parent="g_kas">
+          <mxGeometry x="20" y="130" width="230" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="k_demo" value="demo.vishnuartists.com&#10;Compass-Demo + Starter/Hilfe · compass-server.zip" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;" vertex="1" parent="g_kas">
+          <mxGeometry x="270" y="130" width="230" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="k_va" value="va.vishnuartists.com&#10;Team-Cockpit (Jira-Daten)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;" vertex="1" parent="g_kas">
+          <mxGeometry x="20" y="210" width="230" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="k_john" value="hotel-vaikuntha.de/john&#10;Johns Rezeption (Stand, Aufträge, Stapel-Spiegel)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;" vertex="1" parent="g_kas">
+          <mxGeometry x="270" y="210" width="230" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="k_vk" value="vaikuntha.eu — WordPress (Verein, SSO-Gegenstelle)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;" vertex="1" parent="g_kas">
+          <mxGeometry x="20" y="280" width="480" height="36" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="g_wolke" value="Hetzner Cloud — Wolkenserver „wolke“ (Nürnberg, Ubuntu 24.04, seit 14.09.2026)" style="swimlane;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="940" y="40" width="420" height="330" as="geometry"/>
+        </mxCell>
+        <mxCell id="w_caddy" value="Caddy · TLS (Let's Encrypt)&#10;nur /t-&lt;geheim&gt;/* → 8787, sonst 404" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="g_wolke">
+          <mxGeometry x="20" y="40" width="380" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="w_srv" value="compass-server (pwsh 7, systemd, localhost:8787)&#10;Coach · Stapel · Trello · Jira&#10;Daten: /var/lib/compass-server/daten · Schlüssel: /etc/compass-server/env" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="g_wolke">
+          <mxGeometry x="20" y="110" width="380" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="w_claude" value="Claude Code (Abo, setup-token)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;dashed=1;" vertex="1" parent="g_wolke">
+          <mxGeometry x="20" y="200" width="180" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="w_next" value="geplant: compass-server@&lt;instanz&gt;&#10;(Team- und Kundeninstanzen)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;dashed=1;" vertex="1" parent="g_wolke">
+          <mxGeometry x="220" y="200" width="180" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="w_fw" value="Hetzner-Firewall + ufw: 22 / 80 / 443 · Backups täglich · SSH nur per Schlüssel" style="text;html=1;align=center;fontSize=11;" vertex="1" parent="g_wolke">
+          <mxGeometry x="20" y="260" width="380" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="g_pc" value="vishnu-master (Benes Windows-Rechner)" style="swimlane;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="40" y="420" width="520" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_john" value="john-server.ps1 :8787 (nur lokal)&#10;Kalender · Postfach · Slack · Finanzen · Checkins · Boards · Git" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="g_pc">
+          <mxGeometry x="20" y="40" width="230" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_worker" value="John-Worker :8788 · Madeleine (Codex)&#10;geplante Aufgaben (publish, Briefkasten, Post)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="g_pc">
+          <mxGeometry x="270" y="40" width="230" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="p_deploy" value="publish-compass.ps1 (FTPS, alle 30 Min) · deploy-wolkenserver.ps1 (SSH)&#10;Repos unter C:\dev → GitHub (privat)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="g_pc">
+          <mxGeometry x="20" y="120" width="480" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="g_ext" value="Fremde Dienste" style="swimlane;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="620" y="420" width="740" height="200" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_jira" value="Atlassian&#10;Jira VA/STA/FC · Confluence" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="g_ext">
+          <mxGeometry x="20" y="40" width="160" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_trello" value="Trello&#10;privat · Arbeit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="g_ext">
+          <mxGeometry x="200" y="40" width="160" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_anthropic" value="Anthropic&#10;Claude-Abo (Max)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="g_ext">
+          <mxGeometry x="380" y="40" width="160" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_github" value="GitHub&#10;flow-compass · flow-cockpit · john-agent …" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="g_ext">
+          <mxGeometry x="560" y="40" width="160" height="60" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_mehr" value="Google (Gmail, Kalender-ICS) · Slack (Free) · Fastbill · Stripe · Hetzner-API · Let's Encrypt" style="text;html=1;align=center;fontSize=11;" vertex="1" parent="g_ext">
+          <mxGeometry x="20" y="120" width="700" height="40" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="c1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="n_bene" target="k_bene"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c2" value="JOHN_API (https, geheimer Pfad)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=10;" edge="1" parent="1" source="k_bene" target="w_caddy"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="w_caddy" target="w_srv"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;" edge="1" parent="1" source="w_srv" target="w_claude"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c5" value="Trello/Jira-API" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=10;" edge="1" parent="1" source="w_srv" target="e_trello"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c6" value="?john=localhost (Rückweg)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;dashed=1;fontSize=10;" edge="1" parent="1" source="k_bene" target="p_john"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c7" value="FTPS / SSH" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=10;" edge="1" parent="1" source="p_deploy" target="g_kas"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=10;" edge="1" parent="1" source="p_deploy" target="g_wolke"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="n_team" target="k_team"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="c10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="n_kunden" target="k_demo"><mxGeometry relative="1" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

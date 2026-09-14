@@ -55,6 +55,24 @@ Der erste Lauf dauert 2–4 Minuten (Paketquellen, Claude-Code-Installer). Jeder
 Abgleich: neues Paket, neue Persona, neue Schlüssel — der Dienst startet neu, `TASKS.md` und die
 Coaching-Notizen auf dem Server bleiben stehen (der Coach schreibt sie dort selbst).
 
+## Team- und Kundeninstanzen (seit 15.09.2026)
+
+Jede Instanz aus `instanzen\<slug>` bekommt auf dem Wolkenserver einen eigenen Dienst
+`compass-server@<slug>` (eigener Port ab 8791, eigener Datenordner `/var/lib/compass-server/instanzen/<slug>/daten`,
+eigene Schlüsseldatei `/etc/compass-server/instanzen/<slug>.env`) und einen eigenen geheimen Pfad bei Caddy.
+Aufnehmen: `deploy-wolkenserver.ps1 -Instanz "Philipp Heitz"` — danach steht sie in `wolke.json`, läuft bei jedem
+Deploy mit, und `api:` in `instanzen\<slug>\compass\instanz.js` zeigt auf ihre Adresse; `publish-compass.ps1`
+baut das ein. Name, Trello-Kurzlinks und Jira-Site kommen aus der `instanz.js`.
+
+**KI je Person, nicht über Benes Rechnung:** der Coach einer Instanz läuft erst, wenn die Person ihren eigenen
+`claude setup-token` liefert. Bene trägt ihn als `WOLKE_CLAUDE_TOKEN_<SLUG>` ein (Slug groß, Bindestrich →
+Unterstrich, z. B. `WOLKE_CLAUDE_TOKEN_PHILIPP_HEITZ`) und deployt erneut. Bis dahin steht die Instanz auf
+`backend: ohne` — Board, Stapel aus Dateien und die ehrlichen „nicht angebunden“-Hinweise laufen trotzdem.
+Trello- und Jira-Schlüssel der Person: noch nicht vorgesehen (die Instanz meldet `NO_KEY`); nächster Schritt.
+
+Stand 15.09.2026: philipp-heitz (8791), jan (8792), marwan (8793), florian (8794), domingo (8795) laufen, alle
+`ohne`. Martin hat keinen Compass (nur Portal) und deshalb keine Instanz.
+
 ## Nachsehen und betreiben
 
 | Was | Wie |

@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="660" viewBox="0 0 1400 660" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="12">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#333"/></marker>
+  </defs>
+  <rect width="1400" height="660" fill="#ffffff"/>
+  <text x="20" y="26" font-size="18" font-weight="bold" fill="#1c2314">Vishnu Artists — Infrastruktur, Stand 14.09.2026</text>
+
+  <!-- Menschen -->
+  <rect x="20" y="50" width="260" height="230" rx="6" fill="#f5f5f5" stroke="#666"/>
+  <text x="32" y="70" font-weight="bold">Menschen</text>
+  <rect x="35" y="85" width="105" height="60" rx="6" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="87" y="110" text-anchor="middle">Bene</text><text x="87" y="126" text-anchor="middle" font-size="10">Browser / Handy</text>
+  <rect x="155" y="85" width="110" height="60" rx="6" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="210" y="104" text-anchor="middle">Kern-Team</text><text x="210" y="118" text-anchor="middle" font-size="9">Philipp · Jan · Marwan</text><text x="210" y="131" text-anchor="middle" font-size="9">Florian · Domingo</text>
+  <rect x="35" y="180" width="230" height="60" rx="6" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="150" y="205" text-anchor="middle">Kundschaft / Interessierte</text><text x="150" y="222" text-anchor="middle" font-size="10">Demo, Vertrieb</text>
+
+  <!-- KAS -->
+  <rect x="320" y="50" width="560" height="330" rx="6" fill="#fff2cc" stroke="#d6b656"/>
+  <text x="332" y="70" font-weight="bold">ALL-INKL KAS w01e7219 — Webspace (PHP, kein Dauerprozess)</text>
+  <rect x="335" y="85" width="260" height="70" rx="6" fill="#fff" stroke="#d6b656"/>
+  <text x="465" y="104" text-anchor="middle" font-weight="bold">vishnuartists.com</text>
+  <text x="465" y="120" text-anchor="middle" font-size="10">Website · Login (anmelden.php) · CRM · FAP-Portal</text>
+  <text x="465" y="134" text-anchor="middle" font-size="10">Finanzlauf · Raumschiff · Backstage</text>
+  <rect x="610" y="85" width="255" height="70" rx="6" fill="#fff" stroke="#d6b656"/>
+  <text x="737" y="104" text-anchor="middle" font-weight="bold">bene.vishnuartists.com</text>
+  <text x="737" y="120" text-anchor="middle" font-size="10">Brücke (Portal) + Flow Compass</text>
+  <text x="737" y="134" text-anchor="middle" font-size="10">hinter gate.php (SSO)</text>
+  <rect x="335" y="170" width="260" height="60" rx="6" fill="#fff" stroke="#d6b656"/>
+  <text x="465" y="192" text-anchor="middle" font-size="10">philipp. · jan. · marwan. · florian. · domingo. · martin.</text>
+  <text x="465" y="208" text-anchor="middle" font-size="10">Team-Instanzen (Portal + Compass)</text>
+  <rect x="610" y="170" width="255" height="60" rx="6" fill="#fff" stroke="#d6b656"/>
+  <text x="737" y="192" text-anchor="middle" font-weight="bold">demo.vishnuartists.com</text>
+  <text x="737" y="208" text-anchor="middle" font-size="10">Compass-Demo · Starter/Hilfe · compass-server.zip</text>
+  <rect x="335" y="245" width="260" height="50" rx="6" fill="#fff" stroke="#d6b656"/>
+  <text x="465" y="266" text-anchor="middle" font-weight="bold">va.vishnuartists.com</text>
+  <text x="465" y="282" text-anchor="middle" font-size="10">Team-Cockpit (Jira-Daten)</text>
+  <rect x="610" y="245" width="255" height="50" rx="6" fill="#fff" stroke="#d6b656"/>
+  <text x="737" y="266" text-anchor="middle" font-weight="bold">hotel-vaikuntha.de/john</text>
+  <text x="737" y="282" text-anchor="middle" font-size="10">Johns Rezeption (Stand, Aufträge, Stapel-Spiegel)</text>
+  <rect x="335" y="310" width="530" height="40" rx="6" fill="#fff" stroke="#d6b656"/>
+  <text x="600" y="334" text-anchor="middle">vaikuntha.eu — WordPress (Verein, SSO-Gegenstelle)</text>
+
+  <!-- Wolke -->
+  <rect x="920" y="50" width="460" height="330" rx="6" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="932" y="70" font-weight="bold">Hetzner Cloud — Wolkenserver „wolke“ (Nürnberg, Ubuntu 24.04, seit 14.09.2026)</text>
+  <rect x="935" y="85" width="430" height="50" rx="6" fill="#fff" stroke="#82b366"/>
+  <text x="1150" y="105" text-anchor="middle" font-weight="bold">Caddy · TLS (Let's Encrypt)</text>
+  <text x="1150" y="122" text-anchor="middle" font-size="10">nur /t-&lt;geheim&gt;/* → 8787, alles andere 404</text>
+  <rect x="935" y="150" width="430" height="75" rx="6" fill="#fff" stroke="#82b366"/>
+  <text x="1150" y="170" text-anchor="middle" font-weight="bold">compass-server (pwsh 7, systemd, localhost:8787)</text>
+  <text x="1150" y="188" text-anchor="middle" font-size="10">Coach · Stapel · Trello · Jira — Paket aus produkt/server</text>
+  <text x="1150" y="204" text-anchor="middle" font-size="10">Daten /var/lib/compass-server/daten · Schlüssel /etc/compass-server/env (nur root)</text>
+  <rect x="935" y="240" width="205" height="45" rx="6" fill="#fff" stroke="#82b366" stroke-dasharray="4 3"/>
+  <text x="1037" y="259" text-anchor="middle" font-size="10">Claude Code (Abo, setup-token)</text>
+  <text x="1037" y="274" text-anchor="middle" font-size="10">rechnet über das Konto der Person</text>
+  <rect x="1160" y="240" width="205" height="45" rx="6" fill="#fff" stroke="#82b366" stroke-dasharray="4 3"/>
+  <text x="1262" y="259" text-anchor="middle" font-size="10">geplant: compass-server@&lt;instanz&gt;</text>
+  <text x="1262" y="274" text-anchor="middle" font-size="10">Team- und Kundeninstanzen</text>
+  <text x="1150" y="320" text-anchor="middle" font-size="10">Hetzner-Firewall + ufw: 22 / 80 / 443 · Backups täglich (7 Stände) · SSH nur per Schlüssel · IPv4 178.104.13.9</text>
+  <text x="1150" y="340" text-anchor="middle" font-size="10">Adresse: 178-104-13-9.sslip.io → geplant wolke.vishnuartists.com (KAS-DNS)</text>
+
+  <!-- PC -->
+  <rect x="20" y="420" width="560" height="210" rx="6" fill="#e1d5e7" stroke="#9673a6"/>
+  <text x="32" y="440" font-weight="bold">vishnu-master (Benes Windows-Rechner)</text>
+  <rect x="35" y="455" width="260" height="65" rx="6" fill="#fff" stroke="#9673a6"/>
+  <text x="165" y="475" text-anchor="middle" font-weight="bold">john-server.ps1 :8787 (nur lokal)</text>
+  <text x="165" y="492" text-anchor="middle" font-size="10">Kalender · Postfach · Slack · Finanzen</text>
+  <text x="165" y="506" text-anchor="middle" font-size="10">Checkins · Boards · Git-Freigabe</text>
+  <rect x="310" y="455" width="255" height="65" rx="6" fill="#fff" stroke="#9673a6"/>
+  <text x="437" y="475" text-anchor="middle" font-weight="bold">John-Worker :8788 · Madeleine (Codex)</text>
+  <text x="437" y="492" text-anchor="middle" font-size="10">geplante Aufgaben: publish, Briefkasten,</text>
+  <text x="437" y="506" text-anchor="middle" font-size="10">Steuerbüro-Post, Ticket-Aufräumen</text>
+  <rect x="35" y="535" width="530" height="60" rx="6" fill="#fff" stroke="#9673a6"/>
+  <text x="300" y="556" text-anchor="middle" font-weight="bold">publish-compass.ps1 (FTPS, alle 30 Min) · deploy-wolkenserver.ps1 (SSH)</text>
+  <text x="300" y="574" text-anchor="middle" font-size="10">Repos unter C:\dev → GitHub (privat): flow-compass, flow-cockpit, redesign, vaikuntha, john-agent</text>
+
+  <!-- Fremde Dienste -->
+  <rect x="620" y="420" width="760" height="210" rx="6" fill="#f8cecc" stroke="#b85450"/>
+  <text x="632" y="440" font-weight="bold">Fremde Dienste</text>
+  <rect x="635" y="455" width="170" height="60" rx="6" fill="#fff" stroke="#b85450"/>
+  <text x="720" y="478" text-anchor="middle" font-weight="bold">Atlassian</text><text x="720" y="496" text-anchor="middle" font-size="10">Jira VA/STA/FC · Confluence</text>
+  <rect x="820" y="455" width="170" height="60" rx="6" fill="#fff" stroke="#b85450"/>
+  <text x="905" y="478" text-anchor="middle" font-weight="bold">Trello</text><text x="905" y="496" text-anchor="middle" font-size="10">privat · Arbeit</text>
+  <rect x="1005" y="455" width="170" height="60" rx="6" fill="#fff" stroke="#b85450"/>
+  <text x="1090" y="478" text-anchor="middle" font-weight="bold">Anthropic</text><text x="1090" y="496" text-anchor="middle" font-size="10">Claude-Abo (Max)</text>
+  <rect x="1190" y="455" width="175" height="60" rx="6" fill="#fff" stroke="#b85450"/>
+  <text x="1277" y="478" text-anchor="middle" font-weight="bold">GitHub</text><text x="1277" y="496" text-anchor="middle" font-size="10">private Repos</text>
+  <text x="1000" y="560" text-anchor="middle" font-size="11">Google (Gmail, Kalender-ICS) · Slack (Free-Plan) · Fastbill · Stripe · Hetzner-API · Let's Encrypt · OpenAI (Codex, Madeleine)</text>
+
+  <!-- Pfeile -->
+  <line x1="140" y1="115" x2="610" y2="115" stroke="#333" marker-end="url(#a)"/>
+  <line x1="865" y1="110" x2="935" y2="110" stroke="#333" marker-end="url(#a)"/>
+  <text x="900" y="100" text-anchor="middle" font-size="9">JOHN_API</text>
+  <line x1="1150" y1="135" x2="1150" y2="150" stroke="#333" marker-end="url(#a)"/>
+  <line x1="1037" y1="225" x2="1037" y2="240" stroke="#333" stroke-dasharray="3 3" marker-end="url(#a)"/>
+  <line x1="1090" y1="380" x2="1090" y2="455" stroke="#333" marker-end="url(#a)"/>
+  <text x="1112" y="420" font-size="9">Abo (setup-token)</text>
+  <line x1="1000" y1="380" x2="905" y2="455" stroke="#333" marker-end="url(#a)"/>
+  <text x="930" y="412" font-size="9">Trello/Jira-API</text>
+  <line x1="737" y1="155" x2="737" y2="170" stroke="#333" marker-end="url(#a)"/>
+  <line x1="737" y1="155" x2="300" y2="455" stroke="#333" stroke-dasharray="4 3" marker-end="url(#a)"/>
+  <text x="470" y="395" font-size="9">?john=localhost:8787 (Rückweg, nur an Benes Rechner)</text>
+  <line x1="300" y1="535" x2="600" y2="380" stroke="#333" marker-end="url(#a)"/>
+  <text x="430" y="470" font-size="9" transform="rotate(-27 430 470)"></text>
+  <line x1="565" y1="565" x2="1150" y2="380" stroke="#333" marker-end="url(#a)"/>
+  <text x="820" y="500" font-size="9"></text>
+  <line x1="210" y1="145" x2="335" y2="200" stroke="#333" marker-end="url(#a)"/>
+  <line x1="150" y1="240" x2="610" y2="200" stroke="#333" marker-end="url(#a)"/>
+  <text x="640" y="395" font-size="9">FTPS (publish-compass.ps1)</text>
+  <text x="880" y="425" font-size="9">SSH (deploy-wolkenserver.ps1)</text>
+</svg>

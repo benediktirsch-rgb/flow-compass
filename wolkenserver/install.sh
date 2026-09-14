@@ -123,9 +123,37 @@ fi
 
 log "Dienst compass-server"
 install -o root -g root -m 644 "$QUELLE/compass-server.service" /etc/systemd/system/compass-server.service
+[ -f "$QUELLE/compass-server@.service" ] && install -o root -g root -m 644 "$QUELLE/compass-server@.service" /etc/systemd/system/compass-server@.service
 systemctl daemon-reload
 systemctl enable compass-server >/dev/null 2>&1 || true
 systemctl restart compass-server
+
+# Team- und Kundeninstanzen: je Ordner $QUELLE/instanzen/<slug>/ mit compass-server.json, env, <slug>.caddy
+# → eigener Dienst compass-server@<slug> auf eigenem Port, eigener Datenordner, eigener Caddy-Pfad.
+install -d -o root -g compass -m 750 /etc/compass-server/instanzen
+install -d -o root -g root -m 755 /etc/caddy/instanzen
+[ -f /etc/caddy/instanzen/_leer.caddy ] || echo "# Platzhalter, damit der import-Glob nie leer ist" > /etc/caddy/instanzen/_leer.caddy
+if [ -d "$QUELLE/instanzen" ]; then
+  for dir in "$QUELLE"/instanzen/*/; do
+    [ -d "$dir" ] || continue
+    slug=$(basename "$dir")
+    log "Instanz $slug"
+    install -d -o compass -g compass -m 750 "/var/lib/compass-server/instanzen/$slug" "/var/lib/compass-server/instanzen/$slug/daten" "/var/lib/compass-server/instanzen/$slug/daten/coaching"
+    install -o root -g compass -m 640 "$dir/compass-server.json" "/etc/compass-server/instanzen/$slug.json"
+    if [ -f "$dir/env" ]; then install -o root -g root -m 600 "$dir/env" "/etc/compass-server/instanzen/$slug.env"; fi
+    if [ -d "$dir/daten" ]; then
+      for f in "$dir"/daten/*.md; do
+        [ -e "$f" ] || continue
+        n=$(basename "$f")
+        if [ "$n" = "TASKS.md" ] && [ -f "/var/lib/compass-server/instanzen/$slug/daten/TASKS.md" ]; then continue; fi
+        install -o compass -g compass -m 640 "$f" "/var/lib/compass-server/instanzen/$slug/daten/$n"
+      done
+    fi
+    install -o root -g root -m 644 "$dir/$slug.caddy" "/etc/caddy/instanzen/$slug.caddy"
+    systemctl enable "compass-server@$slug" >/dev/null 2>&1 || true
+    systemctl restart "compass-server@$slug"
+  done
+fi
 
 log "Caddy: https://$HOST/$PFAD/ → localhost:8787"
 sed -e "s|{{HOST}}|$HOST|g" -e "s|{{PFAD}}|$PFAD|g" "$QUELLE/Caddyfile.tmpl" > /etc/caddy/Caddyfile
@@ -135,8 +163,9 @@ systemctl reload caddy 2>/dev/null || systemctl restart caddy
 
 log "Probe"
 sleep 3
-systemctl --no-pager --lines=6 status compass-server || true
+systemctl --no-pager --lines=0 status compass-server | sed -n 3p || true
+for u in $(systemctl list-units --type=service --all --no-legend 'compass-server@*' | awk '{print $1}'); do systemctl --no-pager --lines=0 status "$u" | sed -n 3p | sed "s|^|$u: |"; done
 echo
-curl -s -m 20 http://localhost:8787/api/john/status | head -c 400; echo
+curl -s -m 20 http://localhost:8787/api/john/status | head -c 300; echo
 echo
 echo "Fertig. Von außen: https://$HOST/$PFAD/api/john/status (Zertifikat kommt beim ersten Aufruf, bis zu einer Minute)."

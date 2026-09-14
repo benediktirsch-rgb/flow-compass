@@ -14,6 +14,10 @@
 		}
 	}
 
+	# Team- und Kundeninstanzen: je Instanz ein Schnipsel mit eigenem geheimen Pfad und eigenem Port
+	# (schreibt install.sh aus dem Staging-Ordner instanzen/<slug>/<slug>.caddy).
+	import /etc/caddy/instanzen/*.caddy
+
 	handle {
 		respond "404" 404
 	}
