@@ -37,11 +37,24 @@ fi
 
 log "PowerShell 7"
 if ! command -v pwsh >/dev/null 2>&1; then
-  . /etc/os-release
-  curl -fsSL "https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/packages-microsoft-prod.deb" -o /tmp/packages-microsoft-prod.deb
-  dpkg -i /tmp/packages-microsoft-prod.deb >/dev/null
-  apt-get update -q
-  apt-get install -y -q powershell >/dev/null
+  ARCH=$(dpkg --print-architecture)
+  if [ "$ARCH" = "amd64" ]; then
+    . /etc/os-release
+    curl -fsSL "https://packages.microsoft.com/config/ubuntu/${VERSION_ID}/packages-microsoft-prod.deb" -o /tmp/packages-microsoft-prod.deb
+    dpkg -i /tmp/packages-microsoft-prod.deb >/dev/null
+    apt-get update -q
+    apt-get install -y -q powershell >/dev/null
+  else
+    # arm64 (Hetzner CAX): Microsoft liefert kein apt-Paket, aber ein Tar-Archiv je Release.
+    apt-get install -y -q libicu74 libssl3t64 libgssapi-krb5-2 libstdc++6 zlib1g >/dev/null 2>&1 \
+      || apt-get install -y -q libicu74 libssl3 libgssapi-krb5-2 libstdc++6 zlib1g >/dev/null
+    URL=$(curl -fsSL https://api.github.com/repos/PowerShell/PowerShell/releases/latest | grep -o 'https://[^"]*linux-arm64\.tar\.gz' | head -1)
+    [ -n "$URL" ] || { echo "PowerShell-Archiv für arm64 nicht gefunden" >&2; exit 2; }
+    mkdir -p /opt/microsoft/powershell/7
+    curl -fsSL "$URL" | tar -xz -C /opt/microsoft/powershell/7
+    chmod +x /opt/microsoft/powershell/7/pwsh
+    ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
+  fi
 fi
 pwsh -NoProfile -Command '"pwsh " + $PSVersionTable.PSVersion'
 
@@ -53,6 +66,14 @@ if ! command -v caddy >/dev/null 2>&1; then
   apt-get install -y -q caddy >/dev/null
 fi
 caddy version
+# Zugriffs-Log: ohne den Ordner stirbt Caddy beim Laden der Konfiguration (so am 14.09.2026 beim ersten Lauf).
+install -d -o caddy -g caddy -m 755 /var/log/caddy
+
+# PowerShell schreibt auf Linux jede Skriptblock-Erzeugung als Warnung ins Journal — auf Fehler beschraenken.
+PSHOME_DIR=$(pwsh -NoProfile -Command '$PSHOME' 2>/dev/null || true)
+if [ -n "$PSHOME_DIR" ] && [ -d "$PSHOME_DIR" ] && [ ! -f "$PSHOME_DIR/powershell.config.json" ]; then
+  printf '{ "LogLevel": "Error" }\n' > "$PSHOME_DIR/powershell.config.json"
+fi
 
 log "Firewall: 22, 80, 443"
 ufw allow OpenSSH >/dev/null

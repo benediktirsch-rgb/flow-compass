@@ -18,10 +18,6 @@
 		respond "404" 404
 	}
 
-	log {
-		output file /var/log/caddy/wolke.log {
-			roll_size 10MiB
-			roll_keep 3
-		}
-	}
+	# Zugriffe landen im Journal (journalctl -u caddy). Ein Datei-Log unter /var/log/caddy scheiterte am
+	# 14.09.2026 an den Schreibrechten der systemd-Unit — bewusst weggelassen.
 }
