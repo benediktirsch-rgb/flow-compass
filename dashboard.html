@@ -5306,7 +5306,17 @@ function triVorschlag(w){
 }
 function triSpaeter(schluessel){
   const w=triOffen().find(x=>x.schluessel===schluessel); if(!w) return;
-  triMerken(w,'spaeter','später'); triAlleMalen();
+  triMerken(w,'spaeter','später'); triWeg(schluessel);
+}
+/* Gleiches Verhalten wie bei Freigaben und Rückfragen (14.09.2026): die entschiedene Zeile fadet aus,
+   erst dann werden Karte und Ritual neu gemalt — und der Blick springt an den Anfang der Liste (qaWeg).
+   Beide Exemplare (Karte UND Ritual) faden; neu gemalt wird einmal, wenn das letzte weg ist. */
+function triWeg(schluessel,danach){
+  const boxen=[...document.querySelectorAll('.qa[data-tri="'+schluessel+'"]')].filter(b=>!b.classList.contains('weg'));
+  const fertig=()=>{ triAlleMalen(); if(typeof danach==='function') danach(); };
+  if(!boxen.length){ fertig(); return; }
+  let offen=boxen.length;
+  boxen.forEach(b=>qaWeg(b,()=>{ if(--offen===0) fertig(); }));
 }
 /* Vereins-Freigabe aus dem Trichter heraus: derselbe Weg wie im Vereins-Puls, danach merken und die
    Zeile aus der Liste nehmen — der Vereins-Abruf allein hätte den Trichter nicht aktualisiert. */
@@ -5316,7 +5326,7 @@ async function triZugang(uid,tun,btn){
   if(w&&box&&box.classList.contains('beantwortet')){
     triMerken(w,tun==='ja'?'freigegeben':'abgelehnt',tun==='ja'?'freigegeben':'abgelehnt');
     if(TRI.data) TRI.data.wartende=triOffen().filter(x=>x.schluessel!==w.schluessel);
-    triAlleMalen();
+    setTimeout(()=>triWeg(w.schluessel),450);   /* kurz das ✓ zeigen, dann Platz machen */
   }
 }
 function triRefresh(){
@@ -5436,14 +5446,16 @@ async function poolSchritt(id,status,btn){
   try{
     const r=await fetch(JOHN_API+'/api/pool/schritt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:Number(id),status:status}),signal:ac.signal});
     const j=await r.json();
-    delete TRI.laeuft[key];
     if(j&&j.ok){
       triMerken(w,status,text); triFortschreiben(w,status,text);
       if(FLOW){ FLOW.antworten=FLOW.antworten||{}; const a=FLOW.antworten['trichter']||'';
         FLOW.antworten['trichter']=(a?a+' · ':'')+(w.name||('#'+id))+': '+text; }
-      triAlleMalen();
-      triNachladen();
+      btn.textContent='✓ '+text; melden('Eingetragen.'); boxen.forEach(bx=>bx.classList.add('beantwortet'));
+      /* Die laeuft-Sperre bleibt, bis die Zeile ausgefadet ist — sonst malt ein zwischenzeitlicher
+         Abruf (triNachladen) die Liste neu und reißt die Zeile mitten im Übergang weg. */
+      setTimeout(()=>triWeg(key,()=>{ delete TRI.laeuft[key]; triNachladen(); }),450);
     } else {
+      delete TRI.laeuft[key];
       sperren(false); btn.textContent='Nochmal versuchen';
       melden((j&&(j.hint||j.error))||'Keine Antwort vom Server.',true);
     }
