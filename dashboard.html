@@ -877,35 +877,53 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .top .mark{width:54px;height:54px;flex:none}
 @media(max-width:720px){.top .mark{width:44px;height:44px}}
 
-/* ---- Tugend-Leiste (Preußische Tugenden am Board; seit 14.09.2026 neun Tugenden,
-   je ein Ladebalken 0–100 % und eine Batterie als Mittel — mit der Liste, was für „voll“ fehlt) ---- */
-.tugk{display:flex;align-items:center;gap:12px;margin:10px 0 8px;flex-wrap:wrap}
-.tugbat{display:inline-flex;align-items:center;gap:9px;padding:6px 11px 6px 9px;border-radius:12px;border:1px solid var(--line2);background:var(--panel2);cursor:help;flex:none}
+/* ---- Board-Kopf (seit 14.09.2026 abends): eine schmale, animierte Zeile statt Chips, Hinweis und Liste
+   über dem Board — Batterie · neun Tugend-Segmente · Board-Zahlen. Die Balken laufen bei jedem Zeichnen an.
+   Alles Erklärende steht daneben in .pkside; die Batterie klappt es ein und aus (compassBoardSeite). ---- */
+.pkkopf{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;margin:0 0 8px}
+.tugbat{display:inline-flex;align-items:center;gap:7px;padding:4px 9px 4px 7px;border-radius:11px;border:1px solid var(--line2);background:var(--panel2);
+  cursor:pointer;flex:none;font-family:inherit;color:var(--ink);text-align:left;transition:.16s}
+.tugbat:hover{border-color:var(--sub);transform:translateY(-1px)}
+.tugbat[aria-pressed="true"]{border-color:color-mix(in srgb,var(--bene) 55%,transparent)}
 .tugbat svg{flex:none;display:block}
-.tugbat .tbp{font-size:16px;font-weight:800;color:var(--ink);letter-spacing:.2px;line-height:1.1;font-variant-numeric:tabular-nums}
-.tugbat .tbl{font-size:10.5px;color:var(--dim);letter-spacing:.3px;text-transform:uppercase}
-.tugk .tks{font-size:12px;color:var(--sub);line-height:1.5;flex:1;min-width:200px}
-.tugk .tks b{color:var(--ink)}
-.tug{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 2px}
-.tugc{display:inline-flex;flex-direction:column;gap:5px;padding:5px 9px 6px;border-radius:12px;font-size:11.5px;font-weight:700;
-  border:1px solid var(--line2);background:var(--panel2);color:var(--dim);cursor:help;transition:.16s;white-space:nowrap;min-width:0}
-.tugc .tz{display:flex;align-items:center;gap:5px}
-.tugc.ja{border-color:color-mix(in srgb,var(--ok) 55%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--ok)}
-.tugc.teil{border-color:color-mix(in srgb,var(--bene) 45%,transparent);color:var(--bene)}
-.tugc.nein{border-color:color-mix(in srgb,var(--bad) 45%,transparent);color:var(--bad)}
-.tugc:hover{transform:translateY(-1px)}
-.tugc .tw{opacity:.62;font-weight:600}
-.tugc .tp{margin-left:auto;padding-left:6px;font-size:10.5px;opacity:.8;font-variant-numeric:tabular-nums}
-.tugc .tb{display:block;height:4px;border-radius:2px;background:color-mix(in srgb,currentColor 18%,transparent);overflow:hidden}
-.tugc .tb i{display:block;height:100%;border-radius:2px;background:currentColor;transition:width .6s cubic-bezier(.4,0,.2,1)}
-.tugtodo{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5}
-.tugtodo b{color:var(--ink)}
-.tugtodo ul{margin:4px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
-.tugtodo li{display:flex;gap:8px;align-items:baseline}
-.tugtodo li .tq{flex:none;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:999px;border:1px solid currentColor;font-variant-numeric:tabular-nums;color:var(--bene)}
-.tugtodo li.nein .tq{color:var(--bad)}
-.tuggrad{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5}
-.tuggrad b{color:var(--ink)}
+.tugbat .tbf{transform-origin:4px 50%;animation:tbFill .9s cubic-bezier(.4,0,.2,1) both}
+@keyframes tbFill{from{transform:scaleX(0)}}
+.tugbat .tbp{font-size:15px;font-weight:800;letter-spacing:.2px;line-height:1.05;font-variant-numeric:tabular-nums;display:block}
+.tugbat .tbl{font-size:9.5px;color:var(--dim);letter-spacing:.3px;text-transform:uppercase;display:block;white-space:nowrap}
+.tugbat.voll{animation:tbGlow 3s ease-in-out infinite}
+@keyframes tbGlow{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 45%,transparent)}50%{box-shadow:0 0 0 6px transparent}}
+.tugseg{display:flex;gap:5px;flex:1 1 300px;min-width:0}
+.ts{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:3px;cursor:pointer;color:var(--dim);transition:.16s}
+.ts.ja{color:var(--ok)}.ts.teil{color:var(--bene)}.ts.nein{color:var(--bad)}
+.ts:hover{transform:translateY(-1px)}
+.ts b{font-size:9.5px;font-weight:700;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.8;line-height:1.2}
+.ts:hover b{opacity:1}
+.ts>i{display:block;height:5px;border-radius:3px;background:color-mix(in srgb,currentColor 18%,transparent);overflow:hidden}
+.ts>i>i{display:block;height:100%;width:var(--g);border-radius:3px;background:currentColor;animation:tsFill .8s cubic-bezier(.4,0,.2,1) both;animation-delay:calc(var(--i)*55ms)}
+@keyframes tsFill{from{width:0}}
+.pkkopf .pkstat{margin:0;margin-inline-start:auto;gap:4px}
+.pkkopf .pkstat span{font-size:10.5px;padding:3px 8px}
+.pkkopf .pkstat span b{font-size:13px;margin-right:3px}
+.pkmain{display:flex;gap:12px;align-items:flex-start}
+.pkmain .pk{flex:1 1 0;min-width:0}
+.pkside{flex:0 0 248px;display:flex;flex-direction:column;gap:8px;animation:pssRein .3s ease-out both}
+@keyframes pssRein{from{opacity:0;transform:translateX(8px)}}
+.pkside.zu{display:none}
+.pss{border:1px solid var(--line);border-radius:12px;background:var(--panel2);padding:9px 11px;font-size:12px;line-height:1.5;color:var(--sub)}
+.pss h5{margin:0 0 5px;font-size:10.5px;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);font-weight:800}
+.pss b{color:var(--ink)}
+.pss.hinweis{background:var(--bene-soft);border-color:rgba(240,180,41,.35)}
+.pss.hinweis b{color:var(--bene)}
+.pss ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+.pss li{display:flex;gap:7px;align-items:baseline}
+.pss li .tq{flex:none;font-size:10px;font-weight:800;padding:1px 5px;border-radius:999px;border:1px solid currentColor;font-variant-numeric:tabular-nums;color:var(--bene)}
+.pss li.nein .tq{color:var(--bad)}
+.pss .psok{margin-top:7px;font-size:11px;color:var(--ok);line-height:1.45}
+.pkside .psx{border:none;background:none;color:var(--dim);font-size:10.5px;cursor:pointer;font-family:inherit;padding:0;align-self:flex-end}
+.pkside .psx:hover{color:var(--ink)}
+@media(max-width:1100px){.pkmain{flex-wrap:wrap}.pkside{flex:1 0 100%;flex-direction:row;flex-wrap:wrap}.pkside .pss{flex:1 1 260px}.pkside .psx{flex:1 0 100%;text-align:right}}
+@media(max-width:720px){.ts b{display:none}.tugseg{flex-basis:100%}}
+@media(prefers-reduced-motion:reduce){.tugbat .tbf,.ts>i>i,.pkside,.tugbat.voll{animation:none}}
 
 /* ---- Johns Kachel ---- */
 .jk{display:flex;flex-direction:column;gap:10px}
@@ -3436,11 +3454,10 @@ function pkBoardHtml(){
     +`<button class="gear" onclick="bkDialog()" title="Board einrichten — Quellen, Jira-Projekte und Rollen, Status → Spalte, Farben">⚙ Einrichten</button>`;
   const st=Object.keys(TRELLO).map(k=>PK.trello[k]?'':(PK.stand[k]||'')).filter(Boolean);
   if(PK.jiraHint) st.push(PK.jiraHint);
-  return `<div class="pkstat"><span class="${m.wip>m.limit?'bad':m.wip?'warn':''}"><b>${m.wip}/${m.limit}</b>WIP</span><span><b>${m.bereit}</b>bereit</span><span><b>${m.wartet}</b>wartet</span><span class="${m.over?'bad':''}"><b>${m.over}</b>überfällig</span><span class="${m.maxAlter>=bkAlter()[1]?'bad':''}"><b>${m.maxAlter==null?'–':m.maxAlter+' T'}</b>ältestes in Arbeit</span>${m.strat?`<span class="${m.stratStill?'bad':''}" title="Strategische Initiativen (STA) — nicht nach Tagen, sondern nach der Bewegung der Storys darunter"><b>${m.strat}</b>strategisch${m.stratStill?' · Stillstand':''}</span>`:''}<span class="ok"><b>${m.done7}</b>fertig · 7 T</span></div>
-    <div class="pkhint">🧭 ${pkHinweis(m)}</div>
-    ${tugendLeiste()}
+  const tst=tugendStand();
+  return `<div class="pkkopf">${tugendKopf(tst)}<div class="pkstat"><span class="${m.wip>m.limit?'bad':m.wip?'warn':''}"><b>${m.wip}/${m.limit}</b>WIP</span><span><b>${m.bereit}</b>bereit</span><span><b>${m.wartet}</b>wartet</span><span class="${m.over?'bad':''}"><b>${m.over}</b>überfällig</span><span class="${m.maxAlter>=bkAlter()[1]?'bad':''}"><b>${m.maxAlter==null?'–':m.maxAlter+' T'}</b>ältestes in Arbeit</span>${m.strat?`<span class="${m.stratStill?'bad':''}" title="Strategische Initiativen (STA) — nicht nach Tagen, sondern nach der Bewegung der Storys darunter"><b>${m.strat}</b>strategisch${m.stratStill?' · Stillstand':''}</span>`:''}<span class="ok"><b>${m.done7}</b>fertig · 7 T</span></div></div>
     <div class="pkfilter">${f}<span class="cnt" id="pkStand">${verdeckt?`<a href="#" onclick="pkFilter('alle');return false" title="Filter aufheben">${verdeckt} Karten in anderen Kontexten</a> · `:''}${st.length?esc(st.join(' · ')):(PK.geladen?('Trello live'+(PK.jira?' · Jira live':'')):'lädt …')}</span></div>
-    <div class="pk" id="pkBoard">${cols}</div>`;
+    <div class="pkmain"><div class="pk" id="pkBoard">${cols}</div>${tugendSeite(tst,m)}</div>`;
 }
 /* Lokale Spaltenzuordnung (S.kan) setzen — die Quelle wird separat per pkSync nachgezogen */
 function pkLokal(id,col,c){
@@ -6758,25 +6775,41 @@ function tugBatterieSvg(p,farbe){
   return '<svg width="36" height="18" viewBox="0 0 36 18" aria-hidden="true">'
     +'<rect x="1" y="2.5" width="30" height="13" rx="3.5" fill="none" style="stroke:'+farbe+'" stroke-width="1.6"/>'
     +'<rect x="32.2" y="6" width="3" height="6" rx="1" style="fill:'+farbe+'"/>'
-    +(w?'<rect x="4" y="5.5" width="'+w+'" height="7" rx="1.5" style="fill:'+farbe+'"/>':'')
+    +(w?'<rect class="tbf" x="4" y="5.5" width="'+w+'" height="7" rx="1.5" style="fill:'+farbe+'"/>':'')
     +(p>=100?'<path d="M17.5 4.5 13.5 9.6h3.2l-1.2 4 4-5.1h-3.2z" fill="#fff" opacity=".9"/>':'')+'</svg>';
 }
 function tugFarbe(p){ return p>=100?'var(--ok)':p>=60?'var(--bene)':'var(--bad)'; }
-/* Leiste unter dem Board */
-function tugendLeiste(){
-  const st=tugendStand();
-  if(!st) return `<div class="tuggrad">Die Tugenden messen sich am Board — sobald es geladen ist, stehen sie hier.</div>`;
-  const chips=st.r.map(x=>{ const k=x.ok===true?'ja':(x.grad>0?'teil':'nein');
-    return `<span class="tugc ${k}" title="${esc(x.t.w)} — ${esc(x.text)}"><span class="tz">${x.ok===true?'✓':'○'} ${esc(x.t.n)} <span class="tw">${esc(x.t.w)}</span>${x.ok===true?'':`<span class="tp">${x.prozent} %</span>`}</span><i class="tb"><i style="width:${x.prozent}%"></i></i></span>`; }).join('');
-  /* Offene Tugenden, die leerste zuerst — das ist die Liste „was fehlt für voll“ */
-  const offen=st.r.filter(x=>x.ok!==true).slice().sort((a,b)=>a.grad-b.grad);
+/* Board-Kopf: eine Zeile — Batterie (Klick klappt die Erklärungen neben dem Board ein/aus) und neun Segmente.
+   Die Segmente sind reine Balken mit Namen; Text gibt es als title und ausführlich in der Seite. */
+function tugendKopf(st){
+  const zu=tugSeiteZu();
+  if(!st) return `<button class="tugbat" onclick="tugAside()" aria-pressed="${!zu}" title="Die Tugenden messen sich am Board — sobald es geladen ist, stehen sie hier.">${tugBatterieSvg(0,'var(--dim)')}<span><span class="tbp">–</span><span class="tbl">Tugend-Batterie</span></span></button>`;
   const p=st.batterie, farbe=tugFarbe(p);
-  const kopf=`<div class="tugk"><span class="tugbat" title="Tugend-Batterie — das Mittel der neun Ladebalken. Voll heißt: alle Tugenden stehen.">${tugBatterieSvg(p,farbe)}<span><span class="tbp">${p} %</span><br><span class="tbl">Tugend-Batterie</span></span></span>`
-    +`<span class="tks">`+(offen.length
-      ? `<b>${st.erfuellt} von ${st.gesamt} Tugenden</b> stehen. Was für die volle Batterie fehlt, steht unter den Balken.`
-      : `<b>Alle ${st.gesamt} Tugenden stehen — Batterie voll.</b> Ordnung, Takt und Orientierung stimmen; heute darfst du das auch mal so lassen.`)+`</span></div>`;
-  const todo=offen.length?`<div class="tugtodo"><b>Für die volle Batterie:</b><ul>${offen.map(x=>`<li class="${x.grad>0?'teil':'nein'}"><span class="tq">${x.prozent} %</span><span><b>${esc(x.t.n)}</b> — ${esc(x.text)}</span></li>`).join('')}</ul></div>`:'';
-  return kopf+`<div class="tug">${chips}</div>`+todo;
+  const seg=st.r.map((x,i)=>{ const k=x.ok===true?'ja':(x.grad>0?'teil':'nein');
+    return `<span class="ts ${k}" role="listitem" style="--g:${x.prozent}%;--i:${i}" title="${esc(x.t.n)} — ${esc(x.t.w)}. ${esc(x.text)}" onclick="tugAside(true)"><b>${x.ok===true?'✓ ':''}${esc(x.t.n)}</b><i><i></i></i></span>`; }).join('');
+  return `<button class="tugbat${p>=100?' voll':''}" onclick="tugAside()" aria-pressed="${!zu}" title="Tugend-Batterie — das Mittel der neun Ladebalken. Voll heißt: alle Tugenden stehen.">${tugBatterieSvg(p,farbe)}<span><span class="tbp">${p} %</span><span class="tbl">${st.erfuellt} von ${st.gesamt} Tugenden</span></span></button><div class="tugseg" role="list">${seg}</div>`;
+}
+/* Erklärungen neben dem Board: der Kompass-Hinweis und was für die volle Batterie fehlt (die leerste zuerst) */
+function tugendSeite(st,m){
+  const zu=tugSeiteZu();
+  const hinweis=`<div class="pss hinweis"><h5>Kompass</h5>${pkHinweis(m)}</div>`;
+  let tug;
+  if(st){ const offen=st.r.filter(x=>x.ok!==true).slice().sort((a,b)=>a.grad-b.grad), ok=st.r.filter(x=>x.ok===true);
+    tug=`<div class="pss"><h5>${offen.length?'Für die volle Batterie:':`Alle ${st.gesamt} Tugenden stehen — Batterie voll.`}</h5>`
+      +(offen.length?`<ul>${offen.map(x=>`<li class="${x.grad>0?'teil':'nein'}"><span class="tq">${x.prozent} %</span><span><b>${esc(x.t.n)}</b> — ${esc(x.text)}</span></li>`).join('')}</ul>`
+                    :'Ordnung, Takt und Orientierung stimmen; heute darfst du das auch mal so lassen.')
+      +(ok.length&&offen.length?`<div class="psok">${ok.map(x=>'✓ '+esc(x.t.n)).join(' · ')}</div>`:'')+`</div>`; }
+  else tug=`<div class="pss">Die Tugenden messen sich am Board — sobald es geladen ist, stehen sie hier.</div>`;
+  return `<aside class="pkside${zu?' zu':''}" id="pkSide">${hinweis}${tug}<button class="psx" onclick="tugAside(false)">Ausblenden ✕</button></aside>`;
+}
+function tugSeiteZu(){ try{ return localStorage.getItem('compassBoardSeite')==='zu'; }catch(e){ return false; } }
+/* an: true = zeigen, false = verbergen, ohne Argument = umschalten */
+function tugAside(an){
+  const el=document.getElementById('pkSide'); if(!el) return;
+  const zu=(an==null)?!el.classList.contains('zu'):!an;
+  el.classList.toggle('zu',zu);
+  try{ localStorage.setItem('compassBoardSeite',zu?'zu':'auf'); }catch(e){}
+  document.querySelectorAll('#pkWrap .tugbat').forEach(b=>b.setAttribute('aria-pressed',String(!zu)));
 }
 /* Tugend des Tages: die erste offene, sonst die des Wochentags */
 function tugendDesTages(){
@@ -7919,7 +7952,7 @@ function compassAbmelden(){
   einbauen(); namen();
   setInterval(()=>{ try{ einbauen(); namen(); }catch(e){} },1500);
 })();
-const EXPORT_KEYS=['beneRhythm','beneJohn','beneTheme','beneCtx','beneFokus','compassKanban','compassKanbanEmbed','compassKanbanPhone','compassKanbanGo','compassKanbanView','compassBoardFilter','compassSec','compassMin','compassJohnApi','compassVaFl','compassVaFilter','compassUser','compassLang','compassStapel'];
+const EXPORT_KEYS=['beneRhythm','beneJohn','beneTheme','beneCtx','beneFokus','compassKanban','compassKanbanEmbed','compassKanbanPhone','compassKanbanGo','compassKanbanView','compassBoardFilter','compassSec','compassMin','compassJohnApi','compassVaFl','compassVaFilter','compassUser','compassLang','compassStapel','compassBoardSeite'];
 function fortschrittExport(){
   const o={_compass:1,_am:new Date().toISOString(),_von:location.origin}; EXPORT_KEYS.forEach(k=>{ const v=localStorage.getItem(k); if(v!=null) o[k]=v; });
   const t=JSON.stringify(o);

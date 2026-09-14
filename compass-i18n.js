@@ -667,6 +667,11 @@
       ['hold. What the full battery still needs is listed under the bars.', 'قائمة. ما ينقص لامتلاء البطارية مذكور تحت الأشرطة.'],
     'Alle {1} Tugenden stehen — Batterie voll.': ['All {1} virtues hold — battery full.', 'كل الفضائل الـ{1} قائمة — البطارية ممتلئة.'],
     'Für die volle Batterie:': ['For a full battery:', 'لبطارية ممتلئة:'],
+    'Ausblenden ✕': ['Hide ✕', 'إخفاء ✕'],
+    'Die Tugenden messen sich am Board — sobald es geladen ist, stehen sie hier.':
+      ['The virtues are measured on the board — as soon as it has loaded, they appear here.', 'تُقاس الفضائل على اللوح — وتظهر هنا حال تحميله.'],
+    'Ordnung, Takt und Orientierung stimmen; heute darfst du das auch mal so lassen.':
+      ['Order, rhythm and orientation are in place; today you may leave it at that.', 'النظام والإيقاع والتوجّه في محلها؛ اليوم يمكنك تركها كما هي.'],
     '· Batterie {1} %': ['· battery {1} %', '· البطارية {1} %'],
     '{1} von {2} Tugenden': ['{1} of {2} virtues', '{1} من {2} فضائل'],
     '{1} von {2} Tugenden stehen heute.': ['{1} of {2} virtues hold today.', '{1} من {2} فضائل قائمة اليوم.'],
