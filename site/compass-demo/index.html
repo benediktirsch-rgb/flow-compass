@@ -5700,10 +5700,23 @@ function gitWeg(box){ qaWeg(box,gitNachziehen); }
 /* Dasselbe für jede lebendige Liste (06.09.): Karte zuklappen, entfernen, dann `danach` — Freigaben und Rückfragen. */
 function qaWeg(box,danach){
   if(!box||box.classList.contains('weg')) return;
+  const rolle=scrollEltern(box);                       /* vor dem Entfernen merken — danach hat die Karte keine Eltern mehr */
   box.style.height=box.offsetHeight+'px'; box.style.overflow='hidden';
   void box.offsetHeight;
   box.classList.add('weg');
-  setTimeout(()=>{ box.remove(); if(typeof danach==='function') danach(); },620);
+  setTimeout(()=>{ box.remove(); if(typeof danach==='function') danach();
+    /* An den Anfang des Absatzes springen (14.09.2026, Wunsch: nach der Auswahl nicht mehr hochscrollen müssen):
+       die nächste Karte rückt oben nach, also gehört der Blick dorthin — nicht auf die Stelle,
+       an der eben der Knopf war. */
+    if(rolle&&rolle.scrollTop>0) rolle.scrollTo({top:0,behavior:'smooth'}); },620);
+}
+/* Nächster Vorfahr, der wirklich rollt (overflow auto/scroll und mehr Inhalt als Platz) — im Ritual die .sbody. */
+function scrollEltern(el){
+  for(let p=el&&el.parentElement;p;p=p.parentElement){
+    const o=getComputedStyle(p).overflowY;
+    if((o==='auto'||o==='scroll')&&p.scrollHeight>p.clientHeight) return p;
+  }
+  return null;
 }
 function gitNachziehen(){
   const liste=document.getElementById('gitListe'); if(!liste) return;
