@@ -128,6 +128,12 @@
     Server NO_WRITE und der Compass merkt sich die Spalte nur lokal).
     9) POST /api/trello/move|card|done, GET /api/jira/meine, POST /api/jira/transition|issue → Mein Board (Personal Kanban)
        schreibt in die Quellsysteme zurück bzw. holt deine offenen Jira-Vorgänge live (JIRA_EMAIL/JIRA_TOKEN).
+       /api/jira/meine?rollen=assignee,reporter (14.09.2026) nimmt auch Vorgänge mit, die du gemeldet hast, aber
+       jemand anderes bearbeitet (je Vorgang `rolle` + `bearbeiter`). GET /api/jira/projekte → alle sichtbaren
+       Projekte (Schlüssel, Name, 1 h Cache) für die Projektwahl in der Board-Einrichtung.
+       POST /api/board/lesen {text|bild} (14.09.2026) → liest eine getippte Liste oder das Foto einer handschriftlichen
+       Liste (data:image/…;base64) und gibt Aufgaben als JSON zurück; der Compass legt daraus Karten an. Foto braucht
+       die KI (Claude Code liest die Datei mit dem Read-Werkzeug; API/OpenAI-Weg bekommen das Bild im Aufruf).
     Setzen (PowerShell, je Konto): [Environment]::SetEnvironmentVariable('TRELLO_PRIVAT_KEY','<key>','User')  usw.
     Wirkt ohne Neustart (User-Scope wird live gelesen). Beide Dateien (john-api-key.txt, trello-keys.json) werden nicht
     nach Google Drive gespiegelt.
@@ -770,13 +776,16 @@ function Invoke-ClaudeCli([string]$systemText, [string]$prompt, [hashtable]$o) {
   [IO.File]::WriteAllText($sysFile, $systemText, $script:Utf8NoBom)
   $argv = @('-p', '--output-format', 'json', '--system-prompt-file', $sysFile, '--model', $Model,
             '--effort', $(if ($o.effort) { $o.effort } else { $Effort }), '--max-turns', [string]$(if ($o.maxTurns) { $o.maxTurns } else { 1 }),
-            '--no-session-persistence', '--strict-mcp-config', '--setting-sources', '', '--permission-mode', 'dontAsk', '--tools', '')
+            '--no-session-persistence', '--strict-mcp-config', '--setting-sources', '', '--permission-mode', 'dontAsk',
+            '--tools', $(if ($o.lesen) { (@($o.lesen) -join ',') } else { '' }))   # lesen = eingebaute Werkzeuge, z. B. @('Read') fuer ein Foto (14.09.2026)
+  $erlaubt = @(); if ($o.lesen) { $erlaubt += @($o.lesen) }
   if ($o.tools) {
     $cfg = @{ mcpServers = @{ john = @{ type = 'stdio'; command = 'powershell.exe'
               args = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',(Join-Path $PSScriptRoot 'john-mcp.ps1'),'-JohnDir',$JohnDir,'-Log',$log) } } }
     [IO.File]::WriteAllText($mcpFile, ($cfg | ConvertTo-Json -Depth 10), $script:Utf8NoBom)
-    $argv += @('--mcp-config', $mcpFile, '--allowedTools', (@($Tools | ForEach-Object { "mcp__john__$($_.name)" }) -join ','))
+    $argv += @('--mcp-config', $mcpFile); $erlaubt += @($Tools | ForEach-Object { "mcp__john__$($_.name)" })
   }
+  if ($erlaubt.Count) { $argv += @('--allowedTools', ($erlaubt -join ',')) }
   $t0 = Get-Date
   try {
     $r = Invoke-Prozess $exe $argv $prompt $(if ($o.timeout) { $o.timeout } else { 300 }) @{ ohneApiKey = $true } $cwd
@@ -1236,7 +1245,7 @@ function Assert-JiraAuth($auth) {
   $me = $null
   try { $me = Invoke-JiraJson $auth '/rest/api/3/myself' $null } catch { throw 'AUTH_INVALID' }
   if (-not $me.accountId) { throw 'AUTH_INVALID' }
-  $script:JiraAuthOk = @{ zeit = Get-Date; wer = [string]$me.displayName }
+  $script:JiraAuthOk = @{ zeit = Get-Date; wer = [string]$me.displayName; id = [string]$me.accountId }
 }
 function Invoke-JiraJson($auth, [string]$path, $body) {
   $req = New-Object System.Net.Http.HttpRequestMessage ($(if ($body) { [System.Net.Http.HttpMethod]::Post } else { [System.Net.Http.HttpMethod]::Get }), "https://$($auth.site)$path")
@@ -1368,22 +1377,40 @@ function Add-JiraStrategie($auth, $liste) {
   }
 }
 # ---------- Jira fürs Mein Board (19.08.): meine offenen Vorgänge, Status wechseln, Vorgang anlegen ----------
-$script:JiraMeineCache = @{ zeit = $null; out = $null }
-function Get-JiraMeine([bool]$fresh = $false) {
+# Cache je Rollen-Kombination (14.09.2026): 'assignee' und 'assignee,reporter' sind zwei verschiedene
+# Listen — wer die Reporter-Sicht einschaltet, soll nicht drei Minuten die alte sehen.
+$script:JiraMeineCache = @{}
+# Rollen normalisieren: nur bekannte Werte, feste Reihenfolge, Standard 'assignee'.
+function Resolve-JiraRollen([string]$rollen) {
+  $r = @(($rollen -split '[,; ]+') | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ -in @('assignee','reporter') } | Sort-Object -Unique)
+  if (-not $r.Count) { $r = @('assignee') }
+  return ($r -join ',')
+}
+function Get-JiraMeine([bool]$fresh = $false, [string]$rollen = 'assignee') {
   $auth = Get-JiraAuth; if (-not $auth) { throw 'NO_KEY' }
-  $cc = $script:JiraMeineCache
-  if ($cc.out -and -not $fresh -and ((Get-Date) - $cc.zeit).TotalSeconds -lt 180) { return $cc.out }
+  $rollen = Resolve-JiraRollen $rollen
+  $cc = $script:JiraMeineCache[$rollen]
+  if ($cc -and $cc.out -and -not $fresh -and ((Get-Date) - $cc.zeit).TotalSeconds -lt 180) { return $cc.out }
   Assert-JiraAuth $auth
+  $ich = [string]$script:JiraAuthOk.id
   # Alle offenen Vorgaenge, ueber so viele Seiten wie noetig. 500 ist hoch genug, dass die Grenze im
   # Alltag nie greift, und niedrig genug, dass ein verungluecktes JQL den Server nicht minutenlang
   # blockiert — der 180-Sekunden-Cache unten faengt den Rest ab.
   $max = 500
-  $r = Invoke-JiraSuche $auth 'assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC' @('summary','status','updated','created','project','priority','issuetype','duedate') $max
+  $wer = $(if ($rollen -like '*reporter*') { '(assignee = currentUser() OR reporter = currentUser())' } else { 'assignee = currentUser()' })
+  $r = Invoke-JiraSuche $auth "$wer AND statusCategory != Done ORDER BY updated DESC" @('summary','status','updated','created','project','priority','issuetype','duedate','assignee','reporter') $max
   $liste = New-Object System.Collections.ArrayList
   foreach ($i in @($r.issues)) {
+    # rolle: assignee (meine Arbeit) · reporter (von mir gemeldet, jemand anderes arbeitet) · beide
+    $aId = $(if ($i.fields.assignee) { [string]$i.fields.assignee.accountId } else { '' })
+    $rId = $(if ($i.fields.reporter) { [string]$i.fields.reporter.accountId } else { '' })
+    $binA = ($ich -and $aId -eq $ich); $binR = ($ich -and $rId -eq $ich)
+    $rolle = $(if ($binA -and $binR) { 'beide' } elseif ($binR -and -not $binA) { 'reporter' } else { 'assignee' })
     [void]$liste.Add(@{ key = $i.key; titel = $i.fields.summary; status = $i.fields.status.name; kategorie = $i.fields.status.statusCategory.key
-                        projekt = $i.fields.project.key; typ = $i.fields.issuetype.name; prio = $(if ($i.fields.priority) { $i.fields.priority.name } else { $null })
-                        aktiv = $i.fields.updated; erstellt = $i.fields.created; due = $i.fields.duedate; url = "https://$($auth.site)/browse/$($i.key)" })
+                        projekt = $i.fields.project.key; projektName = $i.fields.project.name; typ = $i.fields.issuetype.name; prio = $(if ($i.fields.priority) { $i.fields.priority.name } else { $null })
+                        aktiv = $i.fields.updated; erstellt = $i.fields.created; due = $i.fields.duedate; url = "https://$($auth.site)/browse/$($i.key)"
+                        rolle = $rolle; bearbeiter = $(if ($i.fields.assignee) { [string]$i.fields.assignee.displayName } else { $null })
+                        melder = $(if ($i.fields.reporter) { [string]$i.fields.reporter.displayName } else { $null }) })
   }
   # Strategisches kennzeichnen (Projekt STA / Typ Initiative) und für die laufenden die Bewegung
   # ihrer Storys dazulegen — der Compass bewertet sie danach statt nach Tagen in Arbeit.
@@ -1396,9 +1423,39 @@ function Get-JiraMeine([bool]$fresh = $false) {
     $hinweis = "Jira: mehr als $max offene Vorgaenge — Liste bei $($liste.Count) gekappt, die aeltesten fehlen"
     Write-Host "  jira/meine: $hinweis" -ForegroundColor Yellow
   }
-  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); site = $auth.site; anzahl = $liste.Count; issues = $liste
+  # Projekte und Status, die in dieser Liste vorkommen — die Board-Einrichtung im Compass baut daraus
+  # ihre Auswahl, ohne selbst zu zaehlen.
+  $projekte = @{}; $status = @{}
+  foreach ($e in $liste) {
+    if (-not $projekte[$e.projekt]) { $projekte[$e.projekt] = @{ key = $e.projekt; name = $e.projektName; anzahl = 0 } }
+    $projekte[$e.projekt].anzahl++
+    $sk = "$($e.status)"; if (-not $status[$sk]) { $status[$sk] = @{ name = $sk; kategorie = $e.kategorie; anzahl = 0 } }
+    $status[$sk].anzahl++
+  }
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); site = $auth.site; anzahl = $liste.Count; issues = $liste; rollen = $rollen
+            projekte = @($projekte.Values | Sort-Object { $_.key }); status = @($status.Values | Sort-Object { $_.name })
             gekappt = $r.gekappt; limit = $max; seiten = $r.seiten; hinweis = $hinweis }
-  $script:JiraMeineCache = @{ zeit = Get-Date; out = $out }
+  $script:JiraMeineCache[$rollen] = @{ zeit = Get-Date; out = $out }
+  return $out
+}
+# Alle Projekte, die der Nutzer sehen darf (14.09.2026) — fuer die Projektwahl im Board, auch die,
+# in denen gerade kein Vorgang auf ihn zeigt. 1 h Cache; die Liste aendert sich selten.
+$script:JiraProjekteCache = @{ zeit = $null; out = $null }
+function Get-JiraProjekte([bool]$fresh = $false) {
+  $auth = Get-JiraAuth; if (-not $auth) { throw 'NO_KEY' }
+  $cc = $script:JiraProjekteCache
+  if ($cc.out -and -not $fresh -and ((Get-Date) - $cc.zeit).TotalMinutes -lt 60) { return $cc.out }
+  Assert-JiraAuth $auth
+  $liste = New-Object System.Collections.ArrayList; $start = 0
+  while ($true) {
+    $r = Invoke-JiraJson $auth "/rest/api/3/project/search?maxResults=100&startAt=$start&orderBy=key" $null
+    foreach ($p in @($r.values)) { [void]$liste.Add(@{ key = $p.key; name = $p.name; typ = $p.projectTypeKey; id = $p.id }) }
+    if ($r.isLast -or -not @($r.values).Count) { break }
+    $start += @($r.values).Count
+    if ($start -gt 1000) { break }
+  }
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); site = $auth.site; anzahl = $liste.Count; projekte = $liste }
+  $script:JiraProjekteCache = @{ zeit = Get-Date; out = $out }
   return $out
 }
 # Übergang nach Spalten-Ziel (doing|done|wartet|bereit|backlog): passenden Transition-Namen suchen und ausführen
@@ -1410,7 +1467,7 @@ function Set-JiraTransition([string]$key, [string]$ziel) {
   $hit = @($t.transitions) | Where-Object { $_.name -match $rx -or ($_.to -and $_.to.name -match $rx) } | Select-Object -First 1
   if (-not $hit) { throw ("NO_TRANSITION: " + ((@($t.transitions) | ForEach-Object { $_.name }) -join ', ')) }
   Invoke-JiraJson $auth "/rest/api/3/issue/$key/transitions" @{ transition = @{ id = $hit.id } } | Out-Null
-  $script:JiraMeineCache = @{ zeit = $null; out = $null }
+  $script:JiraMeineCache = @{}
   return @{ ok = $true; key = $key; transition = $hit.name; status = $(if ($hit.to) { $hit.to.name } else { $null }) }
 }
 function New-JiraIssue([string]$project, [string]$summary, [string]$type, [string]$desc) {
@@ -1419,7 +1476,7 @@ function New-JiraIssue([string]$project, [string]$summary, [string]$type, [strin
   $fields = @{ project = @{ key = $project }; summary = $summary; issuetype = @{ name = $type }; assignee = @{ accountId = (Invoke-JiraJson $auth '/rest/api/3/myself' $null).accountId } }
   if ($desc) { $fields.description = @{ type = 'doc'; version = 1; content = @(@{ type = 'paragraph'; content = @(@{ type = 'text'; text = $desc }) }) } }
   $r = Invoke-JiraJson $auth '/rest/api/3/issue' @{ fields = $fields }
-  $script:JiraMeineCache = @{ zeit = $null; out = $null }
+  $script:JiraMeineCache = @{}
   return @{ ok = $true; key = $r.key; url = "https://$($auth.site)/browse/$($r.key)" }
 }
 
@@ -2502,6 +2559,79 @@ $daten
   if ($r.stop_reason -eq 'refusal') { return @{ text = 'Dazu kann ich gerade nichts sagen (Sicherheitsfilter). Versuch es später noch einmal.'; stop_reason = 'refusal'; model = $r.model } }
   $text = (($r.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join ' ').Trim()
   return @{ text = $text; model = $r.model; usage = $r.usage; stand = (Get-Date).ToString('o') }
+}
+
+# ---------- Liste lesen (14.09.2026): Foto einer handschriftlichen Liste oder getippter Text → Aufgaben ----------
+# Bene: „handschriftliche Listen hochladen — auf mobile abfotografieren, oder einfach Task-Listen eingeben,
+# die dann auf das Board wandern.“ Getippten Text zerlegt der Compass selbst (ohne KI); hierher kommt er nur,
+# wenn Bene „mit KI ordnen“ waehlt oder ein Foto schickt. Das Bild geht je nach Weg anders zur KI: Claude Code
+# liest es als Datei aus seinem Arbeitsordner (Read-Werkzeug), die Messages-API bekommt einen image-Block,
+# ein OpenAI-kompatibler Anbieter eine image_url. Antwort immer JSON {aufgaben:[{name,notiz,due,spalte,erledigt}]}.
+$script:ListeSystem = @"
+Du liest Aufgabenlisten für ein persönliches Kanban-Board (Spalten: backlog, bereit, doing, wartet, done).
+Quelle ist entweder getippter Text oder das Foto einer handschriftlichen Liste (Zettel, Notizbuch, Whiteboard).
+Gib JEDE Aufgabe als eigene Zeile zurück — kurz, als Ergebnis formuliert, in der Sprache der Vorlage.
+Regeln: Überschriften sind keine Aufgaben (sie werden zur Notiz der Aufgaben darunter). Durchgestrichene oder
+abgehakte Punkte bekommen erledigt=true. Ein Datum an der Aufgabe wird due (YYYY-MM-DD, Jahr = laufendes Jahr,
+wenn keines dasteht); „warte auf …“/„wartet“ → spalte wartet; „heute“/„jetzt“/„!“ → spalte bereit;
+sonst spalte bereit. Unleserliches als beste Lesart mit „(?)“ dahinter. Nichts erfinden, nichts weglassen.
+Antworte AUSSCHLIESSLICH mit einem JSON-Objekt: {"aufgaben":[{"name":"…","notiz":"…","due":null,"spalte":"bereit","erledigt":false}]}
+Kein Text davor oder danach, keine Code-Zäune.
+"@
+function Read-Liste($in) {
+  $text = [string]$in.text; $bild = [string]$in.bild
+  if (-not $text.Trim() -and -not $bild) { throw 'LEER' }
+  $mime = ''; $b64 = ''
+  if ($bild) {
+    if ($bild -notmatch '^data:(image/(?:jpeg|png|webp|gif));base64,([A-Za-z0-9+/=\s]+)$') { throw 'BILD_FORMAT' }
+    $mime = $Matches[1]; $b64 = ($Matches[2] -replace '\s', '')
+    if ($b64.Length -gt 12MB) { throw 'BILD_GROSS' }
+  }
+  $heute = Get-Date -Format 'yyyy-MM-dd'
+  $auftrag = "Heute ist $heute. " + $(if ($bild) { 'Lies die Liste auf dem Foto' } else { 'Lies diese Liste' }) + " und gib die Aufgaben als JSON zurück."
+  if ($text.Trim()) { $auftrag += "`n`nListe:`n$($text.Trim())" }
+  $backend = Get-Backend; $t0 = Get-Date; $roh = ''
+  if ($backend -eq 'cli') {
+    $datei = $null
+    try {
+      if ($bild) {
+        $cwd = Join-Path $env:LOCALAPPDATA 'john-compass\cli-cwd'; if (-not (Test-Path $cwd)) { New-Item -ItemType Directory -Force $cwd | Out-Null }
+        $ext = $(switch ($mime) { 'image/png' { 'png' } 'image/webp' { 'webp' } 'image/gif' { 'gif' } default { 'jpg' } })
+        $datei = Join-Path $cwd ("liste-" + [DateTime]::Now.Ticks + ".$ext")
+        [IO.File]::WriteAllBytes($datei, [Convert]::FromBase64String($b64))
+        $auftrag = "Lies zuerst mit dem Read-Werkzeug die Bilddatei '$datei' (ein Foto einer Aufgabenliste). " + $auftrag
+      }
+      $c = Invoke-ClaudeCli $script:ListeSystem $auftrag @{ tools = $false; maxTurns = $(if ($bild) { 3 } else { 1 }); effort = 'medium'; timeout = 240; lesen = $(if ($bild) { @('Read') } else { $null }) }
+      $roh = [string]$c.text; $model = $c.model
+    } finally { if ($datei) { Remove-Item $datei -Force -ErrorAction SilentlyContinue } }
+  }
+  elseif ($backend -eq 'openai') {
+    $a = Get-KiAnbieter; if (-not $a.key) { throw 'NO_KEY' }
+    $inhalt = $(if ($bild) { @(@{ type = 'text'; text = $auftrag }, @{ type = 'image_url'; image_url = @{ url = "data:$mime;base64,$b64" } }) } else { $auftrag })
+    $r = Call-OpenAI $a @{ model = $a.model; messages = @(@{ role = 'system'; content = $script:ListeSystem }, @{ role = 'user'; content = $inhalt }) }
+    $roh = [string]$r.choices[0].message.content; $model = [string]$r.model
+  }
+  else {
+    $apiKey = Get-ApiKey; if (-not $apiKey) { throw 'NO_KEY' }
+    $inhalt = $(if ($bild) { @(@{ type = 'image'; source = @{ type = 'base64'; media_type = $mime; data = $b64 } }, @{ type = 'text'; text = $auftrag }) } else { $auftrag })
+    $r = Call-Claude $apiKey @{ model = $Model; max_tokens = 2000; system = $script:ListeSystem; messages = @(@{ role = 'user'; content = $inhalt }); output_config = @{ effort = 'medium' } }
+    $roh = (($r.content | Where-Object { $_.type -eq 'text' } | ForEach-Object { $_.text }) -join ' '); $model = [string]$r.model
+  }
+  # JSON aus der Antwort schaelen (auch wenn die KI doch einen Zaun gesetzt hat)
+  $i = $roh.IndexOf('{'); $j = $roh.LastIndexOf('}')
+  if ($i -lt 0 -or $j -le $i) { throw "KEIN_JSON: $(($roh -replace '\s+',' ').Substring(0, [Math]::Min(200, $roh.Length)))" }
+  $d = $roh.Substring($i, $j - $i + 1) | ConvertFrom-Json
+  $liste = New-Object System.Collections.ArrayList
+  foreach ($a in @($d.aufgaben)) {
+    if (-not $a) { continue }
+    $name = ([string]$a.name).Trim(); if (-not $name) { continue }
+    if ($name.Length -gt 160) { $name = $name.Substring(0, 160) }
+    $sp = ([string]$a.spalte).Trim().ToLowerInvariant(); if ($sp -notin @('backlog','bereit','doing','wartet','done')) { $sp = 'bereit' }
+    $due = [string]$a.due; if ($due -notmatch '^\d{4}-\d{2}-\d{2}$') { $due = $null }
+    [void]$liste.Add(@{ name = $name; notiz = ([string]$a.notiz).Trim(); due = $due; spalte = $sp; erledigt = ($a.erledigt -eq $true) })
+  }
+  Write-Host ("  Liste gelesen: {0} Aufgabe(n) aus {1} · {2:n0} s · {3}" -f $liste.Count, $(if ($bild) { 'Foto' } else { 'Text' }), ((Get-Date) - $t0).TotalSeconds, $backend) -ForegroundColor DarkGray
+  return @{ ok = $true; aufgaben = $liste; anzahl = $liste.Count; quelle = $(if ($bild) { 'foto' } else { 'text' }); backend = $backend; model = $model; stand = (Get-Date).ToString('o') }
 }
 
 # ---------- Johns Stapel (06.09.2026) — das Coach-Feld im Compass ----------
@@ -4174,12 +4304,25 @@ $script:EinstErlaubt = @{
   theme = @('auto','light','dark')                                  # Farbschema
   lang  = @('de','en','ar')                                         # Sprache (compass-i18n.js)
   phase = @('','sonnenaufgang','morgen','tag','abend','nacht')      # feste Tagesphase, '' = nach der Uhr
+  board = @('*json')                                                # Board-Einrichtung (14.09.): ein JSON-Objekt, hoechstens 32 KB
+}
+# Ist der Wert fuer diesen Schluessel erlaubt? Aufzaehlung wie gehabt; '*json' heisst: ein
+# JSON-Objekt bis 32 KB — die Struktur prueft der Compass selbst (bkNorm), der Server haelt nur fest,
+# dass es parsebar ist. Sonst koennte ein kaputter Stand jede Fassung des Boards mitreissen.
+function Test-EinstWert([string]$key, [string]$wert) {
+  $erl = $script:EinstErlaubt[$key]
+  if (-not $erl) { return $false }
+  if ($erl -contains '*json') {
+    if (-not $wert -or $wert.Length -gt 32768 -or -not $wert.TrimStart().StartsWith('{')) { return $false }
+    try { $null = $wert | ConvertFrom-Json; return $true } catch { return $false }
+  }
+  return ($erl -contains $wert)
 }
 
 function Save-Einstellungen {
   if ($null -eq $script:Einst) { return }
   $o = @{ stand = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-          hinweis = 'Vorlieben des Flow Compass (Farbschema, Sprache, Tagesphase), ursprunguebergreifend. Geschrieben von john-server.ps1 (/api/einstellungen).'
+          hinweis = 'Vorlieben des Flow Compass (Farbschema, Sprache, Tagesphase, Board-Einrichtung), ursprunguebergreifend. Geschrieben von john-server.ps1 (/api/einstellungen).'
           einstellungen = $script:Einst }
   $enc = New-Object Text.UTF8Encoding($false)
   [IO.File]::WriteAllText($script:EinstDatei, ($o | ConvertTo-Json -Depth 6), $enc)
@@ -4194,7 +4337,7 @@ function Read-Einstellungen {
       foreach ($p in @($d.einstellungen.PSObject.Properties)) {
         if (-not $p -or -not $script:EinstErlaubt.ContainsKey($p.Name)) { continue }
         $wert = [string]$p.Value.wert
-        if ($script:EinstErlaubt[$p.Name] -notcontains $wert) { continue }
+        if (-not (Test-EinstWert $p.Name $wert)) { continue }
         $h[$p.Name] = @{ wert = $wert; ts = [string]$p.Value.ts; quelle = [string]$p.Value.quelle }
       }
     } catch { }
@@ -4208,7 +4351,7 @@ function Read-Einstellungen {
 # Rueckgabe: $true, wenn sich etwas geaendert hat.
 function Add-Einstellung([string]$key, [string]$wert, [string]$ts, [string]$quelle) {
   if (-not $key -or -not $script:EinstErlaubt.ContainsKey($key)) { return $false }
-  if ($script:EinstErlaubt[$key] -notcontains $wert) { return $false }
+  if (-not (Test-EinstWert $key $wert)) { return $false }
   if ($ts -notmatch '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$') { $ts = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') }
   $alt = (Read-Einstellungen)[$key]
   if ($alt -and [string]$alt.ts -ge $ts) { return $false }
@@ -4512,8 +4655,30 @@ try {
         }
         continue
       }
+      if ($path -eq '/api/jira/projekte') {
+        try { Send-Json $ctx (Get-JiraProjekte ($req.QueryString['fresh'] -eq '1')) }
+        catch { $m = $_.Exception.Message
+          if ($m -eq 'NO_KEY') { Send-Json $ctx @{ ok = $false; error = 'NO_KEY'; hint = 'JIRA_EMAIL + JIRA_TOKEN fehlen (User-Umgebungsvariablen).' } 503 }
+          elseif ($m -eq 'AUTH_INVALID') { Send-Json $ctx @{ ok = $false; error = 'AUTH_INVALID'; hint = 'Jira lehnt den Token ab.' } 401 }
+          else { Write-Host "  jira/projekte-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 502 } }
+        continue
+      }
+      if ($path -eq '/api/board/lesen' -and $req.HttpMethod -eq 'POST') {
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { @{} })
+        Write-Host ("[{0}] Liste lesen ({1})" -f (Get-Date -Format 'HH:mm:ss'), $(if ($in.bild) { 'Foto' } else { 'Text' }))
+        try { Send-Json $ctx (Read-Liste $in) }
+        catch { $m = $_.Exception.Message
+          $f = Get-JohnFehler $m
+          if ($f) { Write-Host "  Liste: $($f.code)" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $f.code; hint = $f.hint } $f.status }
+          elseif ($m -eq 'LEER') { Send-Json $ctx @{ ok = $false; error = 'LEER'; hint = 'Kein Text und kein Foto.' } 400 }
+          elseif ($m -eq 'BILD_FORMAT') { Send-Json $ctx @{ ok = $false; error = 'BILD_FORMAT'; hint = 'Bild bitte als data:image/jpeg|png|webp;base64 schicken.' } 400 }
+          elseif ($m -eq 'BILD_GROSS') { Send-Json $ctx @{ ok = $false; error = 'BILD_GROSS'; hint = 'Bild zu groß — der Compass verkleinert Fotos vor dem Senden; bitte neu laden.' } 413 }
+          else { Write-Host "  Liste-Fehler: $m" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $m } 502 } }
+        continue
+      }
       if ($path -eq '/api/jira/meine') {
-        try { Send-Json $ctx (Get-JiraMeine ($req.QueryString['fresh'] -eq '1')) }
+        try { Send-Json $ctx (Get-JiraMeine ($req.QueryString['fresh'] -eq '1') ([string]$req.QueryString['rollen'])) }
         catch { $m = $_.Exception.Message
           if ($m -eq 'NO_KEY') { Send-Json $ctx @{ ok = $false; error = 'NO_KEY'; hint = 'JIRA_EMAIL + JIRA_TOKEN als Benutzer-Umgebungsvariablen setzen — dann zeigt Mein Board deine offenen Jira-Vorgänge live und kann Status wechseln.' } 503 }
           elseif ($m -eq 'AUTH_INVALID') { Send-Json $ctx @{ ok = $false; error = 'AUTH_INVALID'; hint = 'Jira lehnt den Token ab (abgelaufen oder widerrufen). Neues API-Token auf id.atlassian.com/manage-profile/security/api-tokens erzeugen und JIRA_TOKEN neu setzen — wirkt ohne Server-Neustart.' } 401 }

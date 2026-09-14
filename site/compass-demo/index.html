@@ -710,6 +710,53 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .pkfilter button{border:1px solid var(--line);background:var(--panel2);color:var(--sub);border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit}
 .pkfilter button.on{background:var(--panel);color:var(--ink);border-color:var(--line2)}
 .pkfilter .cnt{margin-left:auto;font-size:11px;color:var(--dim);font-weight:700}
+.pkfilter button.gear{border-style:dashed}
+/* Board-Einrichtung (14.09.2026): Farbe je Quelle/Projekt als linker Rand, gemeldete Vorgänge gestrichelt */
+.pk .kc.kf{border-left:3px solid var(--kf)}
+.pk .kc.gemeldet{border-style:dashed}
+.pk .kc .rolle{color:#c9a7ff;font-weight:700}
+#bkov .sheet{max-width:760px}
+#bkov h5{margin:18px 0 6px;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);display:flex;gap:8px;align-items:baseline}
+#bkov h5 small{font-weight:500;text-transform:none;letter-spacing:0;color:var(--dim)}
+#bkov .bkrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+#bkov .bkchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:4px 8px 4px 8px;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;user-select:none}
+#bkov .bkchip.on{color:var(--ink);border-color:var(--line2);background:var(--panel)}
+#bkov .bkchip input[type=checkbox]{margin:0;accent-color:var(--bene)}
+#bkov .bkchip input[type=color]{width:16px;height:16px;border:0;padding:0;background:none;cursor:pointer;border-radius:50%;overflow:hidden}
+#bkov .bkchip input[type=color]::-webkit-color-swatch-wrapper{padding:0}
+#bkov .bkchip input[type=color]::-webkit-color-swatch{border:1px solid var(--line2);border-radius:50%}
+#bkov .bkchip .fx{border:0;background:none;color:var(--dim);cursor:pointer;font-size:11px;padding:0 2px;font-family:inherit}
+#bkov .bkchip .n{color:var(--dim);font-weight:500}
+#bkov table{width:100%;border-collapse:collapse;font-size:12px}
+#bkov td,#bkov th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+#bkov th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--dim);font-weight:800}
+#bkov td.n{color:var(--dim);text-align:right;white-space:nowrap}
+#bkov select,#bkov input[type=number],#bkov input[type=text]{background:var(--panel2);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:4px 8px;font-family:inherit;font-size:12px}
+#bkov input[type=number]{width:64px}
+#bkov select.ueber{border-color:rgba(240,180,41,.6)}
+#bkov .hint{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.5}
+#bkov .sfoot .cnt{font-size:11px;color:var(--dim);font-weight:700}
+/* Liste aufs Board (14.09.2026): getippt, eingefügt oder fotografiert → Karten */
+#liov .sheet{max-width:640px}
+#liov textarea{width:100%;min-height:104px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:10px 12px;font-family:inherit;font-size:14px;margin-top:8px;resize:vertical}
+#liov label.l{display:block;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--dim);margin-top:12px}
+#liov select{background:var(--panel2);border:1px solid var(--line);border-radius:12px;color:var(--ink);padding:8px 12px;font-family:inherit;font-size:13px;margin-top:6px;max-width:100%}
+#liov .lirow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px}
+#liov .lirow .cnt{font-size:12px;color:var(--dim);font-weight:700;flex:1;min-width:120px}
+#liov .zielrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+#liov .zielrow button{border:1px solid var(--line);background:var(--panel2);color:var(--sub);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit}
+#liov .zielrow button.on{background:var(--bene);border-color:var(--bene);color:#1c1300}
+#liov .lihead{display:flex;gap:8px;font-size:11.5px;color:var(--dim);font-weight:700;margin:10px 0 2px}
+#liov .lihead span{flex:1}
+#liov .lz{display:flex;gap:8px;align-items:center;padding:3px 0;border-bottom:1px dashed var(--line)}
+#liov .lz.aus{opacity:.5}
+#liov .lz input[type=checkbox]{margin:0;accent-color:var(--bene)}
+#liov .lz input[type=text]{flex:1;min-width:0;background:transparent;border:0;border-bottom:1px solid transparent;color:var(--ink);font-family:inherit;font-size:13px;padding:2px 4px}
+#liov .lz input[type=text]:focus{outline:0;border-bottom-color:var(--bene)}
+#liov .lz .due,#liov .lz .tag{font-size:11px;color:var(--dim);white-space:nowrap}
+#liov .hint{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.5}
+#liov .fotobtn{position:relative;overflow:hidden}
+#liov .fotobtn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 
 /* ---------- Team-Board (19.08. iii): natives Team-Board aus va-data.json, drei Flight Levels ---------- */
 .valev{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:-2px 0 10px}
@@ -1140,6 +1187,27 @@ html[lang="ar"] .kbd,html[lang="ar"] .mono,html[lang="ar"] .kcode{font-family:'J
     <div class="hint" id="novHint"></div>
   </div>
   <div class="sfoot"><button class="btn" id="novAbbruch">Abbrechen</button><span style="flex:1"></span><button class="btn a" id="novGo">Anlegen</button></div>
+</div></div>
+<div class="ov" id="bkov" role="dialog" aria-label="Board einrichten" data-tasten><div class="sheet">
+  <button class="sx" id="bkX" title="Schließen (Esc)" aria-label="Schließen">✕</button>
+  <div class="sh"><div class="step">🧭 Mein Board</div><h2 style="margin-top:8px">Board einrichten</h2><div class="hint">Welche Quellen auf dein Board dürfen, welche Jira-Projekte und Rollen, wie ein Status auf die Spalten fällt, welche Farbe eine Quelle trägt. Jede Änderung wirkt sofort und gilt in jeder Fassung deines Compass.</div></div>
+  <div class="sbody" id="bkBody"></div>
+  <div class="sfoot"><button class="btn" id="bkReset" title="Alle Einstellungen des Boards auf den Standard zurücksetzen">↺ Zurücksetzen</button><span style="flex:1"></span><span class="cnt" id="bkStand"></span><button class="btn a" id="bkFertig">Fertig</button></div>
+</div></div>
+<div class="ov" id="liov" role="dialog" aria-label="Liste aufs Board" data-tasten><div class="sheet">
+  <button class="sx" id="liX" title="Schließen (Esc)" aria-label="Schließen">✕</button>
+  <div class="sh"><div class="step">🧭 Mein Board</div><h2 style="margin-top:8px">Liste aufs Board</h2><div class="hint">Tipp eine Liste ein, füg sie ein oder fotografiere den Zettel — jede Zeile wird eine Karte. Du siehst die Karten vorher und streichst, was nicht mit soll.</div></div>
+  <div class="sbody">
+    <div class="lirow"><span class="btn fotobtn" title="Foto einer handschriftlichen Liste — am Handy direkt aufnehmen; die KI liest sie">📷 Foto lesen<input type="file" id="liFoto" accept="image/*"></span>
+      <button class="btn" id="liKi" title="Den getippten Text von der KI ordnen lassen — Überschriften, Daten, Erledigtes, unsaubere Zeilen">✨ Mit KI ordnen</button><span class="cnt" id="liStand"></span></div>
+    <textarea id="liText" data-mehrzeilig placeholder="Eine Aufgabe je Zeile — z. B.&#10;- Rechnung rausschicken&#10;[ ] Zahnarzt anrufen bis 20.09.&#10;✓ Kalender geprüft&#10;Einkaufen:&#10;  Milch, Brot"></textarea>
+    <div id="liVorschau"></div>
+    <label class="l">Wohin</label><div class="zielrow" id="liZiel"></div>
+    <div id="liJiraWrap" style="display:none"><label class="l">Jira-Projekt · Typ Task</label><select id="liJira"></select></div>
+    <label class="l">Spalte</label><select id="liCol"><option value="auto">wie erkannt (✓ → Fertig, „wartet“ → Wartet, sonst Bereit)</option><option value="bereit">🎯 Bereit</option><option value="backlog">📥 Backlog</option><option value="doing">🔥 In Arbeit</option><option value="wartet">⏳ Wartet</option></select>
+    <div class="hint" id="liHint"></div>
+  </div>
+  <div class="sfoot"><button class="btn" id="liAbbruch">Abbrechen</button><span style="flex:1"></span><button class="btn a" id="liGo" disabled>Karten anlegen</button></div>
 </div></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
@@ -2262,7 +2330,13 @@ const EINST_KEYS={
   theme:{ lies:()=>THEME,         setz:w=>themeSet(w) },
   phase:{ lies:()=>PHASE_FIX||'', setz:w=>phaseSet(w||null) },
   lang: { lies:()=>(window.compassSprache?compassSprache.jetzt():'de'),
-          setz:w=>{ if(window.langSet) langSet(w); } }
+          setz:w=>{ if(window.langSet) langSet(w); } },
+  /* Board-Einrichtung (14.09.): ein JSON-Objekt; der Server prüft nur, dass es parsebar ist, bkNorm den Rest */
+  board:{ lies:()=>(typeof bkJson==='function'?bkJson():''),
+          setz:w=>{ if(typeof bkNorm!=='function') return; let o=null; try{ o=JSON.parse(w); }catch(e){ return; }
+            const vorher=bkRollenParam(); BK=bkNorm(o); try{ localStorage.setItem('compassBoardCfg',bkJson()); }catch(e){}
+            if(bkRollenParam()!==vorher) pkLaden(true); else if(typeof pkRender==='function') pkRender();
+            if(bkov.classList.contains('on')) bkMalen(); } }
 };
 function einstStand(){ try{ return JSON.parse(localStorage.getItem('compassEinstellStand')||'{}'); }catch(e){ return {}; } }
 function einstStandSetzen(key,ts){ const s=einstStand(); s[key]=ts; try{ localStorage.setItem('compassEinstellStand',JSON.stringify(s)); }catch(e){} }
@@ -3051,6 +3125,44 @@ const PK_COLS=[['backlog','📥','Backlog','Optionen — noch nicht gezogen'],['
                ['doing','🔥','In Arbeit','WIP-Limit — erst fertig, dann neu'],['wartet','⏳','Wartet','Auf andere, auf Entscheidung, blockiert'],['done','✅','Fertig','letzte 7 Tage']];
 const PK_SRC={ 'trello-privat':['🏠','privat','trello'], 'trello-arbeit':['🏢','Arbeit','trello'], jira:['🎫','Jira','jira'], woche:['🗓️','Woche','woche'], frage:['💬','Rückfrage','frage'], eigen:['✍️','eigene','eigen'], eine:['🎯','das Eine','eine'] };
 const pkWip=()=>S.kan.wip||COMPASS.board.wip||3;
+/* ---- Board-Einrichtung (14.09.2026) --------------------------------------------
+   die Nutzerin: „Das Personal Kanban soll konfigurierbar sein — Quellen ein und aus, Projekt
+   auswählen, Mapping von Status auf das Board, Farbe, Tickets, wo man Reporter ist.“
+   BK hält das alles: quellen {src:false} blendet eine Quelle aus · jira.projekte
+   {KEY:false} blendet ein Projekt aus (neue Projekte sind automatisch an) ·
+   jira.rollen {assignee,reporter} · map.jira {status→spalte|'aus'} und map.trello
+   {board:liste→spalte|'aus'} übersteuern die Heuristiken pkJiraCol/pkListeCol ·
+   farben.quelle / farben.projekt färben den linken Kartenrand · alter [gelb,rot] ·
+   titel {spalte:eigener Name}. Liegt lokal (compassBoardCfg) und wandert über
+   /api/einstellungen (Schlüssel 'board') in jede Fassung des Compass.            */
+const BK_LEER=()=>({v:1,quellen:{},jira:{projekte:{},rollen:{assignee:true,reporter:false},reporterWip:false},map:{jira:{},trello:{}},farben:{quelle:{},projekt:{}},alter:null,titel:{}});
+const BK_COLS=['backlog','bereit','doing','wartet','done','aus'];
+function bkNorm(o){
+  const b=BK_LEER(); if(!o||typeof o!=='object') return b;
+  const obj=x=>(x&&typeof x==='object'&&!Array.isArray(x))?x:{};
+  const mapOk=m=>{ const r={}; Object.keys(obj(m)).forEach(k=>{ if(BK_COLS.includes(m[k])) r[k]=m[k]; }); return r; };
+  const hex=m=>{ const r={}; Object.keys(obj(m)).forEach(k=>{ if(/^#[0-9a-f]{6}$/i.test(String(m[k]))) r[k]=String(m[k]).toLowerCase(); }); return r; };
+  Object.keys(obj(o.quellen)).forEach(k=>{ if(o.quellen[k]===false) b.quellen[k]=false; });
+  const j=obj(o.jira); Object.keys(obj(j.projekte)).forEach(k=>{ if(j.projekte[k]===false) b.jira.projekte[k]=false; });
+  const r=obj(j.rollen); b.jira.rollen={assignee:r.assignee!==false,reporter:r.reporter===true}; b.jira.reporterWip=j.reporterWip===true;
+  const m=obj(o.map); b.map.jira=mapOk(m.jira); b.map.trello=mapOk(m.trello);
+  const f=obj(o.farben); b.farben.quelle=hex(f.quelle); b.farben.projekt=hex(f.projekt);
+  if(Array.isArray(o.alter)&&o.alter.length===2&&o.alter.every(n=>Number.isFinite(n)&&n>0&&n<400)) b.alter=[Math.min(...o.alter),Math.max(...o.alter)];
+  Object.keys(obj(o.titel)).forEach(k=>{ const v=String(o.titel[k]||'').trim().slice(0,24); if(v&&BK_COLS.includes(k)) b.titel[k]=v; });
+  return b;
+}
+let BK=(()=>{ try{ return bkNorm(JSON.parse(localStorage.getItem('compassBoardCfg')||'null')); }catch(e){ return BK_LEER(); } })();
+const bkJson=()=>JSON.stringify(BK);
+function bkSpeichern(){ try{ localStorage.setItem('compassBoardCfg',bkJson()); }catch(e){} einstMerken('board',bkJson()); }
+const bkAn=src=>BK.quellen[src]!==false;
+const bkCol=k=>{ const c=PK_COLS.find(x=>x[0]===k); return c?(BK.titel[k]||c[2]):k; };
+const bkAlter=()=>BK.alter||COMPASS.board.alter||[3,7];
+function bkFarbe(c){ if(!c) return ''; if(c.src==='jira'&&c.projekt&&BK.farben.projekt[c.projekt]) return BK.farben.projekt[c.projekt]; return BK.farben.quelle[c.src]||''; }
+/* Rolle am Jira-Vorgang: assignee (meine Arbeit) · reporter (von mir gemeldet, jemand anderes arbeitet) · beide */
+const bkRolleOk=r=>{ r=r||'assignee'; return (r!=='reporter'&&BK.jira.rollen.assignee)||(r!=='assignee'&&BK.jira.rollen.reporter); };
+/* Läuft neben dem Tagesgeschäft und zählt nicht ins WIP-Limit: strategische Initiativen und gemeldete Vorgänge, die andere bearbeiten */
+const pkNeben=c=>pkStrat(c)||(c.rolle==='reporter'&&!BK.jira.reporterWip);
+const bkRollenParam=()=>BK.jira.rollen.reporter?'assignee,reporter':'assignee';
 const pkTage=iso=>{ if(!iso) return null; const d=new Date(iso); if(isNaN(d)) return null; return Math.max(0,Math.floor((Date.now()-d.getTime())/864e5)); };
 const pkSlug=s=>String(s||'').toLowerCase().replace(/[^a-z0-9äöüß]+/g,'-').replace(/^-|-$/g,'').slice(0,60);
 /* ---- Strategische Initiativen (10.09.2026) ---------------------------------------
@@ -3087,27 +3199,37 @@ function pkStratText(c){
   if(l.monate!=null) t.push(pkMonTxt(l.monate)+'/'+l.grenze.monate+' Mon.');
   return t.join(' · ');
 }
-function pkListeCol(name){ const L=COMPASS.board.listen; for(const k of ['doing','done','wartet','bereit','bald']) if(L[k]&&L[k].test(name||'')) return k==='bald'?'backlog':k; return 'backlog'; }
-function pkJiraCol(status){ const s=String(status||'').toLowerCase(); if(/progress|flight|arbeit/.test(s)) return 'doing'; if(/check|review|waiting|blocked/.test(s)) return 'wartet'; if(/ready|to do|selected/.test(s)) return 'bereit'; if(/done|closed/.test(s)) return 'done'; return 'backlog'; }
+/* Spalte aus Listen-/Statusname: erst die eigene Zuordnung (Board-Einrichtung), dann die Heuristik.
+   pkListeColAuto/pkJiraColAuto sind die reinen Heuristiken — der Dialog zeigt sie als „automatisch → …“. */
+function pkListeColAuto(name){ const L=COMPASS.board.listen; for(const k of ['doing','done','wartet','bereit','bald']) if(L[k]&&L[k].test(name||'')) return k==='bald'?'backlog':k; return 'backlog'; }
+function pkListeCol(name,board){ const o=BK.map.trello[(board||'')+':'+String(name||'').toLowerCase()]; return o||pkListeColAuto(name); }
+function pkJiraColAuto(status){ const s=String(status||'').toLowerCase(); if(/progress|flight|arbeit/.test(s)) return 'doing'; if(/check|review|waiting|blocked/.test(s)) return 'wartet'; if(/ready|to do|selected/.test(s)) return 'bereit'; if(/done|closed/.test(s)) return 'done'; return 'backlog'; }
+function pkJiraCol(status){ const o=BK.map.jira[String(status||'').toLowerCase()]; return o||pkJiraColAuto(status); }
 /* Alle Quellen → einheitliche Karten {id,name,url,src,col,seit,due,dueComplete,labels,liste,extra} */
 function pkQuellen(){
   const out=[]; const h=heute();
-  Object.keys(TRELLO).forEach(k=>{ const d=PK.trello[k]; if(!d||!d.lists) return;
-    d.lists.forEach(l=>{ const col=pkListeCol(l.name);
+  Object.keys(TRELLO).forEach(k=>{ const d=PK.trello[k]; if(!d||!d.lists||!bkAn('trello-'+k)) return;
+    d.lists.forEach(l=>{ const col=pkListeCol(l.name,k); if(col==='aus') return;
       (l.cards||[]).forEach(c=>out.push({id:'trello:'+c.id,name:c.name,url:c.url,src:'trello-'+k,board:k,cardId:c.id,listId:l.id,col:c.dueComplete?'done':col,seit:c.aktiv||null,due:c.due||null,dueComplete:!!c.dueComplete,labels:(c.labels||[]).filter(x=>x&&x.color),liste:l.name,extra:c.checks?('☑ '+c.checks):''})); }); });
   /* Jira: live (/api/jira/meine, alle meine offenen Vorgänge) — sonst die kuratierten Top-Tickets aus dashboard-data.js */
-  if(PK.jira&&PK.jira.issues) PK.jira.issues.forEach(i=>out.push({id:'jira:'+i.key,name:i.key+' · '+i.titel,url:i.url||JIRA_VA_URL+i.key,src:'jira',jiraKey:i.key,col:pkJiraCol(i.status),seit:i.aktiv||null,due:i.due||null,liste:i.status,extra:[i.projekt,i.typ,i.prio].filter(Boolean).join(' · '),
-    strategisch:!!i.strategisch,kinder:i.kinder||null,erstellt:i.erstellt||null,live:true}));
-  else JIRA_VA.forEach(r=>out.push({id:'jira:'+r[0],name:r[0]+' · '+r[2],url:JIRA_VA_URL+r[0],src:'jira',jiraKey:r[0],col:pkJiraCol(r[1]),seit:null,liste:r[1],extra:r[4]||''}));
-  ((D.woche||{}).bene||[]).forEach(r=>{ const {row:x,q}=zeileTrennen(r); const tag=String(x[4]||x[3]||'').toLowerCase();
+  if(bkAn('jira')){
+    if(PK.jira&&PK.jira.issues) PK.jira.issues.forEach(i=>{
+      if(BK.jira.projekte[i.projekt]===false||!bkRolleOk(i.rolle)) return;
+      const col=pkJiraCol(i.status); if(col==='aus') return;
+      out.push({id:'jira:'+i.key,name:i.key+' · '+i.titel,url:i.url||JIRA_VA_URL+i.key,src:'jira',jiraKey:i.key,projekt:i.projekt,col,seit:i.aktiv||null,due:i.due||null,liste:i.status,extra:[i.typ,i.prio].filter(Boolean).join(' · '),
+        strategisch:!!i.strategisch,kinder:i.kinder||null,erstellt:i.erstellt||null,live:true,rolle:i.rolle||'assignee',bearbeiter:i.bearbeiter||null}); });
+    else JIRA_VA.forEach(r=>{ const pj=String(r[0]).split('-')[0]; if(BK.jira.projekte[pj]===false) return; const col=pkJiraCol(r[1]); if(col==='aus') return;
+      out.push({id:'jira:'+r[0],name:r[0]+' · '+r[2],url:JIRA_VA_URL+r[0],src:'jira',jiraKey:r[0],projekt:pj,col,seit:null,liste:r[1],extra:r[4]||''}); });
+  }
+  if(bkAn('woche')) ((D.woche||{}).bene||[]).forEach(r=>{ const {row:x,q}=zeileTrennen(r); const tag=String(x[4]||x[3]||'').toLowerCase();
     const col=/erledigt|fertig/.test(tag)?'done':/abgelegt|wartet|offen/.test(tag)?'wartet':'bereit';
     out.push({id:'woche:'+pkSlug(x[1]),name:x[1],url:(q&&q.url)||null,src:'woche',col,seit:null,liste:x[4]||'',extra:x[2]||'',ic:x[0],ktx:q&&q.ktx}); });
-  offeneFragen().forEach(q=>out.push({id:'frage:'+q.id,name:q.frage,url:null,src:'frage',col:'wartet',seit:null,liste:q.projekt||'',extra:'wartet auf deine Entscheidung',fn:()=>starte('fragen')}));
-  if(dasEine()) out.push({id:'eine:'+h,name:dasEine(),url:null,src:'eine',col:'doing',seit:h,liste:'Morgencheck',extra:'das Eine heute',pin:true});
-  Object.keys(S.kan.eigene).forEach(id=>{ const e=S.kan.eigene[id];
+  if(bkAn('frage')) offeneFragen().forEach(q=>out.push({id:'frage:'+q.id,name:q.frage,url:null,src:'frage',col:'wartet',seit:null,liste:q.projekt||'',extra:'wartet auf deine Entscheidung',fn:()=>starte('fragen')}));
+  if(bkAn('eine')&&dasEine()) out.push({id:'eine:'+h,name:dasEine(),url:null,src:'eine',col:'doing',seit:h,liste:'Morgencheck',extra:'das Eine heute',pin:true});
+  Object.keys(S.kan.eigene).forEach(id=>{ const e=S.kan.eigene[id]; if(!bkAn(e.src||'eigen')) return;
     /* Jira-Key aus der id ableiten (va:VA-123 vom Team-Board, jira:VA-123) → Statuswechsel wirkt auch in Jira */
     const jk=(/^(?:va|jira):([A-Z][A-Z0-9]+-\d+)$/.exec(id)||[])[1]||null;
-    out.push({id,name:e.name,url:e.url||null,src:e.src||'eigen',jiraKey:jk,col:e.col||'bereit',seit:e.seit||null,liste:e.liste||'',extra:e.extra||e.notiz||'',due:e.due||''}); });
+    out.push({id,name:e.name,url:e.url||null,src:e.src||'eigen',jiraKey:jk,projekt:jk?jk.split('-')[0]:undefined,col:e.col||'bereit',seit:e.seit||null,liste:e.liste||'',extra:e.extra||e.notiz||'',due:e.due||''}); });
   /* Compass-lokale Zuordnung darüberlegen */
   const seit7=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
   const map={};
@@ -3120,8 +3242,8 @@ function pkQuellen(){
     map[c.id]=c;
   });
   /* Erledigtes/Gezogenes, das in den Quellen nicht mehr auftaucht (z. B. in Trello archiviert): aus dem Gedächtnis zeigen */
-  Object.keys(S.kan.doing).forEach(id=>{ if(!map[id]&&S.kan.doing[id].name) map[id]={id,name:S.kan.doing[id].name,url:S.kan.doing[id].url||null,src:S.kan.doing[id].src||'eigen',col:'doing',seit:S.kan.doing[id].seit,liste:'',extra:'nicht mehr in der Quelle',gezogen:true}; });
-  Object.keys(S.kan.done).forEach(id=>{ const d=S.kan.done[id]; if(!map[id]&&d.name&&d.am>=seit7) map[id]={id,name:d.name,url:d.url||null,src:d.src||'eigen',col:'done',seit:null,am:d.am,liste:'',extra:''}; });
+  Object.keys(S.kan.doing).forEach(id=>{ if(!map[id]&&S.kan.doing[id].name&&bkAn(S.kan.doing[id].src||'eigen')) map[id]={id,name:S.kan.doing[id].name,url:S.kan.doing[id].url||null,src:S.kan.doing[id].src||'eigen',col:'doing',seit:S.kan.doing[id].seit,liste:'',extra:'nicht mehr in der Quelle',gezogen:true}; });
+  Object.keys(S.kan.done).forEach(id=>{ const d=S.kan.done[id]; if(!map[id]&&d.name&&d.am>=seit7&&bkAn(d.src||'eigen')) map[id]={id,name:d.name,url:d.url||null,src:d.src||'eigen',col:'done',seit:null,am:d.am,liste:'',extra:''}; });
   PK.karten=Object.values(map); return PK.karten;
 }
 /* Filter = Kontextauswahl: „alle“ · 🎯 der aktive Kontext-Tab · einzelne Quellen.
@@ -3134,6 +3256,7 @@ function pkFilterOk(c){
   if(f==='privat') return c.src==='trello-privat'||c.src==='eigen'||c.src==='eine';
   if(f==='arbeit') return c.src==='trello-arbeit';
   if(f==='jira') return c.src==='jira';
+  if(f.startsWith('jira:')) return c.src==='jira'&&c.projekt===f.slice(5);
   if(f==='woche') return c.src==='woche'||c.src==='frage'||c.src==='eine';
   return true;
 }
@@ -3141,7 +3264,8 @@ function pkMetrik(karten){
   const by=col=>karten.filter(c=>c.col===col);
   /* Strategische Initiativen laufen neben dem Tagesgeschäft her: sie zählen weder ins WIP-Limit
      noch in die Alterung — für sie gilt „bewegt sich etwas darunter?“ (pkStratLage).            */
-  const inArbeit=by('doing'), strat=inArbeit.filter(pkStrat), doing=inArbeit.filter(c=>!pkStrat(c));
+  const inArbeit=by('doing'), strat=inArbeit.filter(pkStrat), doing=inArbeit.filter(c=>!pkNeben(c));
+  const gemeldet=inArbeit.filter(c=>c.rolle==='reporter'&&!BK.jira.reporterWip).length;
   const today=trelloDatumLokal(new Date());
   const over=karten.filter(c=>c.due&&!c.dueComplete&&c.col!=='done'&&trelloDatumLokal(c.due)<today).length;
   const alter=doing.map(c=>pkTage(c.seit)).filter(x=>x!=null);
@@ -3150,10 +3274,10 @@ function pkMetrik(karten){
   const stratStill=stratLage.filter(x=>x.lage.alarm).sort((a,b)=>(b.lage.still||0)-(a.lage.still||0))[0]||null;
   return {wip:doing.length,limit:pkWip(),bereit:by('bereit').length,backlog:by('backlog').length,wartet:by('wartet').length,done7:by('done').length,over,
           maxAlter:alter.length?Math.max(...alter):null,aeltest,
-          strat:strat.length,stratKarten:strat,stratLage,stratStill};
+          strat:strat.length,stratKarten:strat,stratLage,stratStill,gemeldet};
 }
 function pkHinweis(m){
-  const [a3,a7]=COMPASS.board.alter||[3,7];
+  const [a3,a7]=bkAlter();
   if(m.wip>m.limit) return `<b>WIP ${m.wip} über Limit ${m.limit}.</b> Erst eine Karte fertig machen, dann die nächste ziehen — sonst wird alles langsamer. <span style="color:var(--dim)">(Personal Kanban, Regel 2: WIP begrenzen)</span>`;
   if(m.wip===0&&m.bereit>0) return `<b>Nichts in Arbeit.</b> Zieh dir <i>das Eine</i> oder die wichtigste Bereit-Karte — eine, nicht drei.`;
   if(m.aeltest&&m.maxAlter>=a7) return `<b>„${esc(m.aeltest.name.slice(0,60))}“ hängt seit ${m.maxAlter} Tagen.</b> Zerlegen, abgeben oder bewusst zurücklegen — Alterung ist das ehrlichste Signal.`;
@@ -3169,9 +3293,12 @@ function pkHinweis(m){
 }
 function pkKarteHtml(c){
   const s=PK_SRC[c.src]||['•',c.src,'']; const today=trelloDatumLokal(new Date());
-  const cls=[c.col==='done'?'done':'', c.pin?'eine':'', (c.due&&!c.dueComplete&&c.col!=='done')?(trelloDatumLokal(c.due)<today?'over':trelloDatumLokal(c.due)===today?'today':''):''].filter(Boolean).join(' ');
-  const t=pkTage(c.seit); const [a3,a7]=COMPASS.board.alter||[3,7];
-  const meta=[`<span class="src ${s[2]}" title="${esc(s[1])}${c.liste?' · '+esc(c.liste):''}">${s[0]} ${esc(s[1])}</span>`];
+  const kf=bkFarbe(c), gemeldet=c.rolle==='reporter';
+  const cls=[c.col==='done'?'done':'', c.pin?'eine':'', kf?'kf':'', gemeldet?'gemeldet':'', (c.due&&!c.dueComplete&&c.col!=='done')?(trelloDatumLokal(c.due)<today?'over':trelloDatumLokal(c.due)===today?'today':''):''].filter(Boolean).join(' ');
+  const t=pkTage(c.seit); const [a3,a7]=bkAlter();
+  const srcTxt=c.src==='jira'&&c.projekt?c.projekt:s[1];
+  const meta=[`<span class="src ${s[2]}" title="${esc(s[1])}${c.liste?' · '+esc(c.liste):''}">${s[0]} ${esc(srcTxt)}</span>`];
+  if(gemeldet) meta.push(`<span class="rolle" title="Von dir gemeldet — ${c.bearbeiter?'bearbeitet '+esc(c.bearbeiter):'noch ohne Bearbeiter'}. Zählt nicht ins WIP-Limit${BK.jira.reporterWip?' (in der Einrichtung eingeschaltet: zählt doch)':''}.">📣 ${c.bearbeiter?'bei '+esc(c.bearbeiter):'ohne Bearbeiter'}</span>`);
   if(c.liste&&c.src.startsWith('trello')) meta.push(`<span>${esc(c.liste)}</span>`);
   if(c.due){ const d=new Date(c.due); meta.push(`<span class="due">${c.dueComplete?'✅':'📅'} ${d.toLocaleDateString(LOC(),{day:'2-digit',month:'2-digit'})}</span>`); }
   if(c.col==='done'&&c.am) meta.push(`<span>✓ ${esc(c.am.slice(8,10)+'.'+c.am.slice(5,7)+'.')}</span>`);
@@ -3192,7 +3319,7 @@ function pkKarteHtml(c){
              : (c.fn ? `<span class="kt" style="cursor:pointer" onclick="pkAct('${esc(c.id).replace(/'/g,'&#39;')}','frage')">${c.ic?c.ic+' ':''}${esc(c.name)}</span>` : `<span class="kt">${c.ic?c.ic+' ':''}${esc(c.name)}</span>`);
   if(c.gezogen&&c.src!=='eigen'&&c.src!=='eine') meta.push(`<span class="sync ${c.synced?'ok':'lokal'}" title="${c.synced?'In der Quelle nachgezogen':'Nur im Compass verschoben (Quelle unverändert)'}">${c.synced?'⇄ synchron':'⌂ lokal'}</span>`);
   const go = c.url ? `<a class="go" href="${esc(c.url)}" target="_blank" rel="noopener" title="Quelle öffnen ↗" draggable="false">↗</a>` : '';
-  return `<div class="kc ${cls}" data-id="${esc(c.id)}" draggable="${c.col==='done'||c.src==='frage'?'false':'true'}">${go}${labels?`<div>${labels}</div>`:''}${name}<div class="km">${meta.join('')}</div>${act.length?`<div class="kact">${act.join('')}</div>`:''}</div>`;
+  return `<div class="kc ${cls}" data-id="${esc(c.id)}"${kf?` style="--kf:${kf}"`:''} draggable="${c.col==='done'||c.src==='frage'?'false':'true'}">${go}${labels?`<div>${labels}</div>`:''}${name}<div class="km">${meta.join('')}</div>${act.length?`<div class="kact">${act.join('')}</div>`:''}</div>`;
 }
 const PK_MAX=8;
 function pkBoardHtml(){
@@ -3205,17 +3332,25 @@ function pkBoardHtml(){
     /* frisch angelegte Karte immer zeigen, auch wenn die Spalte gekürzt ist */
     const alle=PK.mehr[k]; let show=alle?cs:cs.slice(0,PK_MAX);
     if(PK.neu && cs.some(c=>c.id===PK.neu) && !show.some(c=>c.id===PK.neu)) show=[cs.find(c=>c.id===PK.neu)].concat(show.slice(0,PK_MAX-1));
-    const stratHier=k==='doing'?cs.filter(pkStrat).length:0;
-    const over=k==='doing'&&(cs.length-stratHier)>m.limit;
-    return `<div class="col ${k} ${over?'over':''}" data-col="${k}" title="${esc(sub)} — Karten hierher ziehen"><h4>${ic} ${esc(titel)}${k==='doing'?` <span class="lim" onclick="pkLimit()" title="WIP-Limit ändern">Limit ${m.limit}</span>`:''}<span class="n ${over?'bad':''}" title="${k==='doing'&&stratHier?'Ohne '+stratHier+' strategische Initiative'+(stratHier===1?'':'n')+' — die laufen neben dem Tagesgeschäft':''}">${k==='doing'?(cs.length-stratHier)+'/'+m.limit+(stratHier?' +'+stratHier+' 🧭':''):cs.length}</span></h4>
+    const stratHier=k==='doing'?cs.filter(pkStrat).length:0, gemHier=k==='doing'?cs.filter(c=>c.rolle==='reporter'&&!BK.jira.reporterWip&&!pkStrat(c)).length:0, nebenHier=stratHier+gemHier;
+    const over=k==='doing'&&(cs.length-nebenHier)>m.limit;
+    const nebenTip=[stratHier?stratHier+' strategische Initiative'+(stratHier===1?'':'n')+' (laufen neben dem Tagesgeschäft)':'',gemHier?gemHier+' von dir gemeldet, andere arbeiten':''].filter(Boolean).join(' · ');
+    return `<div class="col ${k} ${over?'over':''}" data-col="${k}" title="${esc(sub)} — Karten hierher ziehen"><h4>${ic} ${esc(bkCol(k))}${k==='doing'?` <span class="lim" onclick="pkLimit()" title="WIP-Limit ändern">Limit ${m.limit}</span>`:''}<span class="n ${over?'bad':''}" title="${nebenTip?'Ohne '+esc(nebenTip):''}">${k==='doing'?(cs.length-nebenHier)+'/'+m.limit+(stratHier?' +'+stratHier+' 🧭':'')+(gemHier?' +'+gemHier+' 📣':''):cs.length}</span></h4>
       <div class="cards">${show.map(pkKarteHtml).join('')||`<div class="more">${k==='doing'?'leer — zieh dir eine Karte':k==='done'?'noch nichts diese Woche':'leer'}</div>`}
       ${cs.length>PK_MAX?`<div class="more" style="cursor:pointer" onclick="pkMehr('${k}')">${alle?'weniger zeigen':'+'+(cs.length-PK_MAX)+' weitere'}</div>`:''}</div>
       ${(k==='bereit'||k==='backlog'||k==='doing')?`<button class="add" onclick="pkNeu('${k}')">+ Karte</button>`:''}</div>`; }).join('');
-  const f=[['alle','Alle'],['tab','🎯 '+(ctxAktiv().name||'dieser Tab')],['privat','🏠 privat'],['arbeit','🏢 Arbeit'],['jira','🎫 Jira'],['woche','🗓️ Woche & Rückfragen']]
-    .map(([k,l])=>`<button class="${KAN.filter===k?'on':''}" onclick="pkFilter('${k}')" title="${k==='tab'?'Nur Karten aus dem aktiven Kontext-Tab (wechselt mit 1–4)':'Quelle filtern'}">${esc(l)}</button>`).join('');
+  /* Filterchips folgen der Einrichtung: ausgeschaltete Quellen bekommen keinen Chip, Jira-Projekte
+     bekommen je einen, sobald mehr als eines auf dem Board liegt. */
+  const fl=[['alle','Alle'],['tab','🎯 '+(ctxAktiv().name||'dieser Tab')]];
+  if(bkAn('trello-privat')) fl.push(['privat','🏠 privat']); if(bkAn('trello-arbeit')) fl.push(['arbeit','🏢 Arbeit']);
+  if(bkAn('jira')){ fl.push(['jira','🎫 Jira']); const pjs=[...new Set(alleK.filter(c=>c.src==='jira'&&c.projekt).map(c=>c.projekt))].sort(); if(pjs.length>1) pjs.forEach(pj=>fl.push(['jira:'+pj,'🎫 '+pj])); }
+  if(bkAn('woche')||bkAn('frage')) fl.push(['woche','🗓️ Woche & Rückfragen']);
+  if(!fl.some(x=>x[0]===KAN.filter)) KAN.filter='tab';
+  const f=fl.map(([k,l])=>`<button class="${KAN.filter===k?'on':''}" onclick="pkFilter('${k}')" title="${k==='tab'?'Nur Karten aus dem aktiven Kontext-Tab (wechselt mit 1–4)':'Quelle filtern'}">${esc(l)}</button>`).join('')
+    +`<button class="gear" onclick="bkDialog()" title="Board einrichten — Quellen, Jira-Projekte und Rollen, Status → Spalte, Farben">⚙ Einrichten</button>`;
   const st=Object.keys(TRELLO).map(k=>PK.trello[k]?'':(PK.stand[k]||'')).filter(Boolean);
   if(PK.jiraHint) st.push(PK.jiraHint);
-  return `<div class="pkstat"><span class="${m.wip>m.limit?'bad':m.wip?'warn':''}"><b>${m.wip}/${m.limit}</b>WIP</span><span><b>${m.bereit}</b>bereit</span><span><b>${m.wartet}</b>wartet</span><span class="${m.over?'bad':''}"><b>${m.over}</b>überfällig</span><span class="${m.maxAlter>=(COMPASS.board.alter||[3,7])[1]?'bad':''}"><b>${m.maxAlter==null?'–':m.maxAlter+' T'}</b>ältestes in Arbeit</span>${m.strat?`<span class="${m.stratStill?'bad':''}" title="Strategische Initiativen (STA) — nicht nach Tagen, sondern nach der Bewegung der Storys darunter"><b>${m.strat}</b>strategisch${m.stratStill?' · Stillstand':''}</span>`:''}<span class="ok"><b>${m.done7}</b>fertig · 7 T</span></div>
+  return `<div class="pkstat"><span class="${m.wip>m.limit?'bad':m.wip?'warn':''}"><b>${m.wip}/${m.limit}</b>WIP</span><span><b>${m.bereit}</b>bereit</span><span><b>${m.wartet}</b>wartet</span><span class="${m.over?'bad':''}"><b>${m.over}</b>überfällig</span><span class="${m.maxAlter>=bkAlter()[1]?'bad':''}"><b>${m.maxAlter==null?'–':m.maxAlter+' T'}</b>ältestes in Arbeit</span>${m.strat?`<span class="${m.stratStill?'bad':''}" title="Strategische Initiativen (STA) — nicht nach Tagen, sondern nach der Bewegung der Storys darunter"><b>${m.strat}</b>strategisch${m.stratStill?' · Stillstand':''}</span>`:''}<span class="ok"><b>${m.done7}</b>fertig · 7 T</span></div>
     <div class="pkhint">🧭 ${pkHinweis(m)}</div>
     ${tugendLeiste()}
     <div class="pkfilter">${f}<span class="cnt" id="pkStand">${verdeckt?`<a href="#" onclick="pkFilter('alle');return false" title="Filter aufheben">${verdeckt} Karten in anderen Kontexten</a> · `:''}${st.length?esc(st.join(' · ')):(PK.geladen?('Trello live'+(PK.jira?' · Jira live':'')):'lädt …')}</span></div>
@@ -3235,7 +3370,9 @@ function pkMarkSync(id,ok){ ['doing','wait','done','spalte'].forEach(k=>{ if(S.k
 function pkTrelloListe(board,col){
   const d=PK.trello[board]; if(!d||!d.lists) return null;
   const L=COMPASS.board.listen, rx={doing:L.doing,done:L.done,wartet:L.wartet,bereit:L.bereit,backlog:null}[col];
-  if(col==='backlog') return d.lists.find(l=>pkListeCol(l.name)==='backlog'&&!/claude|vaikuntha/i.test(l.name))||d.lists.find(l=>pkListeCol(l.name)==='backlog')||null;
+  if(col==='backlog') return d.lists.find(l=>pkListeCol(l.name,board)==='backlog'&&!/claude|vaikuntha/i.test(l.name))||d.lists.find(l=>pkListeCol(l.name,board)==='backlog')||null;
+  /* eigene Zuordnung zuerst: hat der Nutzer eine Liste auf diese Spalte gelegt, ist das die Ziel-Liste */
+  const eigen=d.lists.find(l=>BK.map.trello[board+':'+String(l.name||'').toLowerCase()]===col); if(eigen) return eigen;
   return rx ? (d.lists.find(l=>rx.test(l.name))||null) : null;
 }
 async function pkPost(path,body){
@@ -3326,7 +3463,11 @@ function novZiele(){
   if(tr){ const d=PK.trello[board]; const sel=document.getElementById('novListe');
     if(d&&d.lists){ const col=document.getElementById('novCol').value; const std=pkTrelloListe(board,col); sel.innerHTML=d.lists.map(l=>`<option value="${l.id}" ${std&&std.id===l.id?'selected':''}>${esc(l.name)}</option>`).join(''); hint.textContent='Die Karte entsteht in Trello (Token braucht scope=read,write) und erscheint danach im Board.'; }
     else { sel.innerHTML='<option value="">(Board nicht geladen)</option>'; hint.textContent=PK.stand[board]||'Trello nicht geladen — Compass-Server läuft?'; } }
-  else if(NOV.ziel==='jira') hint.textContent=PK.jira?'Vorgang wird dir zugewiesen angelegt (Zugangsdaten im Compass-Server).':'Jira ist nicht angebunden (Zugangsdaten im Compass-Server) — Anlegen geht erst danach.';
+  else if(NOV.ziel==='jira'){
+    /* Projektliste aus Jira (alle sichtbaren, nicht ausgeblendeten Projekte), sonst die feste Auswahl */
+    const sel=document.getElementById('novJira'), pjs=bkProjekte().filter(p=>BK.jira.projekte[p.key]!==false);
+    if(pjs.length){ const alt=sel.value; sel.innerHTML=pjs.map(p=>`<option value="${esc(p.key)}|Story">${esc(p.key)} · Story</option><option value="${esc(p.key)}|Task">${esc(p.key)} · Task</option>`).join(''); if([...sel.options].some(o=>o.value===alt)) sel.value=alt; }
+    hint.textContent=PK.jira?'Vorgang wird dir zugewiesen angelegt (Zugangsdaten im Compass-Server).':'Jira ist nicht angebunden (Zugangsdaten im Compass-Server) — Anlegen geht erst danach.'; }
   else hint.textContent='Schnellkarte nur im Compass (localStorage) — für Gedanken, die noch kein Ticket sind.';
 }
 document.getElementById('novCol').addEventListener('change',novZiele);
@@ -3360,6 +3501,226 @@ document.getElementById('novGo').addEventListener('click',async()=>{
   }catch(e){ const code=e.code||''; document.getElementById('novHint').textContent = code==='NO_WRITE'?'Trello-Token darf nur lesen — neues Token mit scope=read,write (Anleitung: Einrichtung deines Compass-Servers).' : code==='NO_KEY'?(e.hint||'Schlüssel fehlt.') : 'Fehler: '+(e.hint||e.message); }
   go.disabled=false; go.textContent='Anlegen';
 });
+/* ---- Board einrichten: der Dialog (14.09.2026) ------------------------------------
+   Eine Fläche, vier Abschnitte: Quellen (an/aus + Farbe) · Jira (Rollen, Projekte + Farbe)
+   · Status → Spalte (Jira-Status und Trello-Listen, „automatisch“ zeigt die Heuristik) ·
+   Spalten (WIP, Alterung, eigene Titel). Jede Änderung speichert sofort (bkSpeichern) und
+   malt Board und Dialog neu; nur ein Rollenwechsel holt Jira neu, weil sich das JQL ändert. */
+const bkov=document.getElementById('bkov');
+/* Projekte, die es gibt: aus /api/jira/projekte (alle sichtbaren) vereint mit denen, die gerade Vorgänge tragen */
+function bkProjekte(){
+  const m={};
+  (PK.projekte||[]).forEach(p=>{ if(p&&p.key) m[p.key]={key:p.key,name:p.name||'',anzahl:0}; });
+  ((PK.jira&&PK.jira.projekte)||[]).forEach(p=>{ if(!p||!p.key) return; m[p.key]=Object.assign(m[p.key]||{key:p.key,name:p.name||''},{anzahl:p.anzahl||0}); });
+  Object.keys(BK.jira.projekte).forEach(k=>{ if(!m[k]) m[k]={key:k,name:'',anzahl:0}; });
+  if(!Object.keys(m).length) JIRA_VA.forEach(r=>{ const k=String(r[0]).split('-')[0]; if(!m[k]) m[k]={key:k,name:'',anzahl:0}; m[k].anzahl++; });
+  return Object.values(m).sort((a,b)=>a.key<b.key?-1:1);
+}
+function bkDialog(){
+  bkMalen(); bkov.classList.add('on');
+  if(!PK.projekte&&bkAn('jira')&&!PK.projekteLauf){ PK.projekteLauf=true;
+    fetch(JOHN_API+'/api/jira/projekte',{cache:'no-store'}).then(r=>r.json()).then(d=>{ if(d&&d.ok){ PK.projekte=d.projekte||[]; if(bkov.classList.contains('on')) bkMalen(); } }).catch(()=>{}).finally(()=>{ PK.projekteLauf=false; }); }
+}
+function bkSchliessen(){ bkov.classList.remove('on'); }
+function bkMalen(){
+  const body=document.getElementById('bkBody'); if(!body) return;
+  const farbe=(pfad,key,wert)=>`<input type="color" data-${pfad}="${esc(key)}" value="${wert||'#8a94a6'}" title="${wert?'Farbe ändern':'Farbe geben'} — linker Rand der Karten">${wert?`<button class="fx" data-fx="${pfad}" data-key="${esc(key)}" title="Farbe entfernen">✕</button>`:''}`;
+  /* 1) Quellen */
+  const Q=[['trello-privat','🏠',TRELLO.privat.label,'Trello-Board, live über den Compass-Server'],['trello-arbeit','🏢',TRELLO.arbeit.label,'Trello-Board, live über den Compass-Server'],
+           ['jira','🎫','Jira','deine offenen Vorgänge (Zugangsdaten im Compass-Server)'],['woche','🗓️','Diese Woche','Schritte aus dem Tages-Update'],['frage','💬','Rückfragen','offene Entscheidungen von Claude'],
+           ['eine','🎯','das Eine','aus dem Morgencheck, immer in Arbeit'],['eigen','✍️','eigene Karten','Schnellkarten nur im Compass']];
+  const quellen=Q.map(([k,ic,l,tip])=>`<label class="bkchip ${bkAn(k)?'on':''}" title="${esc(tip)}"><input type="checkbox" data-q="${k}" ${bkAn(k)?'checked':''}> ${ic} ${esc(l)} ${farbe('fq',k,BK.farben.quelle[k])}</label>`).join('');
+  /* 2) Jira: Rollen + Projekte */
+  const R=BK.jira.rollen;
+  const rollen=`<label class="bkchip ${R.assignee?'on':''}" title="Vorgänge, die dir zugewiesen sind"><input type="checkbox" data-r="assignee" ${R.assignee?'checked':''}> 👤 mir zugewiesen</label>
+    <label class="bkchip ${R.reporter?'on':''}" title="Vorgänge, die du gemeldet hast und jemand anderes bearbeitet — auf dem Board gestrichelt, mit 📣 und Bearbeiter"><input type="checkbox" data-r="reporter" ${R.reporter?'checked':''}> 📣 von mir gemeldet</label>
+    ${R.reporter?`<label class="bkchip ${BK.jira.reporterWip?'on':''}" title="Standard: Gemeldetes zählt nicht ins WIP-Limit — es ist nicht deine Arbeit"><input type="checkbox" data-rw="1" ${BK.jira.reporterWip?'checked':''}> Gemeldetes zählt ins WIP</label>`:''}`;
+  const pjs=bkProjekte();
+  const projekte=pjs.length?pjs.map(p=>{ const an=BK.jira.projekte[p.key]!==false;
+    return `<label class="bkchip ${an?'on':''}" title="${esc(p.name||p.key)}${p.anzahl?' · '+p.anzahl+' offen':''}"><input type="checkbox" data-p="${esc(p.key)}" ${an?'checked':''}> ${esc(p.key)}${p.anzahl?` <span class="n">${p.anzahl}</span>`:''} ${farbe('fp',p.key,BK.farben.projekt[p.key])}</label>`; }).join('')
+    : `<span class="hint">${PK.jira?'Keine Projekte gefunden.':(PK.jiraHint||'Jira nicht geladen — Compass-Server läuft? Projekte erscheinen, sobald die Live-Liste da ist.')}</span>`;
+  /* 3) Status → Spalte */
+  const opt=(wert,auto)=>['auto',...BK_COLS].map(k=>`<option value="${k}" ${(wert||'auto')===k?'selected':''}>${k==='auto'?'automatisch → '+(auto==='aus'?'ausblenden':bkCol(auto)):k==='aus'?'ausblenden':bkCol(k)}</option>`).join('');
+  const jst={}; ((PK.jira&&PK.jira.status)||[]).forEach(s=>{ if(s&&s.name) jst[String(s.name).toLowerCase()]={name:s.name,anzahl:s.anzahl||0,kat:s.kategorie||''}; });
+  if(!Object.keys(jst).length) JIRA_VA.forEach(r=>{ const k=String(r[1]||'').toLowerCase(); if(!k) return; if(!jst[k]) jst[k]={name:r[1],anzahl:0,kat:''}; jst[k].anzahl++; });
+  Object.keys(BK.map.jira).forEach(k=>{ if(!jst[k]) jst[k]={name:k,anzahl:0,kat:''}; });
+  const jrows=Object.keys(jst).sort().map(k=>{ const s=jst[k], eig=BK.map.jira[k]||'';
+    return `<tr><td>🎫 ${esc(s.name)}${s.kat?` <span class="auto">· ${esc(s.kat)}</span>`:''}</td><td class="n">${s.anzahl||''}</td><td><select data-mj="${esc(k)}" class="${eig?'ueber':''}">${opt(eig,pkJiraColAuto(s.name))}</select></td></tr>`; }).join('');
+  const trows=Object.keys(TRELLO).filter(bk=>bkAn('trello-'+bk)).map(bk=>{ const d=PK.trello[bk]; const lists={};
+    ((d&&d.lists)||[]).forEach(l=>{ lists[String(l.name||'').toLowerCase()]={name:l.name,anzahl:(l.cards||[]).length}; });
+    Object.keys(BK.map.trello).forEach(k=>{ if(k.startsWith(bk+':')){ const n=k.slice(bk.length+1); if(!lists[n]) lists[n]={name:n,anzahl:0}; } });
+    return Object.keys(lists).map(n=>{ const l=lists[n], eig=BK.map.trello[bk+':'+n]||'';
+      return `<tr><td>${bk==='privat'?'🏠':'🏢'} ${esc(l.name)} <span class="auto">· ${esc(TRELLO[bk].label)}</span></td><td class="n">${l.anzahl||''}</td><td><select data-mt="${esc(bk+':'+n)}" class="${eig?'ueber':''}">${opt(eig,pkListeColAuto(l.name))}</select></td></tr>`; }).join(''); }).join('');
+  const mapping=(jrows||trows)?`<table><tr><th>Status / Liste</th><th></th><th>Spalte auf Mein Board</th></tr>${bkAn('jira')?jrows:''}${trows}</table>`:`<div class="hint">Noch keine Status oder Listen geladen — sobald Jira und Trello da sind, stehen sie hier.</div>`;
+  /* 4) Spalten */
+  const [a3,a7]=bkAlter();
+  const spalten=`<div class="bkrow"><label class="bkchip on">🔥 WIP-Limit <input type="number" min="1" max="19" data-wip="1" value="${pkWip()}"></label>
+    <label class="bkchip on" title="Ab so vielen Tagen in Arbeit wird die Karte gelb">⏱ gelb ab <input type="number" min="1" max="399" data-alter="a3" value="${a3}"> T</label>
+    <label class="bkchip on" title="Ab so vielen Tagen in Arbeit wird die Karte rot">⏱ rot ab <input type="number" min="1" max="399" data-alter="a7" value="${a7}"> T</label></div>
+    <div class="bkrow" style="margin-top:8px">${PK_COLS.map(([k,ic,titel])=>`<label class="bkchip on" title="Eigener Titel für diese Spalte (leer = Standard „${esc(titel)}“)">${ic} <input type="text" data-t="${k}" placeholder="${esc(titel)}" value="${esc(BK.titel[k]||'')}" style="width:96px"></label>`).join('')}</div>`;
+  body.innerHTML=`<h5>Quellen <small>an/aus · Farbe = linker Kartenrand</small></h5><div class="bkrow">${quellen}</div>
+    <h5>Jira <small>Rollen und Projekte${PK.jira&&PK.jira.anzahl!=null?' · '+PK.jira.anzahl+' offene Vorgänge geladen':''}</small></h5>
+    ${bkAn('jira')?`<div class="bkrow">${rollen}</div><div class="bkrow" style="margin-top:8px">${projekte}</div><div class="hint">Neue Projekte sind automatisch an. Ein Projekt ausschalten nimmt seine Vorgänge vom Board, nicht aus Jira. Gemeldete Vorgänge erscheinen gestrichelt mit 📣 und dem Bearbeiter und zählen nicht ins WIP-Limit — es ist ihre Arbeit, nicht deine.</div>`:`<div class="hint">Jira ist als Quelle ausgeschaltet.</div>`}
+    <h5>Status → Spalte <small>„automatisch“ = Heuristik; „ausblenden“ nimmt den Status vom Board</small></h5>${mapping}
+    <div class="hint">Wirkt in beide Richtungen: eine Liste, die du auf „${esc(bkCol('doing'))}“ legst, ist auch die Ziel-Liste, wenn du eine Trello-Karte dorthin ziehst. Bei Jira bleibt der Statuswechsel beim passenden Übergang des Workflows.</div>
+    <h5>Spalten <small>WIP-Limit, Alterung, eigene Titel</small></h5>${spalten}`;
+  bkStand();
+}
+function bkStand(){
+  const el=document.getElementById('bkStand'); if(!el) return;
+  const aus=Object.keys(BK.quellen).filter(k=>BK.quellen[k]===false).length, pj=Object.keys(BK.jira.projekte).length, mp=Object.keys(BK.map.jira).length+Object.keys(BK.map.trello).length, fb=Object.keys(BK.farben.quelle).length+Object.keys(BK.farben.projekt).length;
+  el.textContent=[aus?aus+' Quelle'+(aus===1?'':'n')+' aus':'',pj?pj+' Projekt'+(pj===1?'':'e')+' aus':'',mp?mp+' Zuordnung'+(mp===1?'':'en'):'',fb?fb+' Farbe'+(fb===1?'':'n'):''].filter(Boolean).join(' · ')||'Standard';
+}
+document.getElementById('bkBody').addEventListener('change',e=>{
+  const el=e.target, d=el.dataset||{}; let laden=false;
+  if(d.q) BK.quellen[d.q]=el.checked?undefined:false;
+  else if(d.fq) BK.farben.quelle[d.fq]=el.value;
+  else if(d.fp) BK.farben.projekt[d.fp]=el.value;
+  else if(d.r){ BK.jira.rollen[d.r]=el.checked; if(!BK.jira.rollen.assignee&&!BK.jira.rollen.reporter) BK.jira.rollen.assignee=true; laden=true; }
+  else if(d.rw) BK.jira.reporterWip=el.checked;
+  else if(d.p){ if(el.checked) delete BK.jira.projekte[d.p]; else BK.jira.projekte[d.p]=false; }
+  else if(d.mj!=null){ if(el.value==='auto') delete BK.map.jira[d.mj]; else BK.map.jira[d.mj]=el.value; }
+  else if(d.mt!=null){ if(el.value==='auto') delete BK.map.trello[d.mt]; else BK.map.trello[d.mt]=el.value; }
+  else if(d.wip){ const n=parseInt(el.value,10); S.kan.wip=(n>0&&n<20)?n:null; speichern(); }
+  else if(d.alter){ const g=parseInt((document.querySelector('#bkBody [data-alter="a3"]')||{}).value,10), r=parseInt((document.querySelector('#bkBody [data-alter="a7"]')||{}).value,10);
+    BK.alter=(g>0&&r>0)?[Math.min(g,r),Math.max(g,r)]:null; }
+  else if(d.t!=null){ const v=el.value.trim().slice(0,24); if(v) BK.titel[d.t]=v; else delete BK.titel[d.t]; }
+  else return;
+  BK=bkNorm(BK); bkSpeichern();
+  if(laden) pkLaden(true); else pkRender();
+  bkMalen();
+});
+document.getElementById('bkBody').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-fx]'); if(!b) return; e.preventDefault();
+  if(b.dataset.fx==='fq') delete BK.farben.quelle[b.dataset.key]; else delete BK.farben.projekt[b.dataset.key];
+  bkSpeichern(); pkRender(); bkMalen();
+});
+document.getElementById('bkX').addEventListener('click',bkSchliessen);
+document.getElementById('bkFertig').addEventListener('click',bkSchliessen);
+bkov.addEventListener('click',e=>{ if(e.target===bkov) bkSchliessen(); });
+document.getElementById('bkReset').addEventListener('click',()=>{
+  if(!confirm('Board-Einrichtung auf den Standard zurücksetzen? Quellen, Projekte, Zuordnungen, Farben und Titel — das WIP-Limit bleibt.')) return;
+  BK=BK_LEER(); bkSpeichern(); pkLaden(true); bkMalen(); toast('↺ Board-Einrichtung zurückgesetzt','ok');
+});
+/* ---- Liste aufs Board (14.09.2026) --------------------------------------------------
+   die Nutzerin: „handschriftliche Listen hochladen — auf mobile abfotografieren, oder einfach
+   Task-Listen eingeben, die dann auf das Board wandern.“ Drei Wege in einen Dialog:
+   getippt/eingefügt → liParse zerlegt die Zeilen sofort im Browser (ohne KI, geht auch
+   ohne Server) · ✨ Mit KI ordnen → POST /api/board/lesen {text} · 📷 Foto → Bild im
+   Browser auf 1600 px verkleinert, POST /api/board/lesen {bild}. Ergebnis ist immer eine
+   Vorschau aus editierbaren Zeilen; „Karten anlegen“ schreibt sie in den Compass, nach
+   Trello (Karte je Zeile) oder nach Jira (Task je Zeile) — wie ＋ Neue Karte, nur im Stapel. */
+const liov=document.getElementById('liov'); const LI={zeilen:[],ziel:localStorage.getItem('compassListeZiel')||'compass',laedt:false,quelle:''};
+function liDialog(col){
+  LI.zeilen=[]; LI.laedt=false; LI.quelle='';
+  document.getElementById('liText').value=''; document.getElementById('liVorschau').innerHTML=''; document.getElementById('liHint').textContent='';
+  document.getElementById('liCol').value=col||'auto'; liStand(''); liZiele(); liMalen();
+  liov.classList.add('on'); setTimeout(()=>document.getElementById('liText').focus(),60);
+}
+function liSchliessen(){ liov.classList.remove('on'); }
+function liStand(s){ document.getElementById('liStand').textContent=s||''; }
+/* Getippte Liste ohne KI zerlegen: Aufzählungszeichen, Kästchen, Nummern weg; ✓/[x]/~~…~~ = erledigt;
+   Datum am Zeilenende = fällig; Zeile, die mit „:“ endet = Überschrift → Notiz der Zeilen darunter;
+   „Aufgabe — Notiz“ trennt Notiz ab; „warte auf …“ → Spalte Wartet. */
+function liParse(text){
+  const out=[]; let gruppe=''; const jahr=new Date().getFullYear();
+  String(text||'').split(/\r?\n/).forEach(z=>{
+    let s=z.trim(); if(!s) return; let erledigt=false;
+    if(/^~~.*~~$/.test(s)){ erledigt=true; s=s.replace(/^~~|~~$/g,''); }
+    const m=/^(?:[-*•·▪○●►▶]|\d+[.)]|[a-z][.)])?\s*(\[\s*([xX✓✔])?\s*\]|☐|☑|☒|✓|✔|✗)?\s*(.*)$/.exec(s);
+    if(m){ if(m[2]||/[☑☒✓✔✗]/.test(m[1]||'')) erledigt=true; s=(m[3]||'').trim(); }
+    if(!s) return;
+    if(/:$/.test(s)&&s.length<60&&!/\d\.\d/.test(s)){ gruppe=s.replace(/:$/,''); return; }
+    let due=null;
+    const iso=/(?:\s|^)@?(\d{4})-(\d{2})-(\d{2})\s*$/.exec(s);
+    const de=iso?null:/(?:\s|^)(?:bis|until|by|@)?\s*(\d{1,2})\.(\d{1,2})\.?(\d{2,4})?\s*$/i.exec(s);
+    if(iso){ due=`${iso[1]}-${iso[2]}-${iso[3]}`; s=s.slice(0,iso.index).trim(); }
+    else if(de){ const y=de[3]?(de[3].length===2?'20'+de[3]:de[3]):String(jahr); due=`${y}-${String(de[2]).padStart(2,'0')}-${String(de[1]).padStart(2,'0')}`; s=s.slice(0,de.index).trim(); }
+    let notiz=gruppe; const tr=/^(.{4,}?)\s+[—–]\s+(.+)$/.exec(s); if(tr){ s=tr[1].trim(); notiz=(gruppe?gruppe+' · ':'')+tr[2].trim(); }
+    let spalte='bereit'; if(/^(warte(t| auf)?|waiting|blocked|blockiert)\b/i.test(s)||/\((wartet|waiting)\)/i.test(s)) spalte='wartet';
+    if(!s) return;
+    out.push({name:s.slice(0,160),notiz,due,spalte,erledigt,an:!erledigt});
+  });
+  return out;
+}
+function liVonText(){ LI.zeilen=liParse(document.getElementById('liText').value); LI.quelle='text'; const n=LI.zeilen.length; liStand(n?`${n} Zeile${n===1?'':'n'} erkannt`:''); liMalen(); }
+document.getElementById('liText').addEventListener('input',()=>{ if(!LI.laedt) liVonText(); });
+/* Foto im Browser verkleinern (längste Kante 1600 px, JPEG) — ein Handyfoto hat 12 MP, die KI braucht das nicht */
+function liVerkleinern(file){ return new Promise((res,rej)=>{ const img=new Image(); const url=URL.createObjectURL(file);
+  img.onload=()=>{ URL.revokeObjectURL(url); const max=1600, s=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement('canvas');
+    c.width=Math.max(1,Math.round(img.width*s)); c.height=Math.max(1,Math.round(img.height*s)); c.getContext('2d').drawImage(img,0,0,c.width,c.height); res(c.toDataURL('image/jpeg',0.85)); };
+  img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('Datei ist kein Bild')); }; img.src=url; }); }
+document.getElementById('liFoto').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0]; e.target.value=''; if(!f) return;
+  try{ liStand('📷 Foto wird verkleinert …'); const data=await liVerkleinern(f); await liLesen({bild:data}); }
+  catch(x){ liStand('Foto konnte nicht gelesen werden: '+(x.message||x)); }
+});
+document.getElementById('liKi').addEventListener('click',()=>{ const txt=document.getElementById('liText').value.trim(); if(!txt){ liStand('Erst Text eintippen oder einfügen.'); return; } liLesen({text:txt}); });
+async function liLesen(body){
+  LI.laedt=true; liStand(body.bild?'📷 Die KI liest das Foto … (bis zu einer Minute)':'✨ Die KI ordnet die Liste …'); document.getElementById('liGo').disabled=true;
+  try{ const r=await pkPost('/api/board/lesen',body);
+    LI.zeilen=(r.aufgaben||[]).map(a=>({name:String(a.name||''),notiz:a.notiz||'',due:a.due||null,spalte:a.spalte||'bereit',erledigt:!!a.erledigt,an:!a.erledigt})); LI.quelle=r.quelle||'';
+    const n=LI.zeilen.length; liStand(`${n} Aufgabe${n===1?'':'n'} erkannt · ${r.quelle==='foto'?'Foto':'Text'} · ${r.backend==='cli'?'Claude Code':r.backend||'KI'}`);
+    if(!n) document.getElementById('liHint').textContent='Die KI hat keine Aufgabe erkannt — Foto schärfer/heller aufnehmen oder die Liste abtippen.'; }
+  catch(e){ const code=e.code||'';
+    liStand(/Failed to fetch|NetworkError/.test(e.message)?'Compass-Server nicht erreichbar — Foto und KI brauchen ihn (am Handy: ?john=<Adresse>). Getippte Listen gehen auch ohne.'
+      :(code?'KI nicht verfügbar ('+code+'): ':'Lesen fehlgeschlagen: ')+(e.hint||e.message)); }
+  LI.laedt=false; liMalen();
+}
+function liMalen(){
+  const v=document.getElementById('liVorschau'), n=LI.zeilen.filter(z=>z.an&&z.name.trim()).length;
+  v.innerHTML=LI.zeilen.length?`<div class="lihead"><span>${LI.zeilen.length} Zeile${LI.zeilen.length===1?'':'n'} · ${n} werden Karten</span><a href="#" onclick="event.preventDefault();liAlle(true)">alle</a> · <a href="#" onclick="event.preventDefault();liAlle(false)">keine</a></div>`
+    +LI.zeilen.map((z,i)=>`<div class="lz ${z.an?'':'aus'}"><input type="checkbox" data-li="${i}" ${z.an?'checked':''} title="Karte anlegen?"><input type="text" data-ln="${i}" value="${esc(z.name)}" title="${esc(z.notiz||'')}" placeholder="(leer — wird übersprungen)">${z.due?`<span class="due" title="fällig ${esc(z.due)}">📅 ${esc(z.due.slice(8,10)+'.'+z.due.slice(5,7)+'.')}</span>`:''}${z.erledigt?'<span class="tag">✓ erledigt</span>':z.spalte!=='bereit'?`<span class="tag">→ ${esc(bkCol(z.spalte))}</span>`:''}</div>`).join(''):'';
+  const go=document.getElementById('liGo'); go.disabled=!n||LI.laedt; go.textContent=n?`${n} Karte${n===1?'':'n'} anlegen`:'Karten anlegen';
+}
+function liAlle(an){ LI.zeilen.forEach(z=>{ z.an=an; }); liMalen(); }
+document.getElementById('liVorschau').addEventListener('change',e=>{ const i=e.target.dataset.li; if(i!=null&&LI.zeilen[i]){ LI.zeilen[i].an=e.target.checked; liMalen(); } });
+document.getElementById('liVorschau').addEventListener('input',e=>{ const i=e.target.dataset.ln; if(i!=null&&LI.zeilen[i]){ LI.zeilen[i].name=e.target.value; const n=LI.zeilen.filter(z=>z.an&&z.name.trim()).length; const go=document.getElementById('liGo'); go.disabled=!n||LI.laedt; go.textContent=n?`${n} Karte${n===1?'':'n'} anlegen`:'Karten anlegen'; } });
+function liZiele(){
+  const z=[['compass','🧭 Nur im Compass']]; if(bkAn('trello-privat')) z.push(['trello-privat','🏠 '+TRELLO.privat.label]); if(bkAn('trello-arbeit')) z.push(['trello-arbeit','🏢 '+TRELLO.arbeit.label]); if(bkAn('jira')) z.push(['jira','🎫 Jira']);
+  if(!z.some(x=>x[0]===LI.ziel)) LI.ziel='compass';
+  document.getElementById('liZiel').innerHTML=z.map(([k,l])=>`<button type="button" class="${LI.ziel===k?'on':''}" data-z="${k}">${esc(l)}</button>`).join('');
+  document.querySelectorAll('#liZiel button').forEach(b=>b.addEventListener('click',()=>{ LI.ziel=b.dataset.z; try{ localStorage.setItem('compassListeZiel',LI.ziel); }catch(e){} liZiele(); }));
+  const hint=document.getElementById('liHint'), jw=document.getElementById('liJiraWrap'); jw.style.display=LI.ziel==='jira'?'':'none';
+  if(LI.ziel==='jira'){ const sel=document.getElementById('liJira'), pjs=bkProjekte().filter(p=>BK.jira.projekte[p.key]!==false);
+    const alt=sel.value; sel.innerHTML=(pjs.length?pjs:[{key:'VA',name:''}]).map(p=>`<option value="${esc(p.key)}">${esc(p.key)}${p.name?' · '+esc(p.name):''}</option>`).join(''); if([...sel.options].some(o=>o.value===alt)) sel.value=alt;
+    hint.textContent=PK.jira?'Je Zeile ein Task, dir zugewiesen; Notiz und Fälligkeit stehen in der Beschreibung.':'Jira ist nicht angebunden (Zugangsdaten im Compass-Server) — Anlegen geht erst danach.'; }
+  else if(LI.ziel.startsWith('trello')){ const b=LI.ziel.slice(7), d=PK.trello[b]; hint.textContent=d&&d.lists?'Je Zeile eine Trello-Karte in der Liste, die zur Spalte passt (Token braucht scope=read,write).':(PK.stand[b]||'Trello nicht geladen — Compass-Server läuft?'); }
+  else hint.textContent='Schnellkarten nur im Compass — ohne Server, ohne Ticket. Später per ▶ ziehen oder in Trello/Jira neu anlegen.';
+}
+document.getElementById('liX').addEventListener('click',liSchliessen);
+document.getElementById('liAbbruch').addEventListener('click',liSchliessen);
+liov.addEventListener('click',e=>{ if(e.target===liov) liSchliessen(); });
+document.getElementById('liGo').addEventListener('click',async()=>{
+  const zeilen=LI.zeilen.filter(z=>z.an&&z.name.trim()); if(!zeilen.length) return;
+  const colStd=document.getElementById('liCol').value, go=document.getElementById('liGo'); go.disabled=true; let ok=0; const fehler=[], h=heute(), stamp=Date.now().toString(36);
+  for(let i=0;i<zeilen.length;i++){ const z=zeilen[i]; go.textContent=`… ${i+1}/${zeilen.length}`;
+    const col=z.erledigt?'done':(colStd==='auto'?z.spalte:colStd), name=z.name.trim().slice(0,160), desc=(z.notiz||'')+(z.due?(z.notiz?'\n':'')+'Fällig: '+z.due:'');
+    try{
+      if(LI.ziel==='compass'){
+        const id='eigen:'+stamp+i.toString(36);
+        S.kan.eigene[id]={name,seit:h,col:(col==='backlog'?'backlog':'bereit'),notiz:z.notiz||'',url:null,liste:LI.quelle==='foto'?'📷 Foto':'',due:z.due||''};
+        if(col==='doing') S.kan.doing[id]={seit:h,name,src:'eigen'}; else if(col==='wartet') S.kan.wait[id]={seit:h,name,src:'eigen'}; else if(col==='done') S.kan.done[id]={am:h,name,src:'eigen'};
+        ok++; PK.neu=id;
+      } else if(LI.ziel.startsWith('trello')){
+        const board=LI.ziel.slice(7); const l=pkTrelloListe(board,col)||pkTrelloListe(board,'bereit')||(((PK.trello[board]||{}).lists)||[])[0]; if(!l) throw new Error('keine Trello-Liste geladen');
+        const r=await pkPost('/api/trello/card',{board,listId:l.id,name,desc}); const id='trello:'+r.cardId;
+        if(col==='doing') S.kan.doing[id]={seit:h,name,url:r.url,src:'trello-'+board}; else if(col==='wartet') S.kan.wait[id]={seit:h,name,url:r.url,src:'trello-'+board}; else if(col==='done'&&!pkTrelloListe(board,'done')) S.kan.done[id]={am:h,name,url:r.url,src:'trello-'+board};
+        ok++; PK.neu=id;
+      } else {
+        const project=document.getElementById('liJira').value; const r=await pkPost('/api/jira/issue',{project,summary:name,type:'Task',desc}); const id='jira:'+r.key;
+        if(col==='doing') S.kan.doing[id]={seit:h,name:r.key+' · '+name,url:r.url,src:'jira'}; else if(col==='wartet') S.kan.wait[id]={seit:h,name:r.key+' · '+name,url:r.url,src:'jira'};
+        ok++; PK.neu=id;
+      }
+    }catch(e){ fehler.push(name.slice(0,30)+': '+(e.hint||e.message)); z.fehler=true; }
+  }
+  speichern(); pkRender(); go.disabled=false; go.textContent='Karten anlegen';
+  if(LI.ziel!=='compass'&&ok) pkLaden(true);
+  try{ localStorage.setItem('kompassBoardTag',heute()); }catch(e){}
+  toast(`🧭 ${ok} Karte${ok===1?'':'n'} angelegt${fehler.length?' · '+fehler.length+' fehlgeschlagen':''}`,fehler.length?'bad':'ok');
+  if(fehler.length){ document.getElementById('liHint').textContent=fehler.join(' · '); LI.zeilen=LI.zeilen.filter(z=>!z.an||z.fehler); LI.zeilen.forEach(z=>{ delete z.fehler; }); liMalen(); }
+  else { liSchliessen(); pkZeigen(PK.neu); }
+});
 function pkLimit(){ const v=prompt('WIP-Limit für „In Arbeit“ (Personal Kanban empfiehlt 3; ehrlich bleiben):',String(pkWip())); if(v==null) return; const n=parseInt(v,10); S.kan.wip=(n>0&&n<20)?n:null; speichern(); pkRender(); }
 function pkMehr(k){ PK.mehr[k]=!PK.mehr[k]; pkRender(); }
 function pkFilter(k){ KAN.filter=k; localStorage.setItem('compassBoardFilter',k); pkRender(); }
@@ -3391,7 +3752,7 @@ async function pkLaden(fresh){
       if(d&&d.ok){ PK.trello[k]=d; PK.stand[k]=''; } else { PK.trello[k]=null; PK.stand[k]=(TRELLO[k].label+': '+(d&&d.error==='NO_KEY'?'kein Trello-Schlüssel':(d&&d.error)||'Fehler')); }
     }catch(e){ PK.trello[k]=null; PK.stand[k]=TRELLO[k].label+': Compass-Server offline'; }
   }), (async()=>{ /* Jira live (optional) */
-    try{ const r=await fetch(JOHN_API+'/api/jira/meine'+(fresh?'?fresh=1':''),{cache:'no-store'}); const d=await r.json();
+    try{ const r=await fetch(JOHN_API+'/api/jira/meine?rollen='+bkRollenParam()+(fresh?'&fresh=1':''),{cache:'no-store'}); const d=await r.json();
       if(d&&d.ok){ PK.jira=d; PK.jiraHint=''; } else { PK.jira=null; PK.jiraHint=d&&d.error==='NO_KEY'?'Jira: Top-Tickets aus dashboard-data.js (live mit Zugang im Compass-Server)':'Jira: '+((d&&d.error)||'Fehler'); }
     }catch(e){ PK.jira=null; PK.jiraHint=''; } })()]);
   if(lauf!==pkLauf) return;
@@ -3824,11 +4185,13 @@ function kanbanCard(){
         <div class="trow">${view}<span class="cnt">Karte ziehen (Maus) oder ▶/✓ · ↗ öffnet die Quelle · WIP-Limit ${pkWip()}${PK.jira?' · Jira live':(PK.jiraHint?' · '+esc(PK.jiraHint):'')}</span></div>
         <div id="pkWrap">${pkBoardHtml()}</div>
         <div class="chipbar"><button class="btn w" onclick="pkNeu('bereit')">＋ Neue Karte</button>
+          <button class="btn" onclick="liDialog()" title="Getippte Liste, eingefügter Text oder Foto eines Zettels — jede Zeile wird eine Karte">📝 Liste aufs Board</button>
           ${TRELLO.privat.url?`<a class="btn" href="${TRELLO.privat.url}" target="_blank" rel="noopener">🏠 Trello privat ↗</a>`:''}${TRELLO.arbeit.url?`<a class="btn" href="${TRELLO.arbeit.url}" target="_blank" rel="noopener">🏢 Trello Arbeit ↗</a>`:''}
           ${COMPASS.cockpit.jira?`<a class="btn" href="${COMPASS.cockpit.jira}" target="_blank" rel="noopener">🎫 Jira Board VA ↗</a>`:''}
           <button class="btn" onclick="pkLaden(true)">↻ Neu laden</button>
+          <button class="btn" onclick="bkDialog()" title="Quellen, Jira-Projekte und Rollen, Status → Spalte, Farben">⚙ Einrichten</button>
           <button class="btn p" onclick="kanbanSet('vishnu')">→ Team-Board</button></div>
-        <div class="mini">Personal Kanban (Benson/Barry): <b>Arbeit sichtbar machen</b> — eine Sicht über Trello privat + Arbeit, Diese-Woche-Schritte, Rückfragen, Jira und das Eine — und <b>WIP begrenzen</b>. <b>Bedienbar:</b> Karten per Maus in eine Spalte ziehen (oder ▶ / ⏸ / ✓), ↗ öffnet die Quelle, ＋ legt eine Karte an — wahlweise nur im Compass, in Trello oder als Jira-Vorgang. <b>Sync:</b> Verschieben schreibt zurück (Trello-Liste, Jira-Statuswechsel, ✓ archiviert die Trello-Karte); klappt das nicht (Nur-Lese-Token, kein Jira-Schlüssel, Server offline), steht <b>⌂ lokal</b> an der Karte und nur der Compass merkt es sich, sonst <b>⇄ synchron</b>. Miro/Confluence sind nicht angebunden — solche Aufgaben als Compass- oder Trello-Karte mit Link führen. Wechsel mit <b>B</b>.</div></div>`;
+        <div class="mini">Personal Kanban (Benson/Barry): <b>Arbeit sichtbar machen</b> — eine Sicht über Trello privat + Arbeit, Diese-Woche-Schritte, Rückfragen, Jira und das Eine — und <b>WIP begrenzen</b>. <b>Bedienbar:</b> Karten per Maus in eine Spalte ziehen (oder ▶ / ⏸ / ✓), ↗ öffnet die Quelle, ＋ legt eine Karte an — wahlweise nur im Compass, in Trello oder als Jira-Vorgang. <b>Sync:</b> Verschieben schreibt zurück (Trello-Liste, Jira-Statuswechsel, ✓ archiviert die Trello-Karte); klappt das nicht (Nur-Lese-Token, kein Jira-Schlüssel, Server offline), steht <b>⌂ lokal</b> an der Karte und nur der Compass merkt es sich, sonst <b>⇄ synchron</b>. Miro/Confluence sind nicht angebunden — solche Aufgaben als Compass- oder Trello-Karte mit Link führen. <b>⚙ Einrichten:</b> Quellen an/aus, Jira-Projekte und Rollen (auch von dir Gemeldetes), Status → Spalte, Farben. <b>📝 Liste aufs Board:</b> Zeilen eintippen, einfügen oder den Zettel fotografieren — jede Zeile wird eine Karte. Wechsel mit <b>B</b>.</div></div>`;
     }
     const sw = (p.boards||[]).length>1 ? `<span class="seg">${p.boards.map(k=>`<button class="${k===t.key?'on':''}" onclick="trelloSet('${k}')" title="${esc(TRELLO[k].konto)}">${esc(TRELLO[k].label)}</button>`).join('')}</span>` : '';
     return `<div class="card s12 tone-pr" id="kanbanCard"><h3>📋 ${esc(p.label)} ${kanbanSwitchHtml()}</h3>
@@ -6975,7 +7338,7 @@ document.addEventListener('click',e=>{
 /* Tastatur */
 document.addEventListener('keydown',e=>{
   if(e.target.matches('input,textarea,select')) return;
-  if(e.key==='Escape'){ const dm=document.getElementById('designMenu'); if(dm&&dm.classList.contains('on')){ designToggle(false); return; } if(nov.classList.contains('on')){ nov.classList.remove('on'); return; } if(qov.classList.contains('on')) return quelleSchliessen(); if(ov.classList.contains('on')) return beenden(); if(document.getElementById('john').classList.contains('on')) return johnToggle(false); }
+  if(e.key==='Escape'){ const dm=document.getElementById('designMenu'); if(dm&&dm.classList.contains('on')){ designToggle(false); return; } if(bkov.classList.contains('on')){ bkSchliessen(); return; } if(liov.classList.contains('on')){ liSchliessen(); return; } if(nov.classList.contains('on')){ nov.classList.remove('on'); return; } if(qov.classList.contains('on')) return quelleSchliessen(); if(ov.classList.contains('on')) return beenden(); if(document.getElementById('john').classList.contains('on')) return johnToggle(false); }
   /* Unter einem offenen Dialog springt keine Taste die Seite um (A startete den Abendcheck neu, K verließ
      die Seite), und Strg/Alt/⌘ gehören dem Browser — Strg+Ziffer bleibt fürs Kombinieren (11.09.2026). */
   if(document.querySelector('.ov.on,#tastenHilfe.on')) return;
