@@ -1,0 +1,27 @@
+# Caddyfile für den Wolkenserver — install.sh setzt {{HOST}} und {{PFAD}} ein.
+#
+# Der Compass-Server hat keine eigene Anmeldung. Von außen erreichbar ist er deshalb nur unter einem
+# geheimen Pfadanfang, den allein der Compass kennt (JOHN_API = https://{{HOST}}/{{PFAD}}):
+#   https://{{HOST}}/{{PFAD}}/api/john/status  →  http://localhost:8787/api/john/status
+# Alles andere auf diesem Host antwortet 404. Das Zertifikat holt Caddy selbst (Let's Encrypt).
+{{HOST}} {
+	encode gzip
+
+	handle_path /{{PFAD}}/* {
+		reverse_proxy localhost:8787 {
+			# Der Server lauscht auf http://localhost:8787/ und prüft den Host-Header.
+			header_up Host localhost:8787
+		}
+	}
+
+	handle {
+		respond "404" 404
+	}
+
+	log {
+		output file /var/log/caddy/wolke.log {
+			roll_size 10MiB
+			roll_keep 3
+		}
+	}
+}

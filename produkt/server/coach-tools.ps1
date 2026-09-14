@@ -14,7 +14,7 @@ function Invoke-Tool($name, $inp) {
   $enc = New-Object Text.UTF8Encoding($false)
   switch ($name) {
     'notiz_speichern' {
-      $f = Join-Path $CoachDir 'coaching\notizen.md'
+      $f = Join-Path $CoachDir 'coaching/notizen.md'
       if (-not (Test-Path -LiteralPath (Split-Path $f))) { New-Item -ItemType Directory -Force (Split-Path $f) | Out-Null }
       if (-not (Test-Path -LiteralPath $f)) { [IO.File]::WriteAllText($f, "# Coaching-Notizen`n`nNotizen aus der Chat-Bubble im Compass und aus dem Stapel — neueste unten.`n", $enc) }
       [IO.File]::AppendAllText($f, "`n- **$stamp** — $($inp.text)`n", $enc)

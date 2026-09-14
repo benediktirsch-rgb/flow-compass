@@ -42,6 +42,9 @@
   Start
     start-compass-server.cmd doppelklicken   — oder —
     powershell -NoProfile -ExecutionPolicy Bypass -File compass-server.ps1
+    Linux/macOS (PowerShell 7, rund um die Uhr auf einem kleinen Server):  pwsh -File compass-server.ps1
+      Anmeldung ohne Browser dort: auf dem eigenen Rechner `claude setup-token` ausführen und den Wert als
+      CLAUDE_CODE_OAUTH_TOKEN in die Umgebung des Servers geben — siehe README, Abschnitt Linux-Server.
     Dann im Compass unter ⚙️ Einrichtung die Server-Adresse http://localhost:8787 eintragen (Standard).
     Stop: Strg+C oder GET http://localhost:8787/__stop
 #>
@@ -58,6 +61,14 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Net.Http
 $script:Utf8NoBom = New-Object Text.UTF8Encoding($false)
 $Here = $PSScriptRoot
+# Windows (PowerShell 5.1 oder 7) oder Linux/macOS (PowerShell 7). Pfade im Skript nutzen Join-Path mit
+# Schrägstrichen — die versteht Windows genauso; nur die Suche nach Claude Code und das Anmeldefenster
+# unterscheiden sich. Der laufende PowerShell-Prozess startet auch die Kindprozesse (MCP-Server).
+$script:IstWindows = ($PSVersionTable.PSEdition -ne 'Core') -or [Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([Runtime.InteropServices.OSPlatform]::Windows)
+$script:PsExe = $(try { (Get-Process -Id $PID).Path } catch { $null })
+if (-not $script:PsExe) { $script:PsExe = $(if ($script:IstWindows) { 'powershell.exe' } else { 'pwsh' }) }
+# Langlebiger Anmelde-Token von Claude Code (`claude setup-token`) — der Weg für Server ohne Browser.
+function Get-CliToken { foreach ($s in @('Process','User')) { $v = [Environment]::GetEnvironmentVariable('CLAUDE_CODE_OAUTH_TOKEN', $s); if ($v) { return $v.Trim() } }; return $null }
 
 # ---------- Konfiguration (compass-server.json) ----------
 function Read-Text($p) { if (Test-Path -LiteralPath $p) { try { return [IO.File]::ReadAllText($p, [Text.Encoding]::UTF8) } catch { return '' } } return '' }
@@ -100,7 +111,7 @@ $AnbieterModell = [string](Get-Feld (Get-Feld $K 'anbieter' $null) 'modell' '')
 # Datenordner beim ersten Start anlegen — die Vorlagen kommen aus vorlagen\ (werden nie überschrieben).
 if (-not (Test-Path -LiteralPath $DatenDir)) { New-Item -ItemType Directory -Force $DatenDir | Out-Null }
 foreach ($v in @('persona.md','TASKS.md')) {
-  $ziel = Join-Path $DatenDir $v; $quelle = Join-Path $Here "vorlagen\$v"
+  $ziel = Join-Path $DatenDir $v; $quelle = Join-Path $Here "vorlagen/$v"
   if (-not (Test-Path -LiteralPath $ziel) -and (Test-Path -LiteralPath $quelle)) { Copy-Item -LiteralPath $quelle $ziel }
 }
 
@@ -191,19 +202,27 @@ function Find-ClaudeExe {
   if ($script:ClaudeExe -and (Test-Path -LiteralPath $script:ClaudeExe)) { return $script:ClaudeExe }
   $kand = New-Object System.Collections.Generic.List[string]
   foreach ($scope in @('Process','User')) { $v = [Environment]::GetEnvironmentVariable('COMPASS_CLAUDE_EXE', $scope); if ($v) { $kand.Add($v.Trim()) } }
-  $kand.Add((Join-Path $env:USERPROFILE '.local\bin\claude.exe'))
   $cmd = Get-Command claude -ErrorAction SilentlyContinue; if ($cmd -and $cmd.Source) { $kand.Add($cmd.Source) }
-  # Bündel der Claude-Desktop-App: %APPDATA%\Claude\claude-code\<version>\claude.exe — beim Store-Paket liegt
-  # dasselbe unter …\Packages\Claude_<id>\LocalCache\Roaming\Claude\claude-code\ (virtualisiertes APPDATA).
-  $wurzeln = @((Join-Path $env:APPDATA 'Claude\claude-code'))
-  foreach ($paket in @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue)) {
-    $wurzeln += (Join-Path $paket.FullName 'LocalCache\Roaming\Claude\claude-code') }
-  foreach ($cc in $wurzeln) {
-    if (Test-Path -LiteralPath $cc) {
-      Get-ChildItem -LiteralPath $cc -Directory -ErrorAction SilentlyContinue |
-        Sort-Object { $v = $null; if ([version]::TryParse($_.Name, [ref]$v)) { $v } else { [version]'0.0' } } -Descending |
-        ForEach-Object { $kand.Add((Join-Path $_.FullName 'claude.exe')) }
+  if ($script:IstWindows) {
+    if ($env:USERPROFILE) { $kand.Add((Join-Path $env:USERPROFILE '.local/bin/claude.exe')) }
+    # Bündel der Claude-Desktop-App: %APPDATA%\Claude\claude-code\<version>\claude.exe — beim Store-Paket liegt
+    # dasselbe unter …\Packages\Claude_<id>\LocalCache\Roaming\Claude\claude-code\ (virtualisiertes APPDATA).
+    $wurzeln = @(); if ($env:APPDATA) { $wurzeln += (Join-Path $env:APPDATA 'Claude/claude-code') }
+    if ($env:LOCALAPPDATA) {
+      foreach ($paket in @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue)) {
+        $wurzeln += (Join-Path $paket.FullName 'LocalCache/Roaming/Claude/claude-code') }
     }
+    foreach ($cc in $wurzeln) {
+      if (Test-Path -LiteralPath $cc) {
+        Get-ChildItem -LiteralPath $cc -Directory -ErrorAction SilentlyContinue |
+          Sort-Object { $v = $null; if ([version]::TryParse($_.Name, [ref]$v)) { $v } else { [version]'0.0' } } -Descending |
+          ForEach-Object { $kand.Add((Join-Path $_.FullName 'claude.exe')) }
+      }
+    }
+  } else {
+    # Linux/macOS: der native Installer (curl -fsSL https://claude.ai/install.sh | bash) legt ~/.local/bin/claude an.
+    if ($HOME) { $kand.Add((Join-Path $HOME '.local/bin/claude')) }
+    foreach ($k in @('/usr/local/bin/claude','/usr/bin/claude','/opt/homebrew/bin/claude')) { $kand.Add($k) }
   }
   foreach ($k in $kand) { if ($k -and (Test-Path -LiteralPath $k)) { $script:ClaudeExe = $k; return $k } }
   return $null
@@ -236,6 +255,7 @@ function Get-KiAnbieter {
 function Get-CliLoginHint {
   $exe = Find-ClaudeExe
   if (-not $exe) { return 'Keine Claude-Code-CLI gefunden — Claude Code installieren (PowerShell: irm https://claude.ai/install.ps1 | iex) oder COMPASS_CLAUDE_EXE auf die claude.exe zeigen lassen. Ohne Abo: backend "api" mit eigenem Schlüssel, oder "ohne".' }
+  if (-not $script:IstWindows) { return "Claude Code ist auf diesem Server nicht angemeldet — auf dem eigenen Rechner `claude setup-token` ausführen (Anmeldung mit dem Claude-Abo, gibt einen langlebigen Token aus) und den Wert als CLAUDE_CODE_OAUTH_TOKEN in die Umgebung des Servers geben, dann den Dienst neu starten." }
   return "Claude Code ist nicht angemeldet — einmalig im Terminal ausführen: `"$exe`" auth login (öffnet den Browser, Anmeldung mit dem Claude-Abo), danach im Compass ↻ Neu laden."
 }
 # Anmeldung anstossen: oeffnet ein sichtbares Fenster mit „claude auth login“. Den Browser-Schritt macht
@@ -243,6 +263,7 @@ function Get-CliLoginHint {
 function Start-CliLogin {
   $exe = Find-ClaudeExe
   if (-not $exe) { return @{ ok = $false; laeuft = $false; hint = (Get-CliLoginHint) } }
+  if (-not $script:IstWindows) { return @{ ok = $false; laeuft = $false; hint = (Get-CliLoginHint) } }
   if ($script:LoginFenster -and -not $script:LoginFenster.HasExited) {
     return @{ ok = $true; laeuft = $true; schon = $true; pid = $script:LoginFenster.Id
               hint = 'Das Anmeldefenster ist schon offen — dort den Browser bestätigen.' }
@@ -282,6 +303,9 @@ function Get-CliLogin([switch]$Frisch) {
     $j = $r.stdout.Substring($a, $z - $a + 1) | ConvertFrom-Json
     $script:CliLogin = @{ ok = [bool]$j.loggedIn; methode = [string]$j.authMethod; konto = [string]$j.email; abo = [string]$j.subscriptionType; zeit = (Get-Date).ToString('o') }
   } catch { $script:CliLogin = @{ ok = $false; methode = "Fehler: $($_.Exception.Message)"; zeit = (Get-Date).ToString('o') } }
+  # Ein Token aus `claude setup-token` (CLAUDE_CODE_OAUTH_TOKEN) meldet sich je Aufruf an; `auth status` kennt
+  # ihn nicht immer. Dann gilt: angemeldet — schlägt ein Aufruf fehl, kommt NO_LOGIN mit dem Server-Hinweis.
+  if (-not $script:CliLogin.ok -and (Get-CliToken)) { $script:CliLogin = @{ ok = $true; methode = 'oauth-token (CLAUDE_CODE_OAUTH_TOKEN)'; konto = ''; abo = ''; zeit = (Get-Date).ToString('o') } }
   return $script:CliLogin
 }
 function Quote-Arg([string]$a) {
@@ -302,7 +326,8 @@ function Invoke-Prozess([string]$exe, [string[]]$argv, [string]$stdin, [int]$tim
   if ($cwd) { $psi.WorkingDirectory = $cwd }
   # Nichts aus einer umgebenden Claude-Code-Sitzung mitschleppen; beim Abo-Weg keinen API-Schlüssel —
   # sonst rechnet Claude Code doch über die API ab.
-  foreach ($k in @($psi.EnvironmentVariables.Keys)) { if ($k -match '^(CLAUDECODE|CLAUDE_CODE_)') { $psi.EnvironmentVariables.Remove($k) } }
+  foreach ($k in @($psi.EnvironmentVariables.Keys)) { if ($k -match '^(CLAUDECODE|CLAUDE_CODE_)' -and $k -ne 'CLAUDE_CODE_OAUTH_TOKEN') { $psi.EnvironmentVariables.Remove($k) } }
+  $tok = Get-CliToken; if ($tok -and -not $psi.EnvironmentVariables.ContainsKey('CLAUDE_CODE_OAUTH_TOKEN')) { $psi.EnvironmentVariables['CLAUDE_CODE_OAUTH_TOKEN'] = $tok }
   if ($opt -and $opt.ohneApiKey) { foreach ($k in @('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN')) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } } }
   $psi.EnvironmentVariables['DISABLE_AUTOUPDATER'] = '1'
   $psi.EnvironmentVariables['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'] = '1'
@@ -322,7 +347,7 @@ function Invoke-Prozess([string]$exe, [string[]]$argv, [string]$stdin, [int]$tim
 function Invoke-ClaudeCli([string]$systemText, [string]$prompt, [hashtable]$o) {
   $exe = Find-ClaudeExe; if (-not $exe) { throw 'NO_CLI' }
   $puf = Join-Path $Here '_puffer'; if (-not (Test-Path -LiteralPath $puf)) { New-Item -ItemType Directory -Force $puf | Out-Null }
-  $cwd = Join-Path $env:LOCALAPPDATA 'compass-server\cli-cwd'; if (-not (Test-Path -LiteralPath $cwd)) { New-Item -ItemType Directory -Force $cwd | Out-Null }
+  $cwd = Join-Path $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'compass-server' } else { $puf }) 'cli-cwd'; if (-not (Test-Path -LiteralPath $cwd)) { New-Item -ItemType Directory -Force $cwd | Out-Null }
   $stamp = [DateTime]::Now.Ticks
   $sysFile = Join-Path $puf "system-$stamp.md"; $mcpFile = Join-Path $puf "mcp-$stamp.json"; $log = Join-Path $puf "mcp-$stamp.log"
   [IO.File]::WriteAllText($sysFile, $systemText, $script:Utf8NoBom)
@@ -330,7 +355,7 @@ function Invoke-ClaudeCli([string]$systemText, [string]$prompt, [hashtable]$o) {
             '--effort', $(if ($o.effort) { $o.effort } else { $Effort }), '--max-turns', [string]$(if ($o.maxTurns) { $o.maxTurns } else { 1 }),
             '--no-session-persistence', '--strict-mcp-config', '--setting-sources', '', '--permission-mode', 'dontAsk', '--tools', '')
   if ($o.tools) {
-    $cfg = @{ mcpServers = @{ coach = @{ type = 'stdio'; command = 'powershell.exe'
+    $cfg = @{ mcpServers = @{ coach = @{ type = 'stdio'; command = $script:PsExe
               args = @('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',(Join-Path $Here 'coach-mcp.ps1'),'-DatenDir',$DatenDir,'-NutzerName',$NutzerName,'-Log',$log) } } }
     [IO.File]::WriteAllText($mcpFile, ($cfg | ConvertTo-Json -Depth 10), $script:Utf8NoBom)
     $argv += @('--mcp-config', $mcpFile, '--allowedTools', (@($Tools | ForEach-Object { "mcp__coach__$($_.name)" }) -join ','))
@@ -1050,7 +1075,7 @@ $listener = New-Object System.Net.HttpListener
 $prefix = "http://localhost:$Port/"
 $listener.Prefixes.Add($prefix)
 $listener.Start()
-$RootFull = $(if ($Root) { [IO.Path]::GetFullPath($Root).TrimEnd('\') + '\' } else { '' })
+$RootFull = $(if ($Root) { [IO.Path]::GetFullPath($Root).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar } else { '' })
 Write-Host "Compass-Server läuft: $prefix"
 Write-Host "  Für:      $(if ($NutzerFehlt) { '(Name fehlt — in compass-server.json eintragen)' } else { $NutzerName }) · Coach: $CoachName"
 Write-Host "  Daten:    $DatenDir"

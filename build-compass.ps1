@@ -14,6 +14,9 @@
 #
 # Der Live-Compass spricht John/Trello/Arbeit über Benes lokalen john-server (http://localhost:8787) an —
 # läuft der nicht, zeigt der Compass die Offline-Zustände (Board aus Woche/Rückfragen/Jira, keine Trello-Karten).
+# Seit 14.09.2026 kann stattdessen der Wolkenserver (wolkenserver\, Compass-Server-Paket rund um die Uhr)
+# die Standardadresse sein: steht in site\.publish-state\wolke.json eine erreichbare Adresse (oder kommt
+# -JohnApi), setzt der Build sie statt localhost ein. ?john=http://localhost:8787 schaltet im Browser zurück.
 # Fortschritt (XP, Streak, Board) liegt je Origin im localStorage → im Compass „⤓ Fortschritt sichern“ / „⤒ Einspielen“.
 #
 # Aufruf:  powershell -ExecutionPolicy Bypass -File build-compass.ps1 [-Quelle <Ordner>] [-Ziel <Ordner>]
@@ -23,7 +26,9 @@ param(
   # Wurzel der Subdomain. Seit 04.09.2026 liegt dort das persoenliche Portal und der
   # Compass darunter in compass\; die .htaccess mit dem Zugangsschutz bleibt aber an der
   # Wurzel und gilt von dort fuer alles. Leer = Ziel ist selbst die Wurzel (alter Stand).
-  [string]$Wurzel = ''
+  [string]$Wurzel = '',
+  # Adresse des Compass-Servers für die eigene Instanz (Wolkenserver). Leer = aus wolke.json, sonst localhost.
+  [string]$JohnApi = ''
 )
 $ErrorActionPreference = 'Stop'
 $repoWurzel = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -115,6 +120,24 @@ if ($hubUrl -and $hubTok -and $html.Contains($lobbyTag)) {
   Write-Host "Rezeption eingesetzt: $($hubUrl.Trim()) (Token aus der Benutzerumgebung)"
 } elseif ($html.Contains($lobbyTag)) {
   Write-Warning "JOHN_HUB_URL/JOHN_HUB_TOKEN fehlen - die Lobby zeigt keinen Stand aus der Rezeption."
+}
+
+# Wolkenserver (14.09.2026): der Compass-Server aus produkt\server läuft rund um die Uhr auf einem
+# Linux-Server (wolkenserver\deploy-wolkenserver.ps1 schreibt site\.publish-state\wolke.json, gitignored).
+# Steht dort eine erreichbare Adresse, zeigt die eigene Instanz standardmäßig dorthin statt auf
+# http://localhost:8787. Die Adresse trägt den geheimen Pfad — deshalb nur in der gebauten Instanz,
+# nie in dashboard.html. Fehlt der Anker, bricht der Build laut ab, statt still bei localhost zu bleiben.
+$wolkeApi = $JohnApi
+if (-not $wolkeApi) {
+  $wj = Join-Path $repoWurzel 'site\.publish-state\wolke.json'
+  if (Test-Path $wj) { try { $w = (Read-Utf8 $wj) | ConvertFrom-Json; if ([string]$w.erreichbar -eq 'True' -and $w.api) { $wolkeApi = [string]$w.api } } catch { } }
+}
+if ($wolkeApi) {
+  $ankerApi = "const JOHN_API = LOKAL ? '' : (localStorage.getItem('compassJohnApi') || 'http://localhost:8787');"
+  if (-not $html.Contains($ankerApi)) { throw 'Wolkenserver: Anker der JOHN_API-Zeile fehlt in dashboard.html — Adresse nicht eingesetzt.' }
+  $wolkeApi = $wolkeApi.Trim().TrimEnd('/')
+  $html = $html.Replace($ankerApi, "const JOHN_API = LOKAL ? '' : (localStorage.getItem('compassJohnApi') || '" + $wolkeApi + "');")
+  Write-Host ("Wolkenserver eingesetzt: " + ($wolkeApi -replace '/t-[a-z0-9]+$', '/t-…'))
 }
 
 Write-Lf (Join-Path $Ziel 'index.html') $html

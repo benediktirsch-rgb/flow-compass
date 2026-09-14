@@ -174,6 +174,23 @@ Port belegt? `"port"` in `compass-server.json` ändern und dieselbe Adresse im C
 Der Server arbeitet seriell: eine Anfrage nach der anderen. Eine lange Coach-Antwort lässt
 andere Anfragen kurz warten — das ist so gewollt und hält den Server einfach.
 
+## Auf einem Linux-Server (rund um die Uhr)
+
+Das Paket läuft auch unter PowerShell 7 auf Linux oder macOS — etwa auf einem kleinen Cloud-Server,
+damit Coach, Stapel, Trello und Jira auch dann antworten, wenn der eigene Rechner zu ist.
+
+1. PowerShell 7 installieren (`pwsh`), Paket entpacken, `compass-server.json` wie oben füllen
+   (`"daten"` darf ein absoluter Pfad sein).
+2. Start: `pwsh -File compass-server.ps1`. Als Dienst: eine systemd-Unit mit `Restart=always`; Schlüssel
+   über `EnvironmentFile` — Benutzer-Umgebungsvariablen kennt Linux nicht, der Server liest dort die
+   Prozess-Umgebung.
+3. Claude-Abo ohne Browser: auf dem eigenen Rechner `claude setup-token` ausführen und den ausgegebenen
+   Token als `CLAUDE_CODE_OAUTH_TOKEN` in die Umgebung des Dienstes geben. Claude Code auf dem Server:
+   `curl -fsSL https://claude.ai/install.sh | bash` (landet in `~/.local/bin/claude`).
+4. Von außen nur über einen Reverse-Proxy mit TLS (z. B. Caddy) und einem geheimen Pfadanfang erreichbar
+   machen — der Server selbst hat keine Anmeldung. Im Compass steht dann `https://<host>/<pfad>` als
+   Server-Adresse; Port 8787 bleibt auf localhost.
+
 ## Aktualisieren
 
 Neue Fassung entpacken, den Ordner `daten\` und `compass-server.json` aus der alten Fassung
