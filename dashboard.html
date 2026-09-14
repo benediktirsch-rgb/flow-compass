@@ -877,14 +877,33 @@ em.acc{font-style:italic;color:var(--vk-d)}
 .top .mark{width:54px;height:54px;flex:none}
 @media(max-width:720px){.top .mark{width:44px;height:44px}}
 
-/* ---- Tugend-Leiste (Preußische Tugenden am Board) ---- */
-.tug{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}
-.tugc{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;font-size:11.5px;font-weight:700;
-  border:1px solid var(--line2);background:var(--panel2);color:var(--dim);cursor:help;transition:.16s;white-space:nowrap}
-.tugc.ja{border-color:color-mix(in srgb,var(--ok) 55%,transparent);background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--ok)}
-.tugc.nein{border-color:color-mix(in srgb,var(--bene) 45%,transparent);color:var(--bene)}
+/* ---- Tugend-Leiste (Preußische Tugenden am Board; seit 14.09.2026 neun Tugenden,
+   je ein Ladebalken 0–100 % und eine Batterie als Mittel — mit der Liste, was für „voll“ fehlt) ---- */
+.tugk{display:flex;align-items:center;gap:12px;margin:10px 0 8px;flex-wrap:wrap}
+.tugbat{display:inline-flex;align-items:center;gap:9px;padding:6px 11px 6px 9px;border-radius:12px;border:1px solid var(--line2);background:var(--panel2);cursor:help;flex:none}
+.tugbat svg{flex:none;display:block}
+.tugbat .tbp{font-size:16px;font-weight:800;color:var(--ink);letter-spacing:.2px;line-height:1.1;font-variant-numeric:tabular-nums}
+.tugbat .tbl{font-size:10.5px;color:var(--dim);letter-spacing:.3px;text-transform:uppercase}
+.tugk .tks{font-size:12px;color:var(--sub);line-height:1.5;flex:1;min-width:200px}
+.tugk .tks b{color:var(--ink)}
+.tug{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 2px}
+.tugc{display:inline-flex;flex-direction:column;gap:5px;padding:5px 9px 6px;border-radius:12px;font-size:11.5px;font-weight:700;
+  border:1px solid var(--line2);background:var(--panel2);color:var(--dim);cursor:help;transition:.16s;white-space:nowrap;min-width:0}
+.tugc .tz{display:flex;align-items:center;gap:5px}
+.tugc.ja{border-color:color-mix(in srgb,var(--ok) 55%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--ok)}
+.tugc.teil{border-color:color-mix(in srgb,var(--bene) 45%,transparent);color:var(--bene)}
+.tugc.nein{border-color:color-mix(in srgb,var(--bad) 45%,transparent);color:var(--bad)}
 .tugc:hover{transform:translateY(-1px)}
 .tugc .tw{opacity:.62;font-weight:600}
+.tugc .tp{margin-left:auto;padding-left:6px;font-size:10.5px;opacity:.8;font-variant-numeric:tabular-nums}
+.tugc .tb{display:block;height:4px;border-radius:2px;background:color-mix(in srgb,currentColor 18%,transparent);overflow:hidden}
+.tugc .tb i{display:block;height:100%;border-radius:2px;background:currentColor;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.tugtodo{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5}
+.tugtodo b{color:var(--ink)}
+.tugtodo ul{margin:4px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.tugtodo li{display:flex;gap:8px;align-items:baseline}
+.tugtodo li .tq{flex:none;font-size:10.5px;font-weight:800;padding:1px 6px;border-radius:999px;border:1px solid currentColor;font-variant-numeric:tabular-nums;color:var(--bene)}
+.tugtodo li.nein .tq{color:var(--bad)}
 .tuggrad{font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5}
 .tuggrad b{color:var(--ink)}
 
@@ -6637,40 +6656,50 @@ let aktuell='va', fokusModus=(localStorage.getItem('beneFokus')==='1');
 
 /* ---- 1 · Preussische Tugenden ----------------------------------------------
    Reihenfolge = Pruefreihenfolge fuer "Tugend des Tages" (die erste offene gewinnt).
-   test(m,ctx) -> true (erfuellt) | false (offen). wie: was konkret zu tun ist.   */
+   test(m,ctx) -> true (erfuellt) | false (offen). wie: was konkret zu tun ist.
+   grad(m,ctx) -> 0..1 = Ladebalken der Tugend (seit 14.09.2026): wie nah sie am
+   Test steht. Steht der Test, ist der Balken voll; das Mittel aller neun ist die
+   Tugend-Batterie. Redlichkeit (neunte Tugend, Auftrag 14.09.2026) misst, ob jede
+   Bewegung im Compass auch in der Quelle (Trello/Jira) nachgezogen ist — dieselbe
+   Zaehlung wie das Abzeichen „⌂ lokal“ an der Karte.                              */
+const tugClamp=x=>Math.max(0,Math.min(1,Number(x)||0));
 const TUGENDEN=[
   {id:'ordnung',      n:'Ordnung',        w:'Jedes Ding an seinem Platz',
-   test:m=>m.wip<=m.limit,
+   test:m=>m.wip<=m.limit, grad:m=>m.wip<=m.limit?1:m.limit/m.wip,
    ja:m=>`WIP ${m.wip}/${m.limit} — das Board ist geordnet.`,
    wie:m=>`WIP ${m.wip} über Limit ${m.limit}. Eine Karte fertig machen, bevor die nächste kommt.`},
   {id:'puenktlich',   n:'Pünktlichkeit',  w:'Zugesagt ist zugesagt',
-   test:m=>m.over===0,
+   test:m=>m.over===0, grad:m=>1/(1+m.over),
    ja:()=>'Nichts ist überfällig.',
    wie:m=>`${m.over} Karte${m.over===1?'':'n'} über der Frist. Neu terminieren oder heute schließen.`},
   {id:'fleiss',       n:'Fleiß',          w:'Stetig, nicht hektisch',
-   test:m=>m.done7>=5,
+   test:m=>m.done7>=5, grad:m=>m.done7/5,
    ja:m=>`${m.done7} Karten fertig in sieben Tagen.`,
    wie:m=>`${m.done7} fertig in sieben Tagen. Zwei kleine Karten heute reichen schon.`},
   {id:'beharrlich',   n:'Beharrlichkeit', w:'Angefangenes zu Ende bringen',
-   test:m=>m.maxAlter==null||m.maxAlter<7,
+   test:m=>m.maxAlter==null||m.maxAlter<7, grad:m=>(m.maxAlter==null||m.maxAlter<7)?1:7/m.maxAlter,
    ja:m=>m.maxAlter==null?'Nichts liegt lange.':`Älteste Karte ${m.maxAlter} Tage — im Fluss.`,
    wie:m=>`„${String((m.aeltest&&m.aeltest.name)||'…').slice(0,44)}“ hängt ${m.maxAlter} Tage. Zerlegen, abgeben oder bewusst zurücklegen.`},
   {id:'zuverlaessig', n:'Zuverlässigkeit',w:'Andere können sich auf dich verlassen',
-   test:m=>m.wartet<5,
+   test:m=>m.wartet<5, grad:m=>m.wartet<5?1:4/m.wartet,
    ja:m=>`Nur ${m.wartet} Karten warten auf andere.`,
    wie:m=>`${m.wartet} Karten warten. Einmal nachfassen ist billiger als fünfmal hinschauen.`},
   {id:'maessigung',   n:'Mäßigung',       w:'Nicht mehr aufnehmen, als du trägst',
-   test:m=>m.bereit<=5,
+   test:m=>m.bereit<=5, grad:m=>m.bereit<=5?1:5/m.bereit,
    ja:m=>`Bereit-Spalte mit ${m.bereit} Karten schlank.`,
    wie:m=>`${m.bereit} Karten in „Bereit“. Auf drei eindampfen — der Rest bleibt Backlog.`},
   {id:'tapferkeit',   n:'Tapferkeit',     w:'Das Unangenehme zuerst',
-   test:(m,c)=>c.eineGesetzt,
+   test:(m,c)=>c.eineGesetzt, grad:(m,c)=>c.eineGesetzt?1:0,
    ja:()=>'Das Eine steht — du weißt, worauf es heute ankommt.',
    wie:()=>'Das Eine für heute fehlt. Der Morgencheck setzt es in fünf Minuten.'},
   {id:'aufrichtig',   n:'Aufrichtigkeit', w:'Das Board sagt die Wahrheit',
-   test:(m,c)=>c.standHeute,
+   test:(m,c)=>c.standHeute, grad:(m,c)=>c.standHeute?1:(c.standTage===1?.5:0),
    ja:()=>'Das Board ist heute angefasst — es zeigt echten Stand.',
-   wie:()=>'Heute noch nichts bewegt. Ein Board, das nicht gepflegt wird, belügt dich.'}
+   wie:(m,c)=>c.standTage===1?'Gestern zuletzt angefasst. Eine Karte bewegen, und das Board sagt wieder die Wahrheit.':'Heute noch nichts bewegt. Ein Board, das nicht gepflegt wird, belügt dich.'},
+  {id:'redlich',      n:'Redlichkeit',    w:'Nichts beschönigen',
+   test:(m,c)=>c.lokal===0, grad:(m,c)=>c.lokal===0?1:1-c.lokal/3,
+   ja:()=>'Jede Bewegung steht auch in der Quelle — Trello und Jira wissen, was du weißt.',
+   wie:(m,c)=>`${c.lokal} Karte${c.lokal===1?'':'n'} nur im Compass verschoben („⌂ lokal“) — die Quelle weiß nichts davon. Karte öffnen (↗) und dort nachziehen, oder zurücksetzen.`}
 ];
 /* Kontext, den die Tests neben den Board-Zahlen brauchen.
    "Das Eine" holt die bestehende dasEine() (Zeile ~1080) — die kennt auch den
@@ -6678,7 +6707,11 @@ const TUGENDEN=[
 function tugendKontext(){
   let letzte=null; try{ letzte=localStorage.getItem('kompassBoardTag'); }catch(e){}
   let eine=''; try{ eine=dasEine()||''; }catch(e){}
-  return { eineGesetzt: !!String(eine).trim(), standHeute: letzte===heute() };
+  /* Tage seit dem letzten Anfassen (0 = heute, 1 = gestern, null = nie) — fuer den halben Balken bei Aufrichtigkeit */
+  let standTage=null; if(letzte){ const d=(new Date(heute()+'T12:00:00')-new Date(letzte+'T12:00:00'))/864e5; standTage=isFinite(d)?Math.round(d):null; }
+  /* Redlichkeit: Karten aus Trello/Jira, die nur im Compass verschoben wurden (Abzeichen „⌂ lokal“) */
+  let lokal=0; try{ lokal=((PK&&PK.karten)||[]).filter(c=>c.gezogen&&!c.synced&&(c.src==='jira'||String(c.src||'').startsWith('trello'))).length; }catch(e){}
+  return { eineGesetzt: !!String(eine).trim(), standHeute: letzte===heute(), standTage:standTage, lokal:lokal };
 }
 /* Board-Zahlen holen — null, solange das Board noch laedt */
 function tugendMetrik(){
@@ -6687,20 +6720,38 @@ function tugendMetrik(){
 function tugendStand(){
   const m=tugendMetrik(); if(!m) return null;
   const c=tugendKontext();
-  const r=TUGENDEN.map(t=>{ let ok=null; try{ ok=!!t.test(m,c); }catch(e){ ok=null; }
-    return {t:t,ok:ok,text: ok? t.ja(m,c) : t.wie(m,c)}; });
-  return {m:m,c:c,r:r,erfuellt:r.filter(x=>x.ok===true).length,gesamt:r.length};
+  const r=TUGENDEN.map(t=>{ let ok=null, g=0; try{ ok=!!t.test(m,c); }catch(e){ ok=null; }
+    /* Balken: voll, wenn der Test steht; sonst der Grad, aber nie „voll“ bei offenem Test */
+    try{ g=ok===true?1:Math.min(.95,tugClamp(t.grad?t.grad(m,c):0)); }catch(e){ g=0; }
+    return {t:t,ok:ok,grad:g,prozent:Math.round(g*100),text: ok? t.ja(m,c) : t.wie(m,c)}; });
+  const summe=r.reduce((a,x)=>a+x.grad,0);
+  return {m:m,c:c,r:r,erfuellt:r.filter(x=>x.ok===true).length,gesamt:r.length,batterie:Math.round(100*summe/r.length)};
 }
+/* Batterie-Symbol: Fuellstand = Mittel der neun Ladebalken */
+function tugBatterieSvg(p,farbe){
+  const w=Math.round(24*tugClamp(p/100));
+  return '<svg width="36" height="18" viewBox="0 0 36 18" aria-hidden="true">'
+    +'<rect x="1" y="2.5" width="30" height="13" rx="3.5" fill="none" style="stroke:'+farbe+'" stroke-width="1.6"/>'
+    +'<rect x="32.2" y="6" width="3" height="6" rx="1" style="fill:'+farbe+'"/>'
+    +(w?'<rect x="4" y="5.5" width="'+w+'" height="7" rx="1.5" style="fill:'+farbe+'"/>':'')
+    +(p>=100?'<path d="M17.5 4.5 13.5 9.6h3.2l-1.2 4 4-5.1h-3.2z" fill="#fff" opacity=".9"/>':'')+'</svg>';
+}
+function tugFarbe(p){ return p>=100?'var(--ok)':p>=60?'var(--bene)':'var(--bad)'; }
 /* Leiste unter dem Board */
 function tugendLeiste(){
   const st=tugendStand();
   if(!st) return `<div class="tuggrad">Die Tugenden messen sich am Board — sobald es geladen ist, stehen sie hier.</div>`;
-  const chips=st.r.map(x=>`<span class="tugc ${x.ok===true?'ja':'nein'}" title="${esc(x.t.w)} — ${esc(x.text)}">${x.ok===true?'✓':'○'} ${esc(x.t.n)} <span class="tw">${esc(x.t.w)}</span></span>`).join('');
-  const offen=st.r.filter(x=>x.ok===false);
-  const satz = offen.length
-    ? `<b>${st.erfuellt} von ${st.gesamt} Tugenden</b> stehen. Als Nächstes: <b>${esc(offen[0].t.n)}</b> — ${esc(offen[0].text)}`
-    : `<b>Alle ${st.gesamt} Tugenden stehen.</b> Ordnung, Takt und Orientierung stimmen — heute darfst du das auch mal so lassen.`;
-  return `<div class="tug">${chips}</div><div class="tuggrad">${satz}</div>`;
+  const chips=st.r.map(x=>{ const k=x.ok===true?'ja':(x.grad>0?'teil':'nein');
+    return `<span class="tugc ${k}" title="${esc(x.t.w)} — ${esc(x.text)}"><span class="tz">${x.ok===true?'✓':'○'} ${esc(x.t.n)} <span class="tw">${esc(x.t.w)}</span>${x.ok===true?'':`<span class="tp">${x.prozent} %</span>`}</span><i class="tb"><i style="width:${x.prozent}%"></i></i></span>`; }).join('');
+  /* Offene Tugenden, die leerste zuerst — das ist die Liste „was fehlt für voll“ */
+  const offen=st.r.filter(x=>x.ok!==true).slice().sort((a,b)=>a.grad-b.grad);
+  const p=st.batterie, farbe=tugFarbe(p);
+  const kopf=`<div class="tugk"><span class="tugbat" title="Tugend-Batterie — das Mittel der neun Ladebalken. Voll heißt: alle Tugenden stehen.">${tugBatterieSvg(p,farbe)}<span><span class="tbp">${p} %</span><br><span class="tbl">Tugend-Batterie</span></span></span>`
+    +`<span class="tks">`+(offen.length
+      ? `<b>${st.erfuellt} von ${st.gesamt} Tugenden</b> stehen. Was für die volle Batterie fehlt, steht unter den Balken.`
+      : `<b>Alle ${st.gesamt} Tugenden stehen — Batterie voll.</b> Ordnung, Takt und Orientierung stimmen; heute darfst du das auch mal so lassen.`)+`</span></div>`;
+  const todo=offen.length?`<div class="tugtodo"><b>Für die volle Batterie:</b><ul>${offen.map(x=>`<li class="${x.grad>0?'teil':'nein'}"><span class="tq">${x.prozent} %</span><span><b>${esc(x.t.n)}</b> — ${esc(x.text)}</span></li>`).join('')}</ul></div>`:'';
+  return kopf+`<div class="tug">${chips}</div>`+todo;
 }
 /* Tugend des Tages: die erste offene, sonst die des Wochentags */
 function tugendDesTages(){
@@ -6715,7 +6766,7 @@ function tugendDesTages(){
 const JOHN_MODI=[
   {id:'spiel',  ic:'🎲', n:'Spielen',      was:'John will mit dir spielen',
    satz:function(){ const st=tugendStand();
-     return st ? `Kurzes Spiel: Ich nenne dir eine deiner acht Tugenden, du sagst mir in einem Satz, woran man sie heute an deinem Board <em>sehen</em> würde. Ich fange an — <em>${esc((st.r.filter(function(x){return x.ok===false;})[0]||st.r[0]).t.n)}</em>.`
+     return st ? `Kurzes Spiel: Ich nenne dir eine deiner neun Tugenden, du sagst mir in einem Satz, woran man sie heute an deinem Board <em>sehen</em> würde. Ich fange an — <em>${esc((st.r.filter(function(x){return x.ok===false;})[0]||st.r[0]).t.n)}</em>.`
                 : `Kurzes Spiel: Nenn mir drei Dinge, die diese Woche fertig geworden sind — ich rate, welches davon dich am meisten Kraft gekostet hat.`; },
    frage:function(){ return 'Lass uns das Tugend-Spiel spielen — du fängst an.'; }},
   {id:'challenge', ic:'⚔️', n:'Fordern',   was:'John fordert dich heraus',
@@ -7017,7 +7068,7 @@ function tagAlsCode(){
     L.push('  board: { wip: '+z(m.wip)+', limit: '+z(m.limit)+', bereit: '+z(m.bereit)+', wartet: '+z(m.wartet)+' },');
     L.push('  fertig7: '+z(m.done7)+','+(m.over?' <span class="c-c">// '+m.over+' überfällig</span>':''));
   } else L.push('  board: <span class="c-k">await</span> <span class="c-f">laden</span>(), <span class="c-c">// Trello + Jira</span>');
-  if(st) L.push('  tugenden: '+z(st.erfuellt)+'<span class="c-k">/</span>'+z(st.gesamt)+',');
+  if(st) L.push('  tugenden: '+z(st.erfuellt)+'<span class="c-k">/</span>'+z(st.gesamt)+', batterie: '+z(st.batterie)+', <span class="c-c">// Prozent</span>');
   L.push('  entscheidungen: '+z(off)+',');
   if(S&&S.streak) L.push('  streak: '+z(S.streak)+' <span class="c-c">// Tage in Folge</span>');
   L.push('};');
@@ -7047,7 +7098,7 @@ function kinoSlideHtml(art){
       +'<div style="font-family:var(--serif);font-size:26px;line-height:1.2;color:var(--ink)">'+esc(t.t.n)+'</div>'
       +'<div style="font-size:12.5px;color:var(--va-l);margin:4px 0 8px">'+esc(t.t.w)+'</div>'
       +'<div style="font-size:13px;color:var(--sub);line-height:1.55">'+esc(t.text)+'</div>'
-      +(st?'<div style="font-size:11.5px;color:var(--dim);margin-top:8px">'+st.erfuellt+' von '+st.gesamt+' Tugenden stehen heute.</div>':'')+'</div>';
+      +(st?'<div style="font-size:11.5px;color:var(--dim);margin-top:8px;display:flex;align-items:center;gap:6px">'+tugBatterieSvg(st.batterie,tugFarbe(st.batterie))+'<span>'+st.erfuellt+' von '+st.gesamt+' Tugenden stehen heute.</span><span>· Batterie '+st.batterie+' %</span></div>':'')+'</div>';
   }
   if(art==='zitat'){
     const z=NIETZSCHE[Math.floor(Date.now()/864e5)%NIETZSCHE.length];

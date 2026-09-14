@@ -650,6 +650,7 @@
     'Mäßigung': ['Moderation', 'الاعتدال'],
     'Tapferkeit': ['Courage', 'الشجاعة'],
     'Aufrichtigkeit': ['Truthfulness', 'الصدق'],
+    'Redlichkeit': ['Probity', 'الاستقامة'],
     'Jedes Ding an seinem Platz': ['Everything in its place', 'كل شيء في مكانه'],
     'Zugesagt ist zugesagt': ['A promise is a promise', 'الوعد وعد'],
     'Stetig, nicht hektisch': ['Steady, not frantic', 'ثبات لا اضطراب'],
@@ -658,6 +659,15 @@
     'Nicht mehr aufnehmen, als du trägst': ['Take on no more than you can carry', 'لا تحمل أكثر مما تطيق'],
     'Das Unangenehme zuerst': ['The unpleasant thing first', 'الأصعب أولًا'],
     'Das Board sagt die Wahrheit': ['The board tells the truth', 'اللوح يقول الحقيقة'],
+    'Nichts beschönigen': ['Nothing glossed over', 'لا تجميل'],
+    'Tugend-Batterie': ['Virtue battery', 'بطارية الفضائل'],
+    'Tugend-Batterie — das Mittel der neun Ladebalken. Voll heißt: alle Tugenden stehen.':
+      ['Virtue battery — the average of the nine bars. Full means: every virtue holds.', 'بطارية الفضائل — متوسط الأشرطة التسعة. ممتلئة تعني: كل الفضائل قائمة.'],
+    'stehen. Was für die volle Batterie fehlt, steht unter den Balken.':
+      ['hold. What the full battery still needs is listed under the bars.', 'قائمة. ما ينقص لامتلاء البطارية مذكور تحت الأشرطة.'],
+    'Alle {1} Tugenden stehen — Batterie voll.': ['All {1} virtues hold — battery full.', 'كل الفضائل الـ{1} قائمة — البطارية ممتلئة.'],
+    'Für die volle Batterie:': ['For a full battery:', 'لبطارية ممتلئة:'],
+    '· Batterie {1} %': ['· battery {1} %', '· البطارية {1} %'],
     '{1} von {2} Tugenden': ['{1} of {2} virtues', '{1} من {2} فضائل'],
     '{1} von {2} Tugenden stehen heute.': ['{1} of {2} virtues hold today.', '{1} من {2} فضائل قائمة اليوم.'],
     '{1} von {2} Tugenden stehen': ['{1} of {2} virtues hold', '{1} من {2} فضائل قائمة'],
