@@ -65,7 +65,8 @@ Deploy mit, und `api:` in `instanzen\<slug>\compass\instanz.js` zeigt auf ihre A
 baut das ein. Name, Trello-Kurzlinks und Jira-Site kommen aus der `instanz.js`.
 
 **KI je Person, nicht über Benes Rechnung:** der Coach einer Instanz läuft erst, wenn die Person ihren eigenen
-`claude setup-token` liefert. Bene trägt ihn als `WOLKE_CLAUDE_TOKEN_<SLUG>` ein (Slug groß, Bindestrich →
+`claude setup-token` liefert. Bene trägt ihn mit `wolke-token.ps1 -Person <slug>` ein (unsichtbare Eingabe, entfernt
+Zeilenumbrüche, prüft das Muster, deployt) — oder von Hand als `WOLKE_CLAUDE_TOKEN_<SLUG>` (Slug groß, Bindestrich →
 Unterstrich, z. B. `WOLKE_CLAUDE_TOKEN_PHILIPP_HEITZ`) und deployt erneut. Bis dahin steht die Instanz auf
 `backend: ohne` — Board, Stapel aus Dateien und die ehrlichen „nicht angebunden“-Hinweise laufen trotzdem.
 Trello- und Jira-Schlüssel der Person: noch nicht vorgesehen (die Instanz meldet `NO_KEY`); nächster Schritt.
