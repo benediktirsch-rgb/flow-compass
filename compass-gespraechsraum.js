@@ -395,13 +395,13 @@
     voiceInterrupt=e('button',{type:'button'},'Unterbrechen · ich bin dran');
     voiceInterrupt.addEventListener('click',()=>{
       holo3d?.stopGuide();
-      endVoice('Ton aus. Laufender Zug wird gestoppt; danach Sprachgespräch neu starten.');
+      endVoice('Ton aus. Der Antwortempfang wird beendet; danach Sprachgespräch neu starten.');
       if(mode==='local' && id && !busy) mutate(async()=>{const result=await local('/stopp',{id});lastRun=null;waiting=[];if(result.serverStopUnavailable){error.textContent='Audio und Antwortempfang aus. Der Server kann weiterarbeiten; Modellstopp ist hier noch nicht verfügbar.';showPanel('history');}});
     });
     for(const box of [voiceConsent,voiceLocal])box.addEventListener('change',()=>endVoice('Erkennungsmodus geändert. Bitte Sprachgespräch neu starten.'));
     voiceReply.addEventListener('change',()=>{if(voiceOn)endVoice('Vorlesen geändert. Bitte Sprachgespräch neu starten.');});
     voiceStatus=e('p',{role:'status'},'Mikrofon aus. Keine Aufnahme beim Öffnen.');
-    panel.append(options,voiceButton,voiceInterrupt,voiceStatus,e('small',{},'Gespräch in Sprechzügen: Während einer Antwort pausiert das Mikrofon. „Unterbrechen“ stoppt Stimme und Modell. Die Rezeption erhält keine Gesprächssätze oder Audiodateien.'));
+    panel.append(options,voiceButton,voiceInterrupt,voiceStatus,e('small',{},'Gespräch in Sprechzügen: Während einer Antwort pausiert das Mikrofon. „Unterbrechen“ beendet Stimme und Antwortempfang — John kann auf dem Server weiterdenken. Die Rezeption erhält keine Gesprächssätze oder Audiodateien.'));
     return panel;
   }
 

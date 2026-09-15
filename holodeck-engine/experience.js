@@ -13,6 +13,16 @@ export function mountHolodeck(host, options = {}) {
     const node = make('button', cls, text); node.type = 'button';
     node.addEventListener('click', action); return node;
   };
+  // Unterbrechen beendet Stimme und Antwortempfang. Es beendet NICHT den Modellprozess
+  // auf dem Server — ein abgebrochener HTTP-Aufruf beweist das nicht. Der Vertrag für
+  // einen bestätigten Stopp steht in docs/protokoll.md; gebaut ist er noch nicht, also
+  // sagt der Knopf, was er wirklich tut (Entscheidung Bene, 15.09.2026).
+  const interruptButton = () => {
+    const node = button('Unterbrechen · Empfang aus',
+      () => { stopGuide(); stopMotion(); options.onInterrupt?.(); });
+    node.title = 'Beendet Stimme und Antwortempfang. John kann auf dem Server weiterdenken; ein bestätigter Modellstopp ist hier noch nicht eingebaut.';
+    return node;
+  };
   const base = new URL('../holodeck-assets/', import.meta.url).href;
   const root = make('section', 'holo-experience'); root.dataset.phase = 'arrival';
   root.setAttribute('aria-label', 'Holodeck Erlebnisraum');
@@ -190,7 +200,7 @@ export function mountHolodeck(host, options = {}) {
     }));
     center.append(prompts);
     bottom.append(button('Sprechen', () => options.onVoice?.(), 'holo-primary'),
-      button('Unterbrechen', () => { stopGuide(); stopMotion(); options.onInterrupt?.(); }),
+      interruptButton(),
       button('John näher ansehen', showJohn),
       button('Schreiben', () => options.onPanel?.('write')),
       button('Anderer Platz', seating), sound,
