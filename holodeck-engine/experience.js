@@ -25,7 +25,7 @@ export function mountHolodeck(host, options = {}) {
   const center = make('div', 'holo-center');
   const subtitle = make('div', 'holo-subtitle'); subtitle.hidden = true; subtitle.setAttribute('role', 'status');
   const bottom = make('div', 'holo-bottom');
-  const mediaLabel = make('small', 'holo-media-label', 'Fotografische Szene · Bewegungsclip noch nicht verfügbar');
+  const mediaLabel = make('small', 'holo-media-label', 'Raumkulisse · Standbild');
   const sound = button('Raumklang einschalten', () => audio.getState().enabled ? audio.stop() : audio.start());
   sound.setAttribute('aria-pressed', 'false');
   const audio = createStudioAudio((enabled, message) => {
@@ -39,6 +39,62 @@ export function mountHolodeck(host, options = {}) {
   let guide = null, guideTimer, transitionTimer, wantsSound = false;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const controller = new AbortController();
+  const motionController = new AbortController();
+  let motion = {}, portrait = null, portraitVideo = null, entranceVideo = null;
+  let motionEpoch = 0, entranceTimer, portraitTimer;
+  const motionTimer = setTimeout(() => motionController.abort(), 2500);
+  fetch(base + 'motion-manifest.json', {signal:motionController.signal, credentials:'same-origin'})
+    .then(r => r.ok ? r.json() : {})
+    .then(data => { if (data.version === 1 && !disposed) { motion = data; if (phase === 'conversation' && !paused) showJohn(); } })
+    .catch(() => {}).finally(() => clearTimeout(motionTimer));
+  function stopMotion() {
+    motionEpoch++; clearTimeout(entranceTimer); clearTimeout(portraitTimer);
+    portraitVideo?.pause(); entranceVideo?.pause();
+  }
+  function clearMotion() {
+    stopMotion();
+    for (const clip of [portraitVideo, entranceVideo]) if (clip) { clip.removeAttribute('src'); clip.load(); clip.remove(); }
+    portrait?.remove(); portrait = portraitVideo = entranceVideo = null;
+  }
+  function playPortrait() {
+    if (!portraitVideo || paused || disposed || speaker || guide || reduced) return;
+    const clip = portraitVideo, epoch = ++motionEpoch;
+    clip.currentTime = 0;
+    clip.play().then(() => { if (epoch !== motionEpoch || paused || disposed || speaker || guide) clip.pause(); })
+      .catch(() => { if (portraitVideo === clip) { clip.hidden = true; portrait.dataset.media = 'poster'; } });
+  }
+  function showJohn() {
+    if (portrait || phase !== 'conversation' || paused || disposed) return;
+    const poster = safeMediaURL(base, motion.john?.poster), url = safeMediaURL(base, motion.john?.video);
+    if (!poster) return;
+    portrait = make('aside','holo-john'); portrait.setAttribute('aria-label','John · vorbereitete Nahaufnahme');
+    const still = make('img',''); still.src = poster; still.alt = 'John am Kamin · vorbereitete Nahaufnahme';
+    const caption = make('small','','John · vorbereitete Mimik · Kaminaufnahme');
+    portrait.append(still, caption, button('Nahaufnahme schließen', () => { clearMotion(); }));
+    root.append(portrait); portrait.dataset.media = 'poster';
+    if (!url || reduced) return;
+    const clip = make('video',''); portraitVideo = clip;
+    clip.muted = true; clip.playsInline = true; clip.loop = false; clip.poster = poster;
+    clip.setAttribute('aria-label','John bewegt Gesicht und Kopf · ohne Lippensynchronität');
+    const fallback = () => { if (portraitVideo === clip) { clearTimeout(portraitTimer); clip.pause(); clip.hidden = true; portrait.dataset.media = 'poster'; } };
+    clip.addEventListener('error',fallback,{once:true});
+    clip.addEventListener('loadeddata',() => { if (portraitVideo !== clip || disposed) return; clearTimeout(portraitTimer); portrait.dataset.media = 'video'; playPortrait(); },{once:true});
+    portrait.insertBefore(clip,caption); clip.src = url; clip.load();
+    portraitTimer = setTimeout(fallback,6000);
+  }
+  function enter() {
+    const url = safeMediaURL(base,motion.reception?.video);
+    if (!url || reduced || paused) { seating(); return; }
+    clearMotion(); clearVideo(); setPhase('entrance');
+    center.append(make('h3','','Willkommen an Bord.'),button('Weiter zur Platzwahl',seating,'holo-primary'));
+    const clip = make('video','holo-background'); entranceVideo = clip;
+    clip.muted = true; clip.playsInline = true; clip.loop = false;
+    clip.poster = safeMediaURL(base,motion.reception?.poster) || image.src;
+    root.insertBefore(clip,shade); mediaLabel.textContent = 'Vorbereitete Empfangssequenz · stumm';
+    const finish = () => { if (entranceVideo === clip && !disposed && !paused) seating(); };
+    clip.addEventListener('ended',finish,{once:true}); clip.addEventListener('error',finish,{once:true});
+    clip.src = url; clip.play().catch(finish); entranceTimer = setTimeout(finish,6000);
+  }
   let manifest = {};
   const manifestTimer = setTimeout(() => controller.abort(), 2500);
   fetch(base + 'manifest.json', {signal: controller.signal, credentials: 'same-origin'})
@@ -50,7 +106,7 @@ export function mountHolodeck(host, options = {}) {
     clearTimeout(clipTimer);
     if (video) { video.pause(); video.removeAttribute('src'); video.load(); video.remove(); video = null; }
     image.hidden = false;
-    mediaLabel.textContent = 'Fotografische Szene · Bewegungsclip noch nicht verfügbar';
+    mediaLabel.textContent = 'Raumkulisse · Standbild';
   }
   function showAsset(asset) {
     currentAsset = asset; const version = ++mediaVersion; clearVideo();
@@ -93,14 +149,16 @@ export function mountHolodeck(host, options = {}) {
     if (video) video.style.objectPosition = image.style.objectPosition;
   }
   function arrival() {
+    clearMotion();
     stopGuide(); clearTimeout(transitionTimer); setPhase('arrival'); showAsset('cinema-welcome');
     center.append(make('p','holo-eyebrow','VAIKUNTHA · DEIN HOLODECK'), make('h3','','Lass den Tag draußen.'),
-      make('p','','John und Madeleine warten auf dich. Komm erst einmal an.'));
-    center.append(button('Eintreten · mit Raumklang', () => { wantsSound = true; void audio.start(); seating(); }, 'holo-primary'),
-      button('In Ruhe eintreten', () => { wantsSound = false; audio.stop(); seating(); }));
+      make('p','','John wartet auf dich. Komm erst einmal an.'));
+    center.append(button('Eintreten · mit Raumklang', () => { wantsSound = true; void audio.start(); enter(); }, 'holo-primary'),
+      button('In Ruhe eintreten', () => { wantsSound = false; audio.stop(); enter(); }));
     center.append(make('small','','Beim Eintreten bleibt dein Mikrofon aus.'));
   }
   function seating() {
+    clearMotion();
     stopGuide(); setPhase('seating'); subtitle.hidden = true;
     center.append(make('p','holo-eyebrow','WO MÖCHTEST DU SEIN?'),make('h3','','Such dir einen Platz.'));
     const seats = make('div','holo-seats');
@@ -110,6 +168,7 @@ export function mountHolodeck(host, options = {}) {
     center.append(seats); bottom.append(sound);
   }
   function sit(key) {
+    clearMotion();
     place = key; options.onPlace?.(key); audio.setScene(key);
     setPhase('transition'); showAsset(({enterprise:'enterprise-lounge',bar:'scene-02',huette:'scene-07',goa:'scene-13',anden:'scene-19',rom:'scene-25'})[key] || 'scene-02');
     image.alt = (options.places?.[key] || key) + ' mit John und Madeleine';
@@ -131,17 +190,19 @@ export function mountHolodeck(host, options = {}) {
     }));
     center.append(prompts);
     bottom.append(button('Sprechen', () => options.onVoice?.(), 'holo-primary'),
-      button('Unterbrechen', () => { stopGuide(); options.onInterrupt?.(); }),
+      button('Unterbrechen', () => { stopGuide(); stopMotion(); options.onInterrupt?.(); }),
+      button('John näher ansehen', showJohn),
       button('Schreiben', () => options.onPanel?.('write')),
       button('Anderer Platz', seating), sound,
       button('Verabschieden', goodbye));
     subtitle.replaceChildren(make('small','','Vorbereitete Begrüßung · John'),make('p','','Schön, dass du da bist. Wie geht es dir heute?')); subtitle.hidden = false;
     focusSpeaker('john');
+    showJohn();
     if (wantsSound && window.speechSynthesis && window.SpeechSynthesisUtterance) {
       const utterance = new SpeechSynthesisUtterance('Schön, dass du da bist. Wie geht es dir heute?');
       utterance.lang = options.getLanguage?.() || 'de-DE';
       if (utterance.lang !== 'de-DE') return;
-      utterance.voice = options.getHostVoice?.() || null; guide = utterance;
+      utterance.voice = options.getHostVoice?.() || null; guide = utterance; stopMotion();
       const done = () => { if (guide !== utterance) return; guide = null; clearTimeout(guideTimer); audio.setVoice(false); };
       utterance.onend = done; utterance.onerror = done; audio.setVoice(true);
       guideTimer = setTimeout(stopGuide, 12000); speechSynthesis.speak(utterance);
@@ -153,12 +214,14 @@ export function mountHolodeck(host, options = {}) {
     subtitle.hidden = false; options.onPanel?.('offline');
   }
   function goodbye() {
+    clearMotion();
     stopGuide(); options.onInterrupt?.(); audio.stop(); clearVideo();
     setPhase('goodbye'); subtitle.hidden = true;
     center.append(make('h3','','Nimm dir den Moment mit.'),make('p','','Mikrofon und Ton sind aus. Einen laufenden Auftrag prüfen wir auf Stopp.'),
       button('Zurück zum Empfang', arrival),button('Raum verlassen', () => options.onClose?.(), 'holo-primary'));
   }
   function pause() {
+    stopMotion();
     paused = true; clearTimeout(transitionTimer); stopGuide(); audio.stop(); video?.pause();
     listening = false; speaker = null; root.dataset.activity = 'idle';
   }
@@ -172,12 +235,12 @@ export function mountHolodeck(host, options = {}) {
       availability.textContent = connected ? 'Gespräch verfügbar' : value === 'unknown' ? 'Verbindung wird geprüft' : 'Ohne KI · Raum bleibt offen';
       root.dataset.connection = connected ? 'online' : 'offline';
     },
-    setSpeaker(who) { speaker = who; root.dataset.activity = who ? 'speaking' : listening ? 'listening' : 'idle'; audio.setVoice(!!who || listening); },
-    setListening(active) { listening = !!active; root.dataset.activity = active ? 'listening' : speaker ? 'speaking' : 'idle'; if (active) stopGuide(); audio.setVoice(active || !!speaker); },
+    setSpeaker(who) { speaker = who; if (who) stopMotion(); root.dataset.activity = who ? 'speaking' : listening ? 'listening' : 'idle'; audio.setVoice(!!who || listening); },
+    setListening(active) { const wasListening = listening; listening = !!active; root.dataset.activity = active ? 'listening' : speaker ? 'speaking' : 'idle'; if (active) { stopGuide(); if (!wasListening) playPortrait(); } else stopMotion(); audio.setVoice(active || !!speaker); },
     setSubtitle(who, text = '') { subtitle.hidden = !who || !text; subtitle.replaceChildren(); if (who && text) { focusSpeaker(who); subtitle.append(make('small','',who === 'john' ? 'John' : who === 'madeleine' ? 'Madeleine' : who),make('p','',text)); } },
     setOutfit() {}, setAction() {}, stopGuide, pause,
-    resume() { paused = false; if (phase === 'transition') converse(); },
-    getPlaybackState() { return {phase,place,media:video ? 'video' : 'still',paused,listening,audio:audio.getState()}; },
-    dispose() { disposed = true; pause(); clearVideo(); controller.abort(); clearTimeout(manifestTimer); audio.dispose(); document.removeEventListener('visibilitychange', visibility); root.remove(); }
+    resume() { paused = false; if (phase === 'transition') converse(); if (phase === 'entrance') seating(); },
+    getPlaybackState() { return {phase,place,media:video ? 'video' : 'still',motionReady:motion.version === 1,portraitMedia:portrait?.dataset.media || 'none',paused,listening,audio:audio.getState()}; },
+    dispose() { disposed = true; pause(); clearMotion(); clearVideo(); controller.abort(); motionController.abort(); clearTimeout(motionTimer); clearTimeout(manifestTimer); audio.dispose(); document.removeEventListener('visibilitychange', visibility); root.remove(); }
   };
 }
