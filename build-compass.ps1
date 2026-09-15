@@ -173,7 +173,15 @@ $holoQuelle = Join-Path $Quelle 'holodeck-assets'
 if (Test-Path $holoQuelle) {
   $holoZiel = Join-Path $Ziel 'holodeck-assets'
   if (-not (Test-Path $holoZiel)) { New-Item -ItemType Directory -Force $holoZiel | Out-Null }
-  Get-ChildItem -LiteralPath $holoQuelle -File | Where-Object { $_.Extension -in @('.png','.webp') -or $_.Name -eq 'manifest.json' } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $holoZiel $_.Name) -Force }
+  Get-ChildItem -LiteralPath $holoQuelle -File | Where-Object { $_.Extension -in @('.png','.webp') -or $_.Name -in @('manifest.json','motion-manifest.json') } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $holoZiel $_.Name) -Force }
+  # Bewegungsclips (15.09.2026): eigener Unterordner motion/ mit mp4 + Poster. Ohne diesen
+  # Block bliebe motion-manifest.json ohne Dateien und der Raum zeigte nur das Standbild.
+  $motionQuelle = Join-Path $holoQuelle 'motion'
+  if (Test-Path $motionQuelle) {
+    $motionZiel = Join-Path $holoZiel 'motion'
+    if (-not (Test-Path $motionZiel)) { New-Item -ItemType Directory -Force $motionZiel | Out-Null }
+    Get-ChildItem -LiteralPath $motionQuelle -File | Where-Object { $_.Extension -in @('.mp4','.png','.webp') } | ForEach-Object { Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $motionZiel $_.Name) -Force }
+  }
 }
 
 # Holodeck-Filmszenen: Module werden dynamisch geladen, deshalb explizit im eigenen Build.
