@@ -1,6 +1,7 @@
 // Original procedural room beds and restrained harmonic score. No recording,
 // network request, sampled song, or AudioContext exists before explicit activation.
 const palettes={
+ enterprise:{root:82.41,notes:[0,7,12,19],beat:1.3,noise:180,air:.025},
  bar:{root:146.83,notes:[0,3,7,10,14],beat:.83,noise:460,air:.045},
  huette:{root:130.81,notes:[0,7,12,16,19],beat:1.07,noise:280,air:.04},
  goa:{root:110,notes:[0,7,10,14,17],beat:.64,noise:760,air:.06},

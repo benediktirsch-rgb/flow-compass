@@ -179,7 +179,7 @@ if (Test-Path $holoQuelle) {
 # Holodeck-Filmszenen: Module werden dynamisch geladen, deshalb explizit im eigenen Build.
 $holoEngineZiel = Join-Path $Ziel 'holodeck-engine'
 if (-not (Test-Path $holoEngineZiel)) { New-Item -ItemType Directory -Force $holoEngineZiel | Out-Null }
-foreach ($datei in @('scenes.js','production.js','cinema.js','cinema.css','studio-audio.js','studio-direction.js','sternenszenen.js')) {
+foreach ($datei in @('scenes.js','production.js','cinema.js','cinema.css','experience.js','experience.css','coach-door.js','studio-audio.js','studio-direction.js','sternenszenen.js')) {
   $src = Join-Path $Quelle "holodeck-engine/$datei"
   if (-not (Test-Path $src)) { throw "Holodeck-Modul fehlt: $datei" }
   Copy-Item $src (Join-Path $holoEngineZiel $datei) -Force
