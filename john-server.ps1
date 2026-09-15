@@ -574,6 +574,8 @@ Du darfst ihn von dir aus rufen, aber selten — höchstens zweimal am Tag. „R
 . (Join-Path $PSScriptRoot 'john-systembild.ps1')
 # Die Erfolgs-Ausgabe im Kompass-Kino (11.09.2026): Morgen-/Abendausgabe aus Commits, Jira, Checkins — nur Belegtes.
 . (Join-Path $PSScriptRoot 'john-ausgabe.ps1')
+# Serverstimme fürs Holodeck (15.09.2026): Piper (neuronal, lokal) rendert Sätze zu WAV; ohne Piper SAPI als Prüfweg.
+. (Join-Path $PSScriptRoot 'john-tts.ps1')
 
 # ---------- KI-Anbindung: Claude Code (Abo) oder API (Schlüssel) — 07.09.2026 ----------
 # Bene, 07.09.2026: „ist es möglich, meine Tokens aus dem Abo zu nutzen?" — ja, über Claude Code im
@@ -4784,6 +4786,22 @@ try {
         continue
       }
       # --- Madeleine (07.09.2026): zweite Beraterin auf GPT über Codex; Beraterrunde = John ↔ Madeleine ----
+      # --- Serverstimme (15.09.2026): Status + Render eines Satzes zu WAV; der Gesprächsraum fällt sonst auf den Browser zurück ---
+      if ($path -eq '/api/tts/status') { Send-Json $ctx (Get-TtsStatus); continue }
+      if ($path -eq '/api/tts' -and $req.HttpMethod -eq 'POST') {
+        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        if (-not $in -or -not $in.text) { Send-Json $ctx @{ ok = $false; error = 'TTS_LEER' } 400; continue }
+        try {
+          $t = Get-TtsWav ([string]$in.text) ([string]$in.wer) $(if ($in.lang) { [string]$in.lang } else { 'de-DE' })
+          $bytes = [IO.File]::ReadAllBytes($t.datei)
+          $res.StatusCode = 200; $res.ContentType = 'audio/wav'
+          $res.AddHeader('X-Tts-Engine', $t.engine); if ($t.modell) { $res.AddHeader('X-Tts-Modell', $t.modell) }
+          $res.AddHeader('Access-Control-Expose-Headers', 'X-Tts-Engine, X-Tts-Modell')
+          $res.ContentLength64 = $bytes.Length; $res.OutputStream.Write($bytes, 0, $bytes.Length); $res.Close()
+        } catch { Send-Json $ctx @{ ok = $false; error = $_.Exception.Message } 500 }
+        continue
+      }
       if ($path -eq '/api/madeleine/status') {
         $login = Get-CodexLogin -Frisch:($req.QueryString['fresh'] -eq '1')
         $sys = $(try { Build-SystemMadeleine } catch { @{ text = ''; geladen = @("Fehler: $($_.Exception.Message)") } })

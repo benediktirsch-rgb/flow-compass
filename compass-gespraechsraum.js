@@ -240,6 +240,32 @@
   let voicePreferences = {};
   try { const saved=JSON.parse(localStorage.getItem('holodeckVoiceCasting-v1')||'{}'); if(saved&&typeof saved==='object'&&!Array.isArray(saved))voicePreferences=saved; } catch (_) {}
   const voicePreferenceKey = who => language.value+'|'+who;
+  // Klangstufen der Browserstimmen: 3 neuronal (Edge „Online (Natural)", Apple „Premium/Enhanced"), 2 Google/Apple-Standard
+  // (online, brauchbar), 1 sonstige, 0 die alten Windows-Stimmen (Hedda/Katja/Stefan/Zira/David — „Desktop" oder OneCore).
+  const voiceTier = v => { const n=v.name.toLowerCase(); if(/natural|neural|premium|enhanced|wavenet|studio/.test(n))return 3; if(/google|siri|apple|samantha|anna\b|thomas\b/.test(n))return 2; if(n.includes('desktop')||/microsoft.*(hedda|katja|stefan|zira|david|hazel|mark|hortense|julie|paul|cosimo|elsa|hemant|kalpana)/.test(n))return 0; return 1; };
+  // Was vorgelesen wird: kein Markdown, keine Adressen, keine Emojis — „Sternchen Sternchen" ist das Erste, was eine
+  // Stimme unnatürlich macht. Gedankenstriche werden Kommas (kurze Pause), Aufzählungszeichen fallen weg.
+  const ttsText = t => String(t||'').replace(/```[\s\S]*?```/g,' ').replace(/`([^`]*)`/g,'$1').replace(/https?:\/\/\S+/g,'Link')
+    .replace(/^\s*(#+|[-*•]|\d+[.)])\s+/gm,'').replace(/[*_~]{1,3}([^*_~\n]+)[*_~]{1,3}/g,'$1').replace(/\s[—–]\s/g,', ')
+    .replace(/[☀-➿]|\p{Extended_Pictographic}/gu,'').replace(/\s+/g,' ').trim();
+  // Satzweise sprechen: Chromes Netzstimmen brechen nach etwa 15 s ab, und Satzgrenzen sind der natürliche Atem.
+  const ttsChunks = t => { const out=[]; let cur=''; for(const s of t.split(/(?<=[.!?…:;])\s+(?=[^a-zäöüß])/)){ if(cur&&(cur+' '+s).length>180){out.push(cur);cur=s;} else cur=cur?cur+' '+s:s; } if(cur)out.push(cur); return out; };
+  // Serverstimme (john-server /api/tts, 15.09.2026): neuronal über Piper, wenn installiert; sonst spricht der Browser.
+  // 'auto' nimmt den Server nur, wenn er wirklich neuronal ist — SAPI vom Server klingt genauso wie SAPI im Browser.
+  let voiceEngine = 'auto'; try { voiceEngine = localStorage.getItem('holodeckVoiceEngine') || 'auto'; } catch (_) {}
+  let serverVoice = {ok:false, natural:false, engine:'unbekannt', hint:'noch nicht geprüft'}, voiceAudio = null, voiceAudioUrl = null;
+  const ttsBase = typeof JOHN_API === 'string' ? JOHN_API.replace(/\/$/,'') : '';
+  async function serverVoiceStatus() {
+    try { const r = await fetch(ttsBase + '/api/tts/status', {cache:'no-store'}); serverVoice = r.ok ? await r.json() : {ok:false,natural:false,engine:'keine',hint:'Server antwortet nicht (' + r.status + ')'}; }
+    catch (_) { serverVoice = {ok:false,natural:false,engine:'keine',hint:'Server nicht erreichbar'}; }
+    return serverVoice;
+  }
+  const useServerVoice = () => voiceEngine === 'server' ? serverVoice.ok : voiceEngine === 'auto' && serverVoice.natural;
+  function releaseAudio() {
+    if (voiceAudio) { voiceAudio.onended = voiceAudio.onerror = voiceAudio.ontimeupdate = null; voiceAudio.pause(); voiceAudio = null; }
+    if (voiceAudioUrl) { URL.revokeObjectURL(voiceAudioUrl); voiceAudioUrl = null; }
+  }
+  window.compassStimme = { ttsText, ttsChunks, voiceTier, status: serverVoiceStatus, engine: () => voiceEngine };
   function castVoice(who,automatic=false) {
     const lang=language?.value||'de-DE',prefix=lang.split('-')[0],roster=voiceRoster[prefix]||{male:[],female:[]};
     const voices=(window.speechSynthesis?.getVoices()||[]).filter(v=>v.lang.split('-')[0]===prefix);
@@ -255,7 +281,9 @@
       const desired=actor==='madeleine'?'female':'male';
       const score = voice => {
         const label=labelKind(voice),reuse=Object.values(assigned).some(v=>v?.voiceURI===voice.voiceURI);
-        return (label.kind===desired?1000:label.kind==='unknown'?100:0)-label.rank+(voice.lang===lang?20:0)+(voice.localService?10:0)-(reuse?50:0);
+        // Klang vor Rolle: eine neuronale Stimme der falschen Figur klingt immer besser als die alte Windows-Stimme
+        // der richtigen. Erst innerhalb einer Stufe zählen Rolle, exakte Sprache und ob die Stimme schon vergeben ist.
+        return voiceTier(voice)*2000+(label.kind===desired?1000:label.kind==='unknown'?300:0)-label.rank+(voice.lang===lang?20:0)-(reuse?600:0);
       };
       assigned[actor]=manual||voices.slice().sort((a,b)=>score(b)-score(a))[0];
     }
@@ -270,7 +298,7 @@
   function endVoice(message = 'Mikrofon und Vorlesen sind aus.') {
     voiceOn = false; voiceGeneration++; clearTimeout(voiceBreathTimer); voiceBreathTimer = null; haltMic(); holo3d?.setSpeaker(null); holo3d?.setSubtitle(null);
     voiceQueue = []; speaking = false; awaitingReply = heardReply = false;
-    if (voiceCurrent) window.speechSynthesis?.cancel(); voiceCurrent = null;
+    if (voiceCurrent) window.speechSynthesis?.cancel(); voiceCurrent = null; releaseAudio();
     stage?.querySelectorAll('.jgr-speaking').forEach(n => n.classList.remove('jgr-speaking'));
     if (voiceButton) { voiceButton.textContent = 'Sprachgespräch starten'; voiceButton.setAttribute('aria-pressed', 'false'); }
     voiceNote(message);
@@ -319,25 +347,64 @@
     if (!voiceOn || speaking || voiceBreathTimer || document.hidden || !dialog.open) return;
     if (!voiceQueue.length) { if (heardReply && !lastRun && !waiting.length) awaitingReply = false; listenNext(); return; }
     haltMic(); speaking = true;
-    const next = voiceQueue.shift(), version = voiceGeneration;
-    const utterance = new SpeechSynthesisUtterance(next.text);
-    voiceCurrent = utterance; utterance.lang = language.value; utterance.rate = next.wer === 'john' ? .94 : 1.01; utterance.pitch = next.wer === 'john' ? .88 : 1.06;
-    utterance.voice = castVoice(next.wer);
-    if (!utterance.voice) { endVoice('Für diese Sprache ist keine Stimme installiert. Die Antwort steht im Gespräch.'); return; }
+    const next = voiceQueue.shift(), version = voiceGeneration, text = ttsText(next.text);
+    if (!text) { speaking = false; speakNext(); return; }
     const actor = stage?.querySelector('.jgr-person-' + next.wer);
     holo3d?.setSpeaker(next.wer);
-    holo3d?.setSubtitle(next.wer,next.text);
-    utterance.onboundary = event => {if(version === voiceGeneration)holo3d?.setSubtitle(next.wer,next.text,event.charIndex,event.charLength);};
+    holo3d?.setSubtitle(next.wer,text);
     actor?.classList.add('jgr-speaking'); voiceNote((names[next.wer] || 'Gast') + ' spricht.');
     const finished = () => {
       if (version !== voiceGeneration) return;
       holo3d?.setSpeaker(null);
-      actor?.classList.remove('jgr-speaking'); speaking = false; voiceCurrent = null;
-      voiceBreathTimer = setTimeout(() => { voiceBreathTimer = null; if (version === voiceGeneration) speakNext(); }, voiceQueue.length && voiceQueue[0].wer !== next.wer ? 500 : 250);
+      actor?.classList.remove('jgr-speaking'); speaking = false; voiceCurrent = null; releaseAudio();
+      // Atem: beim Sprecherwechsel eine halbe Sekunde, sonst kurz — ohne Pause klingt es wie ein Anrufbeantworter.
+      voiceBreathTimer = setTimeout(() => { voiceBreathTimer = null; if (version === voiceGeneration) speakNext(); }, voiceQueue.length && voiceQueue[0].wer !== next.wer ? 550 : 250);
     };
-    utterance.onend = finished;
-    utterance.onerror = () => { if (version === voiceGeneration) endVoice('Vorlesen konnte nicht fortgesetzt werden. Die Antwort steht im Gespräch.'); };
-    window.speechSynthesis.speak(utterance);
+    if (useServerVoice()) { speakServer(next, text, version, finished); return; }
+    speakBrowser(next, text, version, finished);
+  }
+  // Browserstimme: satzweise, mit eigener Färbung je Figur. John sonor und langsam, Madeleine hell und flink,
+  // Picard ruhig. Die Wortgrenzen (onboundary) laufen als Untertitel mit — je Satz um seinen Anfang versetzt.
+  function speakBrowser(next, text, version, finished) {
+    const voice = castVoice(next.wer);
+    if (!voice) { endVoice('Für diese Sprache ist keine Stimme installiert. Die Antwort steht im Gespräch.'); return; }
+    const chunks = ttsChunks(text); let offset = 0;
+    const speakChunk = () => {
+      if (version !== voiceGeneration) return;
+      const part = chunks.shift(); if (part == null) { finished(); return; }
+      const found = text.indexOf(part, offset), base = found >= 0 ? found : offset; offset = base + part.length;
+      const u = new SpeechSynthesisUtterance(part); voiceCurrent = u; u.voice = voice; u.lang = language.value;
+      u.rate = next.wer === 'john' ? .92 : next.wer === 'madeleine' ? .98 : .9;
+      u.pitch = next.wer === 'john' ? .82 : next.wer === 'madeleine' ? 1.08 : .9;
+      u.onboundary = event => { if (version === voiceGeneration) holo3d?.setSubtitle(next.wer, text, base + event.charIndex, event.charLength); };
+      u.onend = () => { if (version !== voiceGeneration) return; if (chunks.length) setTimeout(speakChunk, 140); else finished(); };
+      u.onerror = event => { if (version === voiceGeneration && !['interrupted','canceled'].includes(event.error)) endVoice('Vorlesen konnte nicht fortgesetzt werden. Die Antwort steht im Gespräch.'); };
+      window.speechSynthesis.speak(u);
+    };
+    speakChunk();
+  }
+  // Serverstimme: der john-server rendert den ganzen Zug zu WAV (Piper, neuronal). Untertitel laufen nach
+  // Zeitanteil mit — Piper liefert keine Wortgrenzen. Jeder Fehler fällt auf die Browserstimme zurück.
+  async function speakServer(next, text, version, finished) {
+    try {
+      const r = await fetch(ttsBase + '/api/tts', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text, wer:next.wer, lang:language.value})});
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const blob = await r.blob(); if (version !== voiceGeneration) return;
+      releaseAudio(); voiceAudioUrl = URL.createObjectURL(blob); const audio = new Audio(voiceAudioUrl); voiceAudio = audio;
+      const words = [...text.matchAll(/\S+/g)];
+      audio.ontimeupdate = () => {
+        if (version !== voiceGeneration || !audio.duration || !words.length) return;
+        const w = words[Math.min(words.length - 1, Math.floor(audio.currentTime / audio.duration * words.length))];
+        holo3d?.setSubtitle(next.wer, text, w.index, w[0].length);
+      };
+      audio.onended = finished;
+      audio.onerror = () => { if (version === voiceGeneration) { releaseAudio(); speakBrowser(next, text, version, finished); } };
+      await audio.play();
+      voiceNote((names[next.wer] || 'Gast') + ' spricht · Serverstimme ' + (r.headers.get('X-Tts-Modell') || r.headers.get('X-Tts-Engine') || ''));
+    } catch (_) {
+      if (version !== voiceGeneration) return;
+      releaseAudio(); voiceNote('Serverstimme nicht erreichbar, Browserstimme übernimmt.'); speakBrowser(next, text, version, finished);
+    }
   }
   function voiceTurns(data) {
     if (!voiceOn) return;
@@ -364,6 +431,13 @@
     const languageLabel=e('label',{},'Gesprächssprache'); language=e('select',{'aria-label':'Gesprächssprache'});
     for(const [value,label] of Object.entries(languages)) language.append(e('option',{value},label));
     languageLabel.append(language); options.append(languageLabel);
+    const engineLabel=e('label',{},'Stimm-Engine'); const engine=e('select',{'aria-label':'Stimm-Engine'});
+    for(const [value,label] of [['auto','Automatisch · Serverstimme, wenn neuronal'],['server','Serverstimme (john-server)'],['browser','Browserstimme']]) engine.append(e('option',{value},label));
+    engine.value=voiceEngine; engine.addEventListener('change',()=>{voiceEngine=engine.value;try{localStorage.setItem('holodeckVoiceEngine',voiceEngine);}catch(_){}});
+    const engineNote=e('small',{class:'jgr-engine-note'},'Serverstimme wird geprüft …');
+    engineLabel.append(engine,engineNote); options.append(engineLabel);
+    const engineNoteText=s=>s.natural?'Serverstimme: neuronal (Piper) · '+(s.modelle?.length||0)+' Modelle':s.ok?'Serverstimme: nur Windows-Stimmen (SAPI) — '+(s.hint||''):'Serverstimme: '+(s.hint||'nicht erreichbar');
+    serverVoiceStatus().then(s=>{engineNote.textContent=engineNoteText(s);});
     for (const who of ['john','madeleine','picard']) {
       const label = e('label',{},names[who]+' · synthetische Stimme');
       const choice = e('select',{'aria-label':names[who]+' · synthetische Stimme'}); voiceSelectors[who]=choice;
@@ -387,7 +461,7 @@
       if(!SpeechInput || !window.speechSynthesis){voiceNote('Dieser Browser bietet keinen vollständigen Sprachmodus. Texteingabe funktioniert weiterhin.');return;}
       if(!voiceConsent.checked && !voiceLocal.checked){voiceNote('Bitte lokale Erkennung wählen oder der Verarbeitung durch den Browserdienst zustimmen.');return;}
       if(mode!=='local' || busy || (id && !turns.size)){voiceNote('Sprachgespräche brauchen die erreichbare lokale Tür und einen geladenen Raum.');return;}
-      voiceOn=true; voiceGeneration++; voiceSeen=new Set(turns.keys()); silenceCount=0;
+      voiceOn=true; voiceGeneration++; voiceSeen=new Set(turns.keys()); silenceCount=0; serverVoiceStatus();
       voiceButton.textContent='Mikrofon und Vorlesen ausschalten'; voiceButton.setAttribute('aria-pressed','true');
       holo3d?.stopGuide(); dialog.classList.remove('jgr-panel-open');
       voiceNote('Sprachmodus an. Bei einem laufenden Zug warte ich auf die Antwort.'); listenNext();
