@@ -4607,7 +4607,7 @@ function depRefresh(){
 function projektCard(p,tone,key){
   if(!p)return'';
   const herk='dashboard-data.js › projekte'+(key?'.'+key:'')+'.anfragen', qo={wpBase:/vk/.test(tone||'')?WP_BASE.vk:WP_BASE.standard};
-  return `<div class="card s4 ${tone||''}"><h3>${p.titel} <span class="cnt">Stand ${esc(D.stand||'?')}</span></h3>
+  return `<div class="card s4 ${tone||''}"><h3>${esc(p.titel||'')} <span class="cnt">Stand ${esc(D.stand||'?')}</span></h3>
     <div class="kpis">${p.kpis.map(k=>`<div class="kpi"><div class="v">${esc(k[0])}</div><div class="l">${esc(k[1])}</div></div>`).join('')}</div>
     <div style="margin-top:8px">${p.anfragen.map(r=>{const {row:a,q}=zeileTrennen(r); const m=qmark(a[1],'',herk,Object.assign({q},qo));return `<div class="item ${m.c}"${m.a}><div class="ic">${a[0]}</div><div class="body"><div class="m">${esc(a[1])}</div></div></div>`;}).join('')}</div>
     <div class="chipbar">${(p.links||[]).map(l=>`<a class="btn" href="${l[1]}" target="_blank">${esc(l[0])} ↗</a>`).join('')}</div></div>`;
