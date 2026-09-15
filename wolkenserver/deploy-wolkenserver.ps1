@@ -197,9 +197,24 @@ foreach ($s in $inst.Keys) {
   Write-Lf (Join-Path $d 'compass-server.json') (Konfig-Json $w.name 'Coach' ([int]$e.port) $backend "/var/lib/compass-server/instanzen/$s/daten" $w.privat $w.arbeit $w.site $w.projekt "Compass-Server der Instanz $s auf dem Wolkenserver — geschrieben von deploy-wolkenserver.ps1. Schlüssel: /etc/compass-server/instanzen/$s.env.")
   $ez = @("# Umgebung des Dienstes compass-server@$s — nur root lesbar.", "COMPASS_BACKEND=$backend")
   if ($tok) { $ez += (Env-Zeile 'CLAUDE_CODE_OAUTH_TOKEN' $tok) }
+  # Trello/Jira der Person (Schritt 3, 15.09.2026): TRELLO_<SLUG>_KEY/_TOKEN (ein Trello-Konto, gilt für Privat- und
+  # Arbeitsboard) und JIRA_<SLUG>_EMAIL/_TOKEN (Site aus instanz.js, sonst JIRA_<SLUG>_SITE). Eintragen: wolke-token.ps1.
+  $sv = ($s.ToUpper() -replace '[^A-Z0-9]', '_'); $schl = @()
+  $tk = Env-User "TRELLO_${sv}_KEY"; $tt = Env-User "TRELLO_${sv}_TOKEN"
+  if ($tk -and $tt) {
+    foreach ($b in 'PRIVAT','ARBEIT') { $ez += (Env-Zeile "TRELLO_${b}_KEY" $tk); $ez += (Env-Zeile "TRELLO_${b}_TOKEN" $tt) }
+    $schl += 'Trello'
+  }
+  $je = Env-User "JIRA_${sv}_EMAIL"; $jt = Env-User "JIRA_${sv}_TOKEN"; $jsite = Env-User "JIRA_${sv}_SITE"
+  if (-not $jsite -and -not $w.site) { $jsite = Env-User 'JIRA_SITE' }   # Team ohne eigene Site: dieselbe Vishnu-Site wie Bene
+  if ($je -and $jt) {
+    $ez += (Env-Zeile 'JIRA_EMAIL' $je); $ez += (Env-Zeile 'JIRA_TOKEN' $jt)
+    if ($jsite) { $ez += (Env-Zeile 'JIRA_SITE' $jsite) }
+    $schl += 'Jira'
+  }
   Write-Lf (Join-Path $d 'env') (($ez -join "`n") + "`n")
   Write-Lf (Join-Path $d "$s.caddy") ("handle_path /$($e.pfad)/* {`n`treverse_proxy localhost:$($e.port) {`n`t`theader_up Host localhost:$($e.port)`n`t}`n}`n")
-  Sag ("Instanz {0}: Name {1} · Port {2} · Backend {3} · Trello {4}/{5} · Jira {6}/{7}" -f $s, $w.name, $e.port, $backend, $w.privat, $w.arbeit, $w.site, $w.projekt)
+  Sag ("Instanz {0}: Name {1} · Port {2} · Backend {3} · Trello {4}/{5} · Jira {6}/{7} · Schlüssel der Person: {8}" -f $s, $w.name, $e.port, $backend, $w.privat, $w.arbeit, $w.site, $w.projekt, $(if ($schl.Count) { $schl -join ', ' } else { "keine (TRELLO_${sv}_*, JIRA_${sv}_* nicht gesetzt)" }))
 }
 
 foreach ($f in 'install.sh','compass-server.service','compass-server@.service','Caddyfile.tmpl') { Write-Lf (Join-Path $stage $f) (Read-Utf8 (Join-Path $hier $f)) }

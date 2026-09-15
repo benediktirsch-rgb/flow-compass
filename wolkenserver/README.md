@@ -71,6 +71,12 @@ Unterstrich, z. B. `WOLKE_CLAUDE_TOKEN_PHILIPP_HEITZ`) und deployt erneut. Bis d
 `backend: ohne` — Board, Stapel aus Dateien und die ehrlichen „nicht angebunden“-Hinweise laufen trotzdem.
 Trello- und Jira-Schlüssel der Person: noch nicht vorgesehen (die Instanz meldet `NO_KEY`); nächster Schritt.
 
+**Trello und Jira je Person (seit 15.09.2026):** `wolke-token.ps1 -Person <slug> -Art trello` setzt `TRELLO_<SLUG>_KEY` +
+`TRELLO_<SLUG>_TOKEN` (ein Trello-Konto der Person, der Deploy schreibt es für Privat- und Arbeitsboard in die
+Instanz-Umgebung), `-Art jira` setzt `JIRA_<SLUG>_EMAIL` + `JIRA_<SLUG>_TOKEN` (Site kommt aus `instanz.js`, sonst
+`JIRA_<SLUG>_SITE`). Ohne diese Variablen meldet die Instanz für Boards und Tickets `NO_KEY` — ehrlich, nicht kaputt.
+Der Deploy nennt je Instanz „Schlüssel der Person: Trello, Jira" bzw. „keine".
+
 Stand 15.09.2026: philipp-heitz (8791), jan (8792), marwan (8793), florian (8794), domingo (8795) laufen, alle
 `ohne`. Martin hat keinen Compass (nur Portal) und deshalb keine Instanz.
 
