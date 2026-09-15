@@ -26,5 +26,5 @@ Require all denied
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), interest-cohort=()"
   # Mikrofon nur auf Benes eigenen Holodeck-Ursprüngen, weiterhin mit Browserfreigabe.
-  Header always set Permissions-Policy "geolocation=(), microphone=(self), camera=(), interest-cohort=()" "expr=%{HTTP_HOST} == 'bene.vishnuartists.com' || %{HTTP_HOST} == 'bene.vaikuntha.eu'"
+  Header always set Permissions-Policy "geolocation=(), microphone=(self), camera=(), interest-cohort=()" "expr=%{HTTP_HOST} == 'bene.vishnuartists.com' || %{HTTP_HOST} == 'staging-bene.vishnuartists.com' || %{HTTP_HOST} == 'bene.vaikuntha.eu'"
 </IfModule>

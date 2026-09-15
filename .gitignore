@@ -54,6 +54,8 @@ kalender-urls.json
 # nur die handgepflegte .htaccess (Zugangsschutz) bleibt im Repo
 site/compass/*
 !site/compass/.htaccess
+# Staging-Builds (15.09.2026): Arbeitsstand je Ziel, persönlich wie site/compass — nie ins Repo
+site/staging/
 # Puffer des John-Servers: letzter guter VA-Board-Stand (Laufzeitdatei, nie committen)
 _puffer/
 

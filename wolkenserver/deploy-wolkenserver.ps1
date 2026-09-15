@@ -27,6 +27,10 @@
 #     … -Instanz "Philipp Heitz","Jan"         (Instanzen aufnehmen; bleiben danach in wolke.json und laufen mit)
 #     … -Status                                (nur nachsehen: Dienste, Logbuch, Antwort von außen)
 #     … -NurStaging                            (nur den Ordner bauen und zeigen, nichts hochladen)
+#     … -Staging                               (Staging-Dienst compass-server@staging aufnehmen, 15.09.2026:
+#                                               Benes Konfiguration und Schlüssel, eigener Datenordner, Port 8789,
+#                                               eigener geheimer Pfad — der Staging-Compass zeigt dorthin,
+#                                               publish-compass.ps1 liest ihn aus wolke.json › instanzen.staging)
 #   Ohne -Server nimmt das Skript, was in site\.publish-state\wolke.json steht.
 param(
   [string]$Server = '',
@@ -41,6 +45,7 @@ param(
   [string]$JohnDir = 'C:\dev\john',
   [string]$Schluessel = (Join-Path $env:USERPROFILE '.ssh\id_ed25519_wolke'),
   [switch]$NurStaging,
+  [switch]$Staging,
   [switch]$Status
 )
 $ErrorActionPreference = 'Stop'
@@ -92,6 +97,13 @@ foreach ($n in $Instanz) {
     $inst[$s] = @{ name = $n; port = [string](($ports | Measure-Object -Maximum).Maximum + 1); pfad = (Neu-Pfad) }
     Sag "Instanz aufgenommen: $n → $s (Port $($inst[$s].port))"
   }
+}
+# Staging-Dienst (15.09.2026): laeuft wie eine Instanz (compass-server@staging), aber mit Benes Konfiguration,
+# Schluesseln und Daten — auf festem Port 8789 (die Instanzen zaehlen ab 8791), eigener Datenordner
+# /var/lib/compass-server/instanzen/staging/daten. Einmal aufgenommen, bleibt er in wolke.json und laeuft mit.
+if ($Staging -and -not $inst.Contains('staging')) {
+  $inst['staging'] = @{ name = 'Staging'; port = '8789'; pfad = (Neu-Pfad) }
+  Sag 'Staging-Dienst aufgenommen: compass-server@staging (Port 8789)'
 }
 foreach ($s in @($inst.Keys)) { $inst[$s].api = "https://$Hostname/$($inst[$s].pfad)" }
 if (-not (Test-Path $Schluessel)) { throw "SSH-Schlüssel fehlt: $Schluessel — ssh-keygen -t ed25519 -f `"$Schluessel`" -N `"`"" }
@@ -182,6 +194,18 @@ Sag ("Daten des Coachs: {0}" -f ($dz -join ', '))
 # eigener Port und Pfad aus wolke.json, Backend cli nur mit dem setup-token der Person (WOLKE_CLAUDE_TOKEN_<SLUG>).
 foreach ($s in $inst.Keys) {
   $e = $inst[$s]
+  if ($s -eq 'staging') {
+    # Staging = Benes Hauptinstanz noch einmal: dieselbe Konfiguration, dieselben Schluessel (sein Abo, seine
+    # Boards), dieselben Ausgangsdaten — aber ein eigener Datenordner. Was der Coach dort schreibt (TASKS.md,
+    # Coaching-Notizen), bleibt in Staging. Kein instanz.js, kein Eintrag in einer Instanz.
+    $d = Join-Path $stage "instanzen\$s"; New-Item -ItemType Directory -Force (Join-Path $d 'daten') | Out-Null
+    Write-Lf (Join-Path $d 'compass-server.json') (Konfig-Json $Name $Coach ([int]$e.port) $(if ($da -contains 'CLAUDE_CODE_OAUTH_TOKEN') { 'cli' } else { 'ohne' }) "/var/lib/compass-server/instanzen/$s/daten" $trPrivat $trArbeit $jiraSite $JiraProjekt 'Staging-Dienst des Compass-Servers (compass-server@staging) — Benes Konfiguration, eigener Datenordner. Geschrieben von deploy-wolkenserver.ps1 -Staging. Schluessel: /etc/compass-server/instanzen/staging.env.')
+    Write-Lf (Join-Path $d 'env') ((($envZeilen | ForEach-Object { $_ -replace '^# Umgebung des Dienstes compass-server ', '# Umgebung des Dienstes compass-server@staging ' }) -join "`n") + "`n")
+    foreach ($f in (Get-ChildItem (Join-Path $stage 'daten') -File)) { Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $d "daten\$($f.Name)") -Force }
+    Write-Lf (Join-Path $d "$s.caddy") ("handle_path /$($e.pfad)/* {`n`treverse_proxy localhost:$($e.port) {`n`t`theader_up Host localhost:$($e.port)`n`t}`n}`n")
+    Sag ("Staging: Port {0} · Backend wie Hauptinstanz · Trello {1}/{2} · Jira {3}/{4} · Daten aus dem Hauptordner" -f $e.port, $trPrivat, $trArbeit, $jiraSite, $JiraProjekt)
+    continue
+  }
   $instJs = Join-Path $repo "instanzen\$s\compass\instanz.js"
   if (-not (Test-Path $instJs)) { Sag "WARNUNG: Instanz $s hat keine instanz.js ($instJs) — wird ohne Konfiguration angelegt."; $js = '' } else { $js = Read-Utf8 $instJs }
   $w = @{ name = $e.name; privat = ''; arbeit = ''; site = ''; projekt = '' }
@@ -218,7 +242,7 @@ foreach ($s in $inst.Keys) {
 }
 
 foreach ($f in 'install.sh','compass-server.service','compass-server@.service','Caddyfile.tmpl') { Write-Lf (Join-Path $stage $f) (Read-Utf8 (Join-Path $hier $f)) }
-Sag "Staging: $stage (Paket $hash · Host $Hostname · Pfad t-… · $($inst.Count) Instanz(en))"
+Sag "Staging-Ordner: $stage (Paket $hash · Host $Hostname · Pfad t-… · $($inst.Count) Instanz(en)$(if ($inst.Contains('staging')) { ' inkl. Staging-Dienst' }))"
 if ($NurStaging) { Get-ChildItem $stage -Recurse -File | ForEach-Object { $_.FullName.Substring($stage.Length + 1) }; Sag 'NurStaging: nichts hochgeladen. Den Ordner danach löschen — die Dateien env enthalten Schlüssel.'; return }
 
 # ---------- 2) Hochladen und einrichten ----------

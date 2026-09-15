@@ -1,0 +1,27 @@
+{
+  "_hinweis": "Stufen des Flow Compass (seit 15.09.2026). Gelesen von publish-compass.ps1 (Ziele, Freigabe-Regel), build-stufe.ps1 (Kennzeichnung) und wolkenserver/deploy-wolkenserver.ps1 (Staging-Dienst). Hier stehen nur Namen und Regeln, nie Schluessel. Architektur: docs/umgebungen.md.",
+  "stufen": {
+    "lokal": {
+      "beschreibung": "Der Rechner: Vorschau-Server aus C:/dev/.claude/launch.json (compass-dev 8796, john-test 8790, compass-staging 18797). Kein Deploy.",
+      "kennzeichnen": false
+    },
+    "staging": {
+      "beschreibung": "Arbeitsstand: was in der Arbeitskopie liegt, auch uncommittet. Eigener Ursprung je Ziel, eigene Tuer (gate.php), eigener Compass-Server auf wolke (Dienst compass-server@staging, eigener Datenordner). Nichts von hier erreicht Prod-Daten.",
+      "subdomain": "staging-{sub}.vishnuartists.com",
+      "kasOrdner": "/staging-{sub}.vishnuartists.com",
+      "quelle": "arbeitskopie",
+      "kennzeichnen": true,
+      "ziele": ["bene", "demo"],
+      "instanzen": [],
+      "_ziele": "bene = eigene Instanz (site/staging/bene), demo = Produkt-Demo (site/staging/demo). instanzen = Slugs aus $INSTANZEN in publish-compass.ps1, die zusaetzlich eine Staging-Subdomain bekommen (z. B. \"philipp\"); Standard leer, weil jede Subdomain im KAS von Hand angelegt wird."
+    },
+    "prod": {
+      "beschreibung": "Der freigegebene Stand: bene., demo., va., die persoenlichen Subdomains; Compass-Server compass-server (Bene) und compass-server@<slug> auf wolke.",
+      "subdomain": "{sub}.vishnuartists.com",
+      "kasOrdner": "/{sub}.vishnuartists.com",
+      "kennzeichnen": false,
+      "freigabe": "sofort",
+      "_freigabe": "sofort = wie bisher: jeder Lauf von publish-compass.ps1 baut Prod aus der Arbeitskopie. commit = Prod (eigene Instanz, Demo-Commit, Team-Instanzen) wird nur ausgerollt, wenn die Arbeitskopie keine uncommitteten Aenderungen an getrackten Dateien hat — Freigabe ist dann der Commit auf main (Freigabe-Dialog im Compass oder git-flow.ps1 -Modus freigeben). Die gitignorierte Datenschicht (Checkins, *-data.js, instanz.js) zaehlt nicht als Aenderung und fliesst weiter sofort. Einmalig uebersteuern: publish-compass.ps1 -Erzwingen."
+    }
+  }
+}

@@ -82,6 +82,9 @@ try {
   if ($Wurzel.StartsWith($repoWurzel, [StringComparison]::OrdinalIgnoreCase)) {
     $rel = $Wurzel.Substring($repoWurzel.Length).Trim('\').Replace('\', '/') + '/.htaccess'
   }
+  # Staging (15.09.2026): site/staging/<sub>/ ist gitignored, in HEAD liegt dort nie eine .htaccess.
+  # Die Tuer ist dieselbe wie bei der eigenen Instanz — also zaehlt deren committeter Schutz.
+  if ($rel -match '^site/staging/[^/]+/\.htaccess$') { $rel = 'site/compass/.htaccess' }
   $alt = & git.exe -C (Split-Path -Parent $MyInvocation.MyCommand.Path) show "HEAD:$rel" 2>$null
   if ($LASTEXITCODE -eq 0) { $imHead = Geschuetzt (($alt -join "`n")) }
 } catch { }

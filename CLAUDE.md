@@ -36,7 +36,12 @@ Betreibers liegen in `CLAUDE.local.md` (nicht im Repo).
   committet und pusht die Demo.
 - `produkt/compass/` — Produktschicht (Instanz-Konfiguration `instanz.example.js`, Einrichtungs-
   Assistent, Karte „Verbundene Werkzeuge“, eigene Kennzahlenseite). `docs/` — Onboarding-Kette,
-  Compass ⇄ Cockpit, Git-Regeln.
+  Compass ⇄ Cockpit, Git-Regeln, Umgebungen.
+- **Stufen (seit 15.09.2026, `stufen.json`, `docs/umgebungen.md`):** `publish-compass.ps1` baut den
+  Arbeitsstand zusätzlich nach `site/staging/<sub>/` (gitignored), kennzeichnet ihn (`build-stufe.ps1`:
+  Balken, `[STAGING]`, noindex) und lädt ihn nach `staging-<sub>.vishnuartists.com`; der Staging-Compass
+  spricht mit `compass-server@staging` auf wolke, nie mit Prod-Daten. Prod folgt der Regel
+  `prod.freigabe` (`sofort` | `commit` = nur aus sauberer Arbeitskopie). Staging-Fehler halten Prod nie auf.
 
 ## Nicht verhandelbar
 1. **Nichts Persönliches ins Repo.** Datenschicht (`*-data.js`, Initiative), `checkins/`, `boards/`,

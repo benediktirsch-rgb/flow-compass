@@ -80,6 +80,16 @@ Der Deploy nennt je Instanz „Schlüssel der Person: Trello, Jira" bzw. „kein
 Stand 15.09.2026: philipp-heitz (8791), jan (8792), marwan (8793), florian (8794), domingo (8795) laufen, alle
 `ohne`. Martin hat keinen Compass (nur Portal) und deshalb keine Instanz.
 
+## Staging-Dienst (seit 15.09.2026)
+
+`deploy-wolkenserver.ps1 -Staging` nimmt `compass-server@staging` auf: Benes Konfiguration und Schlüssel
+(sein Abo, seine Boards), dieselben Ausgangsdaten (Persona, Profil, Pipeline, Aufgaben), aber ein eigener
+Datenordner `/var/lib/compass-server/instanzen/staging/daten`, fester Port 8789 und ein eigener geheimer Pfad.
+Was der Coach dort schreibt (TASKS.md, Coaching-Notizen), bleibt in Staging. Einmal aufgenommen steht er in
+`wolke.json › instanzen.staging` und läuft bei jedem Deploy mit; `publish-compass.ps1` liest die Adresse und
+baut sie in den Staging-Compass (`site\staging\bene`, staging-bene.vishnuartists.com) ein. Die Stufen und ihre
+Regeln: `docs/umgebungen.md`, `stufen.json`.
+
 ## Nachsehen und betreiben
 
 | Was | Wie |
