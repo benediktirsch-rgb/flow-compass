@@ -1,0 +1,1738 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-15",
+  "source": "holodeck-engine/scenes.js · production.js · studio-direction.js",
+  "generator": "tools/holodeck-storyboard.mjs",
+  "cast": {
+    "bene": "the host: slim, athletic build, exactly as in the reference frame",
+    "madeleine": "Madeleine: dark hair, warm and attentive, exactly as in the reference frame",
+    "john": "John: relaxed, charming, dry humour in his face, exactly as in the reference frame"
+  },
+  "voiceDirection": {
+    "madeleine": {
+      "name": "Mona · Madeleine",
+      "character": "Klug, warm und spielerisch; eine verführerische Stimme mit dezentem französischem Akzent. Natürlich sprechen, ohne Akzent-Parodie.",
+      "status": "Casting offen · Browserstimme ist eine Vorschau"
+    },
+    "john": {
+      "name": "John",
+      "character": "Sonor, lässig, charmant und mit trockenem Humor. Benes Casting-Referenz: die deutsche John-Travolta-Synchronwirkung. In CEO-Momenten klar und ruhig.",
+      "status": "Casting offen · keine Original-Synchronstimme"
+    },
+    "picard": {
+      "name": "Picard · Empfang",
+      "character": "Ruhig, würdevoll, präzise und einladend; Atempausen statt Pathos.",
+      "status": "Casting offen · synthetische Vorschau"
+    }
+  },
+  "mixDirection": "Gespräch hat Vorrang. Musik während Sprache deutlich absenken, weiche Übergänge zwischen Orten, kein automatischer Ton beim Öffnen. Raumgeräusche bleiben leise. Eine eigens produzierte oder entsprechend lizenzierte Aufnahme verwenden.",
+  "globalRules": [
+    "Start from the reference frame (the approved still). Keep every person exactly as shown: face, hair, clothing, seat and position. Do not add, remove or replace people.",
+    "No spoken words, no lip movement, no captions, no text, no logos. Dialogue is spoken live by the app on top of the clip.",
+    "Loopable: the last frame must return to the pose and framing of the first frame. The app plays the clip muted in a loop.",
+    "16:9 landscape, 1920 x 1080, H.264 in MP4, no audio track needed (the app mutes it anyway).",
+    "Photographic, calm, no stylisation, no fast cuts, no camera shake."
+  ],
+  "places": {
+    "bar": "the bar of Hotel Vaikuntha at night: warm amber light, dark wood counter, brass fixtures, a lotus emblem, glasses catching the light",
+    "huette": "a mountain cabin interior by a crackling fireplace: wooden table, wool blankets, firelight, cool snow light in the window",
+    "goa": "a beach in Goa at golden hour: palms, soft surf, a low table with drinks in the sand, warm haze",
+    "anden": "a high Andean plateau at dawn: wide sky, distant snow peaks, thin cool light, wind in the grass",
+    "rom": "a small Roman piazza in the evening: warm stone, a fountain, café tables, strings of light",
+    "enterprise": "the lounge of a starship: a wide observation window with slowly drifting stars, soft blue-white panel light, two armchairs",
+    "reception": "the reception of Hotel Vaikuntha: a dignified concierge beside the door to the bar, lotus emblem, warm evening light"
+  },
+  "placeDefault": {
+    "enterprise": "enterprise-lounge",
+    "bar": "scene-02",
+    "huette": "scene-07",
+    "goa": "scene-13",
+    "anden": "scene-19",
+    "rom": "scene-25"
+  },
+  "batches": [
+    {
+      "name": "Stufe 0 · Skript und Storyboard",
+      "credits": "keine",
+      "assets": [
+        "cinema-welcome",
+        "enterprise-lounge",
+        "scene-01",
+        "scene-02",
+        "scene-03",
+        "scene-04",
+        "scene-05",
+        "scene-06",
+        "scene-07",
+        "scene-08",
+        "scene-09",
+        "scene-10",
+        "scene-11",
+        "scene-12",
+        "scene-13",
+        "scene-14",
+        "scene-15",
+        "scene-16",
+        "scene-17",
+        "scene-18",
+        "scene-19",
+        "scene-20",
+        "scene-21",
+        "scene-22",
+        "scene-23",
+        "scene-24",
+        "scene-25",
+        "scene-26",
+        "scene-27",
+        "scene-28",
+        "scene-29",
+        "scene-30"
+      ],
+      "note": "Diese Mappe. Calliopes Gratis-Werkzeuge (Scriptwriting, Storyboard) dürfen sie prüfen und in Benes Stimme glätten — das kostet nichts."
+    },
+    {
+      "name": "Stufe 1 · Die sieben Räume",
+      "credits": "7 Clips à 10 s",
+      "assets": [
+        "cinema-welcome",
+        "enterprise-lounge",
+        "scene-02",
+        "scene-07",
+        "scene-13",
+        "scene-19",
+        "scene-25"
+      ],
+      "note": "Ein Clip je Platz plus Empfang. Das sind die Bilder, die bei jedem Besuch laufen — hier lohnt jeder Credit. Erst EINEN Test-Clip (scene-02) rendern, einbauen, im Raum ansehen, dann die anderen sechs."
+    },
+    {
+      "name": "Stufe 2 · Die Stimmungen",
+      "credits": "24 Clips à 10 s",
+      "assets": [
+        "scene-01",
+        "scene-03",
+        "scene-04",
+        "scene-05",
+        "scene-06",
+        "scene-08",
+        "scene-09",
+        "scene-10",
+        "scene-11",
+        "scene-12",
+        "scene-14",
+        "scene-15",
+        "scene-16",
+        "scene-17",
+        "scene-18",
+        "scene-20",
+        "scene-21",
+        "scene-22",
+        "scene-23",
+        "scene-24",
+        "scene-26",
+        "scene-27",
+        "scene-28",
+        "scene-29",
+        "scene-30"
+      ],
+      "note": "Die übrigen 24 Szenen der Bibliothek (Kapitel-Sprünge aus dem Gesprächsraum). Nur nach Stufe 1, und nur die Orte, die Bene wirklich besucht."
+    },
+    {
+      "name": "Stufe 3 · Ein Trailer",
+      "credits": "ein Film, 60–90 s, mit Musik",
+      "assets": [
+        "trailer"
+      ],
+      "note": "Aus den 30 Skriptzeilen ein Vorspann mit Calliopes Sprecher- und Musikspur — für die Brücke, nicht für den Raum. Der Raum spricht live mit John; ein fertig gesprochener Film würde dort lügen."
+    }
+  ],
+  "scenes": [
+    {
+      "asset": "cinema-welcome",
+      "id": "00",
+      "title": "Empfang",
+      "place": "reception",
+      "placeLabel": "Empfang im Hotel Vaikuntha",
+      "mood": "ruhe",
+      "moodLabel": "Ankommen",
+      "virtue": "Gastfreundschaft",
+      "referenceFrame": "holodeck-assets/cinema-welcome.png",
+      "target": "holodeck-assets/motion/cinema-welcome.mp4",
+      "filmDurationSeconds": 12,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: the reception of Hotel Vaikuntha: a dignified concierge beside the door to the bar, lotus emblem, warm evening light. Cast: the concierge exactly as in the reference frame, dignified and calm. Motion: he stands ready, a small welcoming gesture toward the door, breathing, warm light flicker; nobody speaks. Camera: locked-off, very slow push-in (about 2 %).",
+      "cameraDe": "35 mm · Establishing Shot, Blick zur Tür; Picard ruhig, eine Geste.",
+      "cameraCss": {
+        "from": "scale(1)",
+        "to": "scale(1.018)",
+        "origin": "50% 36%",
+        "duration": 38
+      },
+      "script": [],
+      "music": {
+        "palette": "Akustischer Kontrabass, Besen auf dem Schlagzeug, warmes Klavier und sparsame Jazzharmonik",
+        "tempo": 60,
+        "mood": "Viel Stille, ausklingende Töne; kein antreibender Rhythmus."
+      },
+      "anchors": {}
+    },
+    {
+      "asset": "enterprise-lounge",
+      "id": "E1",
+      "title": "Enterprise-Lounge",
+      "place": "enterprise",
+      "placeLabel": "Auf der Enterprise",
+      "mood": "ruhe",
+      "moodLabel": "Coaching zwischen den Sternen",
+      "virtue": "Weitblick",
+      "referenceFrame": "holodeck-assets/enterprise-lounge.png",
+      "target": "holodeck-assets/motion/enterprise-lounge.mp4",
+      "filmDurationSeconds": 24,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: the lounge of a starship: a wide observation window with slowly drifting stars, soft blue-white panel light, two armchairs. Cast: everyone exactly as in the reference frame. Motion: stars drift slowly past the window, panel light breathes, the people are almost still; nobody speaks. Camera: locked-off, very slow push-in (about 2 %).",
+      "cameraDe": "28 mm · weite Totale, Sterne ziehen langsam, Figuren fast still.",
+      "cameraCss": {
+        "from": "scale(1)",
+        "to": "scale(1.018)",
+        "origin": "50% 36%",
+        "duration": 38
+      },
+      "script": [],
+      "music": {
+        "palette": "Weite Flächen, tiefe Streicher, ein einzelner Klavierton",
+        "tempo": 58,
+        "mood": "Viel Stille, ausklingende Töne; kein antreibender Rhythmus."
+      },
+      "anchors": {}
+    },
+    {
+      "asset": "scene-01",
+      "id": "01",
+      "title": "Erst einmal landen",
+      "place": "bar",
+      "placeLabel": "Bar im Hotel Vaikuntha",
+      "mood": "ruhe",
+      "moodLabel": "Ruhe & Buddha-Vibe",
+      "virtue": "Mitgefühl und Besonnenheit",
+      "referenceFrame": "holodeck-assets/scene-01.png",
+      "target": "holodeck-assets/motion/scene-01.mp4",
+      "filmDurationSeconds": 24,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: the bar of Hotel Vaikuntha at night: warm amber light, dark wood counter, brass fixtures, a lotus emblem, glasses catching the light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: almost still: natural breathing, a slow blink, candle or fire flicker, subtle ambient motion; nobody speaks. Camera: locked-off, very slow push-in (about 2 %). Mood: Ruhe & Buddha-Vibe (Mitgefühl und Besonnenheit).",
+      "cameraDe": "24 mm · langsame Annäherung, dann ruhige Halbtotale. Atempausen, Wind oder leises Raumgeräusch.",
+      "cameraCss": {
+        "from": "scale(1)",
+        "to": "scale(1.018)",
+        "origin": "50% 36%",
+        "duration": 38
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Lass uns erst ankommen. Welcher Gedanke sitzt heute mit Dir an diesem Tisch?"
+        },
+        {
+          "speaker": "john",
+          "text": "Ich lasse das Telefon liegen. Heute hören wir einander wirklich zu."
+        }
+      ],
+      "music": {
+        "palette": "Akustischer Kontrabass, Besen auf dem Schlagzeug, warmes Klavier und sparsame Jazzharmonik",
+        "tempo": 72,
+        "mood": "Viel Stille, ausklingende Töne; kein antreibender Rhythmus."
+      },
+      "anchors": {
+        "bene": [
+          0.21,
+          0.28
+        ],
+        "madeleine": [
+          0.49,
+          0.32
+        ],
+        "john": [
+          0.79,
+          0.3
+        ]
+      }
+    },
+    {
+      "asset": "scene-02",
+      "id": "02",
+      "title": "Die eine klare Entscheidung",
+      "place": "bar",
+      "placeLabel": "Bar im Hotel Vaikuntha",
+      "mood": "business",
+      "moodLabel": "Geschäftlich smart",
+      "virtue": "Ehrlichkeit und Verlässlichkeit",
+      "referenceFrame": "holodeck-assets/scene-02.png",
+      "target": "holodeck-assets/motion/scene-02.mp4",
+      "filmDurationSeconds": 26,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: the bar of Hotel Vaikuntha at night: warm amber light, dark wood counter, brass fixtures, a lotus emblem, glasses catching the light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: small purposeful gestures: a hand on the notebook, an exchanged glance, a short nod; nobody speaks. Camera: slow push-in toward the faces (about 4 %). Mood: Geschäftlich smart (Ehrlichkeit und Verlässlichkeit).",
+      "cameraDe": "50 mm · Blickwechsel und Hand am Notizbuch. Präzise Sätze, eine Pause vor der Entscheidung.",
+      "cameraCss": {
+        "from": "scale(1.005)",
+        "to": "scale(1.045)",
+        "origin": "53% 38%",
+        "duration": 25
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Wenn wir für John und Madeleine heute nur eine Verbindung verbessern: welche würde Deinen Alltag am meisten erleichtern?"
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Dann prüfen wir zuerst, was schon funktioniert, bevor wir etwas versprechen."
+        }
+      ],
+      "music": {
+        "palette": "Akustischer Kontrabass, Besen auf dem Schlagzeug, warmes Klavier und sparsame Jazzharmonik",
+        "tempo": 72,
+        "mood": "Leichter, regelmäßiger Puls; beim entscheidenden Satz fast ganz ausblenden."
+      },
+      "anchors": {
+        "bene": [
+          0.23,
+          0.28
+        ],
+        "madeleine": [
+          0.48,
+          0.31
+        ],
+        "john": [
+          0.78,
+          0.28
+        ]
+      }
+    },
+    {
+      "asset": "scene-03",
+      "id": "03",
+      "title": "Der letzte Toast",
+      "place": "bar",
+      "placeLabel": "Bar im Hotel Vaikuntha",
+      "mood": "feier",
+      "moodLabel": "Ein Glas zu viel",
+      "virtue": "Verantwortung und Freundschaft",
+      "referenceFrame": "holodeck-assets/scene-03.png",
+      "target": "holodeck-assets/motion/scene-03.mp4",
+      "filmDurationSeconds": 28,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: the bar of Hotel Vaikuntha at night: warm amber light, dark wood counter, brass fixtures, a lotus emblem, glasses catching the light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: relaxed warmth: quiet laughter, glasses raised gently, loose easy movement; nobody speaks. Camera: gentle lateral drift left to right, no zoom. Mood: Ein Glas zu viel (Verantwortung und Freundschaft).",
+      "cameraDe": "35 mm · kleine Verzögerung beim Antworten, warmes Lachen; ein Freund schiebt Wasser heran. Heimfahrt bleibt organisiert.",
+      "cameraCss": {
+        "from": "scale(1.028) translateX(-.6%)",
+        "to": "scale(1.028) translateX(.6%)",
+        "origin": "50% 40%",
+        "duration": 22
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Mein nächster genialer Einfall lautet: Wasser. Über große Zusagen sprechen wir morgen mit klarem Kopf."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Einverstanden. Wir können feiern und trotzdem aufeinander aufpassen."
+        }
+      ],
+      "music": {
+        "palette": "Akustischer Kontrabass, Besen auf dem Schlagzeug, warmes Klavier und sparsame Jazzharmonik",
+        "tempo": 72,
+        "mood": "Wärmer und rhythmischer, lockere kleine Akzente; Musik verdeckt keine Sprache."
+      },
+      "anchors": {
+        "bene": [
+          0.25,
+          0.38
+        ],
+        "madeleine": [
+          0.49,
+          0.39
+        ],
+        "john": [
+          0.77,
+          0.38
+        ]
+      }
+    },
+    {
+      "asset": "scene-04",
+      "id": "04",
+      "title": "Ein Blick über den Glasrand",
+      "place": "bar",
+      "placeLabel": "Bar im Hotel Vaikuntha",
+      "mood": "flirt",
+      "moodLabel": "Flirt & Abendglanz",
+      "virtue": "Respekt und Aufrichtigkeit",
+      "referenceFrame": "holodeck-assets/scene-04.png",
+      "target": "holodeck-assets/motion/scene-04.mp4",
+      "filmDurationSeconds": 30,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: the bar of Hotel Vaikuntha at night: warm amber light, dark wood counter, brass fixtures, a lotus emblem, glasses catching the light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a held glance, a small smile, a slight lean in, hair moving in a light breeze; nobody speaks. Camera: slow push-in toward the faces (about 3 %). Mood: Flirt & Abendglanz (Respekt und Aufrichtigkeit).",
+      "cameraDe": "85 mm · Blick, kleines Lächeln, dann bewusster Gegenschnitt. Humor und freie Antwort, kein Druck.",
+      "cameraCss": {
+        "from": "scale(1.018)",
+        "to": "scale(1.05)",
+        "origin": "49% 34%",
+        "duration": 32
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Du siehst aus, als würdest Du gleich eine spannende Frage stellen. Ich hoffe, sie ist schwieriger als mein Cocktail."
+        },
+        {
+          "speaker": "john",
+          "text": "Ich halte mich für einen Moment an mein Glas. Diese Frage gehört Euch."
+        }
+      ],
+      "music": {
+        "palette": "Akustischer Kontrabass, Besen auf dem Schlagzeug, warmes Klavier und sparsame Jazzharmonik",
+        "tempo": 72,
+        "mood": "Wenige warme Töne, Platz für Blickkontakt und Pausen; keine übertriebene Verführungsmusik."
+      },
+      "anchors": {
+        "bene": [
+          0.2,
+          0.3
+        ],
+        "madeleine": [
+          0.49,
+          0.31
+        ],
+        "john": [
+          0.78,
+          0.28
+        ]
+      }
+    },
+    {
+      "asset": "scene-05",
+      "id": "05",
+      "title": "Klartext an der Bar",
+      "place": "bar",
+      "placeLabel": "Bar im Hotel Vaikuntha",
+      "mood": "konflikt",
+      "moodLabel": "Sauer, aber fair",
+      "virtue": "Gerechtigkeit und Selbstbeherrschung",
+      "referenceFrame": "holodeck-assets/scene-05.png",
+      "target": "holodeck-assets/motion/scene-05.mp4",
+      "filmDurationSeconds": 32,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: the bar of Hotel Vaikuntha at night: warm amber light, dark wood counter, brass fixtures, a lotus emblem, glasses catching the light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: tense stillness: a slow exhale, one person looks away and back, hands still; nobody speaks. Camera: gentle lateral drift right to left, slightly tighter frame. Mood: Sauer, aber fair (Gerechtigkeit und Selbstbeherrschung).",
+      "cameraDe": "50 mm · zunächst feste Kamera und Abstand, beim Zuhören weicher Gegenschnitt. Ärger bekommt klare Worte.",
+      "cameraCss": {
+        "from": "scale(1.04) translateX(.5%)",
+        "to": "scale(1.04) translateX(-.5%)",
+        "origin": "50% 35%",
+        "duration": 29
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Ich ärgere mich, wenn ein Versprechen größer klingt als das Ergebnis. Lass uns konkret werden."
+        },
+        {
+          "speaker": "john",
+          "text": "Was hat gefehlt? Ich höre zu und verteidige mich danach, falls es noch nötig ist."
+        }
+      ],
+      "music": {
+        "palette": "Akustischer Kontrabass, Besen auf dem Schlagzeug, warmes Klavier und sparsame Jazzharmonik",
+        "tempo": 72,
+        "mood": "Rhythmus zurücknehmen, Spannung sparsam halten; beim Zuhören Raum für Stille lassen."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.32
+        ],
+        "madeleine": [
+          0.49,
+          0.34
+        ],
+        "john": [
+          0.81,
+          0.31
+        ]
+      }
+    },
+    {
+      "asset": "scene-06",
+      "id": "06",
+      "title": "Der kleine Irrtum",
+      "place": "bar",
+      "placeLabel": "Bar im Hotel Vaikuntha",
+      "mood": "erkenntnis",
+      "moodLabel": "Besserwissen & Umdenken",
+      "virtue": "Wahrhaftigkeit und Demut",
+      "referenceFrame": "holodeck-assets/scene-06.png",
+      "target": "holodeck-assets/motion/scene-06.mp4",
+      "filmDurationSeconds": 34,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: the bar of Hotel Vaikuntha at night: warm amber light, dark wood counter, brass fixtures, a lotus emblem, glasses catching the light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a moment of realization: a face brightens, the light shifts a little, everyone settles; nobody speaks. Camera: slow pull-back from a tight frame to the half-total. Mood: Besserwissen & Umdenken (Wahrhaftigkeit und Demut).",
+      "cameraDe": "50 mm · selbstsicherer Einsatz, Pause beim Gegenargument, entspanntes Zurücklehnen beim Eingeständnis.",
+      "cameraCss": {
+        "from": "scale(1.04)",
+        "to": "scale(1.005)",
+        "origin": "50% 36%",
+        "duration": 30
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Ich wollte gerade behaupten, das sei ganz einfach. Das war womöglich mein erster Fehler."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Gut. Dann müssen wir jetzt nur noch herausfinden, was daran wirklich schwierig ist."
+        }
+      ],
+      "music": {
+        "palette": "Akustischer Kontrabass, Besen auf dem Schlagzeug, warmes Klavier und sparsame Jazzharmonik",
+        "tempo": 72,
+        "mood": "Kurzer heller Akzent beim Perspektivwechsel, dann ruhige offene Harmonie."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.29
+        ],
+        "madeleine": [
+          0.48,
+          0.32
+        ],
+        "john": [
+          0.77,
+          0.31
+        ]
+      }
+    },
+    {
+      "asset": "scene-07",
+      "id": "07",
+      "title": "Stille vor den Gipfeln",
+      "place": "huette",
+      "placeLabel": "Berghütte",
+      "mood": "ruhe",
+      "moodLabel": "Ruhe & Buddha-Vibe",
+      "virtue": "Mitgefühl und Besonnenheit",
+      "referenceFrame": "holodeck-assets/scene-07.png",
+      "target": "holodeck-assets/motion/scene-07.mp4",
+      "filmDurationSeconds": 24,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a mountain cabin interior by a crackling fireplace: wooden table, wool blankets, firelight, cool snow light in the window. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: almost still: natural breathing, a slow blink, candle or fire flicker, subtle ambient motion; nobody speaks. Camera: locked-off, very slow push-in (about 2 %). Mood: Ruhe & Buddha-Vibe (Mitgefühl und Besonnenheit).",
+      "cameraDe": "24 mm · langsame Annäherung, dann ruhige Halbtotale. Atempausen, Wind oder leises Raumgeräusch.",
+      "cameraCss": {
+        "from": "scale(1)",
+        "to": "scale(1.018)",
+        "origin": "50% 36%",
+        "duration": 38
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Hier oben müssen wir nichts beeindrucken. Was möchtest Du für einen Moment loslassen?"
+        },
+        {
+          "speaker": "john",
+          "text": "Wir können still sein. Ein guter Plan hält eine Pause aus."
+        }
+      ],
+      "music": {
+        "palette": "Akustische Gitarre, warmes Cello, leise Holzpercussion und Kaminatmosphäre",
+        "tempo": 64,
+        "mood": "Viel Stille, ausklingende Töne; kein antreibender Rhythmus."
+      },
+      "anchors": {
+        "bene": [
+          0.21,
+          0.3
+        ],
+        "madeleine": [
+          0.5,
+          0.3
+        ],
+        "john": [
+          0.77,
+          0.27
+        ]
+      }
+    },
+    {
+      "asset": "scene-08",
+      "id": "08",
+      "title": "Ein Plan mit Bodenhaftung",
+      "place": "huette",
+      "placeLabel": "Berghütte",
+      "mood": "business",
+      "moodLabel": "Geschäftlich smart",
+      "virtue": "Ehrlichkeit und Verlässlichkeit",
+      "referenceFrame": "holodeck-assets/scene-08.png",
+      "target": "holodeck-assets/motion/scene-08.mp4",
+      "filmDurationSeconds": 26,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a mountain cabin interior by a crackling fireplace: wooden table, wool blankets, firelight, cool snow light in the window. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: small purposeful gestures: a hand on the notebook, an exchanged glance, a short nod; nobody speaks. Camera: slow push-in toward the faces (about 4 %). Mood: Geschäftlich smart (Ehrlichkeit und Verlässlichkeit).",
+      "cameraDe": "50 mm · Blickwechsel und Hand am Notizbuch. Präzise Sätze, eine Pause vor der Entscheidung.",
+      "cameraCss": {
+        "from": "scale(1.005)",
+        "to": "scale(1.045)",
+        "origin": "53% 38%",
+        "duration": 25
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Was nehmen wir mit auf den nächsten Abschnitt, und was macht den Rucksack nur schwerer?"
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Ich schreibe nur auf, was Du wirklich gewählt hast. Der Rest bleibt Möglichkeit."
+        }
+      ],
+      "music": {
+        "palette": "Akustische Gitarre, warmes Cello, leise Holzpercussion und Kaminatmosphäre",
+        "tempo": 64,
+        "mood": "Leichter, regelmäßiger Puls; beim entscheidenden Satz fast ganz ausblenden."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.27
+        ],
+        "madeleine": [
+          0.51,
+          0.29
+        ],
+        "john": [
+          0.77,
+          0.28
+        ]
+      }
+    },
+    {
+      "asset": "scene-09",
+      "id": "09",
+      "title": "Hüttenabend mit Wasserpause",
+      "place": "huette",
+      "placeLabel": "Berghütte",
+      "mood": "feier",
+      "moodLabel": "Ein Glas zu viel",
+      "virtue": "Verantwortung und Freundschaft",
+      "referenceFrame": "holodeck-assets/scene-09.png",
+      "target": "holodeck-assets/motion/scene-09.mp4",
+      "filmDurationSeconds": 28,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a mountain cabin interior by a crackling fireplace: wooden table, wool blankets, firelight, cool snow light in the window. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: relaxed warmth: quiet laughter, glasses raised gently, loose easy movement; nobody speaks. Camera: gentle lateral drift left to right, no zoom. Mood: Ein Glas zu viel (Verantwortung und Freundschaft).",
+      "cameraDe": "35 mm · kleine Verzögerung beim Antworten, warmes Lachen; ein Freund schiebt Wasser heran. Heimfahrt bleibt organisiert.",
+      "cameraCss": {
+        "from": "scale(1.028) translateX(-.6%)",
+        "to": "scale(1.028) translateX(.6%)",
+        "origin": "50% 40%",
+        "duration": 22
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Auf den Abend. Und auf die vernünftige Entscheidung, heute nirgendwo mehr hinfahren zu müssen."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Wasser steht bereit. Die besten Geschichten brauchen keinen Beweis durch ein weiteres Glas."
+        }
+      ],
+      "music": {
+        "palette": "Akustische Gitarre, warmes Cello, leise Holzpercussion und Kaminatmosphäre",
+        "tempo": 64,
+        "mood": "Wärmer und rhythmischer, lockere kleine Akzente; Musik verdeckt keine Sprache."
+      },
+      "anchors": {
+        "bene": [
+          0.23,
+          0.3
+        ],
+        "madeleine": [
+          0.48,
+          0.32
+        ],
+        "john": [
+          0.77,
+          0.32
+        ]
+      }
+    },
+    {
+      "asset": "scene-10",
+      "id": "10",
+      "title": "Feuerlicht und Gegenfragen",
+      "place": "huette",
+      "placeLabel": "Berghütte",
+      "mood": "flirt",
+      "moodLabel": "Flirt & Abendglanz",
+      "virtue": "Respekt und Aufrichtigkeit",
+      "referenceFrame": "holodeck-assets/scene-10.png",
+      "target": "holodeck-assets/motion/scene-10.mp4",
+      "filmDurationSeconds": 30,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a mountain cabin interior by a crackling fireplace: wooden table, wool blankets, firelight, cool snow light in the window. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a held glance, a small smile, a slight lean in, hair moving in a light breeze; nobody speaks. Camera: slow push-in toward the faces (about 3 %). Mood: Flirt & Abendglanz (Respekt und Aufrichtigkeit).",
+      "cameraDe": "85 mm · Blick, kleines Lächeln, dann bewusster Gegenschnitt. Humor und freie Antwort, kein Druck.",
+      "cameraCss": {
+        "from": "scale(1.018)",
+        "to": "scale(1.05)",
+        "origin": "49% 34%",
+        "duration": 32
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Du stellst am Kamin erstaunlich ernste Fragen. Ist das Deine Art, interessant zu sein?"
+        },
+        {
+          "speaker": "john",
+          "text": "Er hat jedenfalls gute Gesellschaft. Jetzt muss die Antwort nur noch mithalten."
+        }
+      ],
+      "music": {
+        "palette": "Akustische Gitarre, warmes Cello, leise Holzpercussion und Kaminatmosphäre",
+        "tempo": 64,
+        "mood": "Wenige warme Töne, Platz für Blickkontakt und Pausen; keine übertriebene Verführungsmusik."
+      },
+      "anchors": {
+        "bene": [
+          0.25,
+          0.34
+        ],
+        "madeleine": [
+          0.48,
+          0.35
+        ],
+        "john": [
+          0.78,
+          0.32
+        ]
+      }
+    },
+    {
+      "asset": "scene-11",
+      "id": "11",
+      "title": "Wenn Nähe Reibung macht",
+      "place": "huette",
+      "placeLabel": "Berghütte",
+      "mood": "konflikt",
+      "moodLabel": "Sauer, aber fair",
+      "virtue": "Gerechtigkeit und Selbstbeherrschung",
+      "referenceFrame": "holodeck-assets/scene-11.png",
+      "target": "holodeck-assets/motion/scene-11.mp4",
+      "filmDurationSeconds": 32,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a mountain cabin interior by a crackling fireplace: wooden table, wool blankets, firelight, cool snow light in the window. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: tense stillness: a slow exhale, one person looks away and back, hands still; nobody speaks. Camera: gentle lateral drift right to left, slightly tighter frame. Mood: Sauer, aber fair (Gerechtigkeit und Selbstbeherrschung).",
+      "cameraDe": "50 mm · zunächst feste Kamera und Abstand, beim Zuhören weicher Gegenschnitt. Ärger bekommt klare Worte.",
+      "cameraCss": {
+        "from": "scale(1.04) translateX(.5%)",
+        "to": "scale(1.04) translateX(-.5%)",
+        "origin": "50% 35%",
+        "duration": 29
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Ich brauche gerade etwas Abstand, damit ich fair bleiben kann. Wir sprechen gleich weiter."
+        },
+        {
+          "speaker": "john",
+          "text": "Nimm ihn Dir. Eine Pause ist keine Niederlage, wenn wir danach ehrlicher reden."
+        }
+      ],
+      "music": {
+        "palette": "Akustische Gitarre, warmes Cello, leise Holzpercussion und Kaminatmosphäre",
+        "tempo": 64,
+        "mood": "Rhythmus zurücknehmen, Spannung sparsam halten; beim Zuhören Raum für Stille lassen."
+      },
+      "anchors": {
+        "bene": [
+          0.23,
+          0.32
+        ],
+        "madeleine": [
+          0.5,
+          0.33
+        ],
+        "john": [
+          0.77,
+          0.33
+        ]
+      }
+    },
+    {
+      "asset": "scene-12",
+      "id": "12",
+      "title": "Die Karte ist nicht der Berg",
+      "place": "huette",
+      "placeLabel": "Berghütte",
+      "mood": "erkenntnis",
+      "moodLabel": "Besserwissen & Umdenken",
+      "virtue": "Wahrhaftigkeit und Demut",
+      "referenceFrame": "holodeck-assets/scene-12.png",
+      "target": "holodeck-assets/motion/scene-12.mp4",
+      "filmDurationSeconds": 34,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a mountain cabin interior by a crackling fireplace: wooden table, wool blankets, firelight, cool snow light in the window. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a moment of realization: a face brightens, the light shifts a little, everyone settles; nobody speaks. Camera: slow pull-back from a tight frame to the half-total. Mood: Besserwissen & Umdenken (Wahrhaftigkeit und Demut).",
+      "cameraDe": "50 mm · selbstsicherer Einsatz, Pause beim Gegenargument, entspanntes Zurücklehnen beim Eingeständnis.",
+      "cameraCss": {
+        "from": "scale(1.04)",
+        "to": "scale(1.005)",
+        "origin": "50% 36%",
+        "duration": 30
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Die Karte sah leichter aus als dieser Weg. Ich hätte früher fragen sollen."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Dann fragen wir jetzt. Der Berg verhandelt ohnehin nicht mit unserer Eitelkeit."
+        }
+      ],
+      "music": {
+        "palette": "Akustische Gitarre, warmes Cello, leise Holzpercussion und Kaminatmosphäre",
+        "tempo": 64,
+        "mood": "Kurzer heller Akzent beim Perspektivwechsel, dann ruhige offene Harmonie."
+      },
+      "anchors": {
+        "bene": [
+          0.23,
+          0.28
+        ],
+        "madeleine": [
+          0.51,
+          0.3
+        ],
+        "john": [
+          0.79,
+          0.28
+        ]
+      }
+    },
+    {
+      "asset": "scene-13",
+      "id": "13",
+      "title": "Atem über dem Meer",
+      "place": "goa",
+      "placeLabel": "Goa",
+      "mood": "ruhe",
+      "moodLabel": "Ruhe & Buddha-Vibe",
+      "virtue": "Mitgefühl und Besonnenheit",
+      "referenceFrame": "holodeck-assets/scene-13.png",
+      "target": "holodeck-assets/motion/scene-13.mp4",
+      "filmDurationSeconds": 24,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a beach in Goa at golden hour: palms, soft surf, a low table with drinks in the sand, warm haze. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: almost still: natural breathing, a slow blink, candle or fire flicker, subtle ambient motion; nobody speaks. Camera: locked-off, very slow push-in (about 2 %). Mood: Ruhe & Buddha-Vibe (Mitgefühl und Besonnenheit).",
+      "cameraDe": "24 mm · langsame Annäherung, dann ruhige Halbtotale. Atempausen, Wind oder leises Raumgeräusch.",
+      "cameraCss": {
+        "from": "scale(1)",
+        "to": "scale(1.018)",
+        "origin": "50% 36%",
+        "duration": 38
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Hör einen Moment auf die Wellen. Was bleibt von Deiner Frage übrig, wenn wir den Zeitdruck herausnehmen?"
+        },
+        {
+          "speaker": "john",
+          "text": "Vielleicht etwas Kleineres, das sich wirklich beantworten lässt."
+        }
+      ],
+      "music": {
+        "palette": "Organische Downtempo-Elektronik, dezente Handpercussion, weiche Bassimpulse und Meeresatmosphäre",
+        "tempo": 94,
+        "mood": "Viel Stille, ausklingende Töne; kein antreibender Rhythmus."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.29
+        ],
+        "madeleine": [
+          0.48,
+          0.29
+        ],
+        "john": [
+          0.8,
+          0.29
+        ]
+      }
+    },
+    {
+      "asset": "scene-14",
+      "id": "14",
+      "title": "Geschäfte mit Weitblick",
+      "place": "goa",
+      "placeLabel": "Goa",
+      "mood": "business",
+      "moodLabel": "Geschäftlich smart",
+      "virtue": "Ehrlichkeit und Verlässlichkeit",
+      "referenceFrame": "holodeck-assets/scene-14.png",
+      "target": "holodeck-assets/motion/scene-14.mp4",
+      "filmDurationSeconds": 26,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a beach in Goa at golden hour: palms, soft surf, a low table with drinks in the sand, warm haze. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: small purposeful gestures: a hand on the notebook, an exchanged glance, a short nod; nobody speaks. Camera: slow push-in toward the faces (about 4 %). Mood: Geschäftlich smart (Ehrlichkeit und Verlässlichkeit).",
+      "cameraDe": "50 mm · Blickwechsel und Hand am Notizbuch. Präzise Sätze, eine Pause vor der Entscheidung.",
+      "cameraCss": {
+        "from": "scale(1.005)",
+        "to": "scale(1.045)",
+        "origin": "53% 38%",
+        "duration": 25
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Was würde den Menschen im Verein den nächsten Schritt leichter machen?"
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Und wen sollten wir zuerst fragen, statt seine Bedürfnisse nur zu vermuten?"
+        }
+      ],
+      "music": {
+        "palette": "Organische Downtempo-Elektronik, dezente Handpercussion, weiche Bassimpulse und Meeresatmosphäre",
+        "tempo": 94,
+        "mood": "Leichter, regelmäßiger Puls; beim entscheidenden Satz fast ganz ausblenden."
+      },
+      "anchors": {
+        "bene": [
+          0.79,
+          0.27
+        ],
+        "madeleine": [
+          0.48,
+          0.31
+        ],
+        "john": [
+          0.24,
+          0.27
+        ]
+      }
+    },
+    {
+      "asset": "scene-15",
+      "id": "15",
+      "title": "Nach der Goa-Party",
+      "place": "goa",
+      "placeLabel": "Goa",
+      "mood": "feier",
+      "moodLabel": "Ein Glas zu viel",
+      "virtue": "Verantwortung und Freundschaft",
+      "referenceFrame": "holodeck-assets/scene-15.png",
+      "target": "holodeck-assets/motion/scene-15.mp4",
+      "filmDurationSeconds": 28,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a beach in Goa at golden hour: palms, soft surf, a low table with drinks in the sand, warm haze. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: relaxed warmth: quiet laughter, glasses raised gently, loose easy movement; nobody speaks. Camera: gentle lateral drift left to right, no zoom. Mood: Ein Glas zu viel (Verantwortung und Freundschaft).",
+      "cameraDe": "35 mm · kleine Verzögerung beim Antworten, warmes Lachen; ein Freund schiebt Wasser heran. Heimfahrt bleibt organisiert.",
+      "cameraCss": {
+        "from": "scale(1.028) translateX(-.6%)",
+        "to": "scale(1.028) translateX(.6%)",
+        "origin": "50% 40%",
+        "duration": 22
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Die Party war gut. Meine Verhandlung mit dem Schlaf wird jetzt allerdings sehr kurz."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Wasser, eine sichere Heimfahrt und morgen keine Heldengeschichten über vergessene Details."
+        }
+      ],
+      "music": {
+        "palette": "Organische Downtempo-Elektronik, dezente Handpercussion, weiche Bassimpulse und Meeresatmosphäre",
+        "tempo": 94,
+        "mood": "Wärmer und rhythmischer, lockere kleine Akzente; Musik verdeckt keine Sprache."
+      },
+      "anchors": {
+        "bene": [
+          0.23,
+          0.34
+        ],
+        "madeleine": [
+          0.48,
+          0.35
+        ],
+        "john": [
+          0.78,
+          0.32
+        ]
+      }
+    },
+    {
+      "asset": "scene-16",
+      "id": "16",
+      "title": "Barfuß mit Abendglanz",
+      "place": "goa",
+      "placeLabel": "Goa",
+      "mood": "flirt",
+      "moodLabel": "Flirt & Abendglanz",
+      "virtue": "Respekt und Aufrichtigkeit",
+      "referenceFrame": "holodeck-assets/scene-16.png",
+      "target": "holodeck-assets/motion/scene-16.mp4",
+      "filmDurationSeconds": 30,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a beach in Goa at golden hour: palms, soft surf, a low table with drinks in the sand, warm haze. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a held glance, a small smile, a slight lean in, hair moving in a light breeze; nobody speaks. Camera: slow push-in toward the faces (about 3 %). Mood: Flirt & Abendglanz (Respekt und Aufrichtigkeit).",
+      "cameraDe": "85 mm · Blick, kleines Lächeln, dann bewusster Gegenschnitt. Humor und freie Antwort, kein Druck.",
+      "cameraCss": {
+        "from": "scale(1.018)",
+        "to": "scale(1.05)",
+        "origin": "49% 34%",
+        "duration": 32
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Barfuß wirkt selbst Dein Business-Blick ein wenig weniger gefährlich. Was hast Du wirklich vor?"
+        },
+        {
+          "speaker": "john",
+          "text": "Ich hole uns einen Tisch. Hier darf eine Antwort auch einmal Zeit brauchen."
+        }
+      ],
+      "music": {
+        "palette": "Organische Downtempo-Elektronik, dezente Handpercussion, weiche Bassimpulse und Meeresatmosphäre",
+        "tempo": 94,
+        "mood": "Wenige warme Töne, Platz für Blickkontakt und Pausen; keine übertriebene Verführungsmusik."
+      },
+      "anchors": {
+        "bene": [
+          0.21,
+          0.29
+        ],
+        "madeleine": [
+          0.47,
+          0.32
+        ],
+        "john": [
+          0.78,
+          0.29
+        ]
+      }
+    },
+    {
+      "asset": "scene-17",
+      "id": "17",
+      "title": "Grenzen am Strand",
+      "place": "goa",
+      "placeLabel": "Goa",
+      "mood": "konflikt",
+      "moodLabel": "Sauer, aber fair",
+      "virtue": "Gerechtigkeit und Selbstbeherrschung",
+      "referenceFrame": "holodeck-assets/scene-17.png",
+      "target": "holodeck-assets/motion/scene-17.mp4",
+      "filmDurationSeconds": 32,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a beach in Goa at golden hour: palms, soft surf, a low table with drinks in the sand, warm haze. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: tense stillness: a slow exhale, one person looks away and back, hands still; nobody speaks. Camera: gentle lateral drift right to left, slightly tighter frame. Mood: Sauer, aber fair (Gerechtigkeit und Selbstbeherrschung).",
+      "cameraDe": "50 mm · zunächst feste Kamera und Abstand, beim Zuhören weicher Gegenschnitt. Ärger bekommt klare Worte.",
+      "cameraCss": {
+        "from": "scale(1.04) translateX(.5%)",
+        "to": "scale(1.04) translateX(-.5%)",
+        "origin": "50% 35%",
+        "duration": 29
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Ich mag spontane Ideen. Aber ich möchte vorher wissen, was Du von mir erwartest."
+        },
+        {
+          "speaker": "john",
+          "text": "Dann sagen wir es klar. Ein Nein darf genauso leicht sein wie ein Ja."
+        }
+      ],
+      "music": {
+        "palette": "Organische Downtempo-Elektronik, dezente Handpercussion, weiche Bassimpulse und Meeresatmosphäre",
+        "tempo": 94,
+        "mood": "Rhythmus zurücknehmen, Spannung sparsam halten; beim Zuhören Raum für Stille lassen."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.3
+        ],
+        "madeleine": [
+          0.52,
+          0.33
+        ],
+        "john": [
+          0.8,
+          0.32
+        ]
+      }
+    },
+    {
+      "asset": "scene-18",
+      "id": "18",
+      "title": "Nicht jede Gewissheit stimmt",
+      "place": "goa",
+      "placeLabel": "Goa",
+      "mood": "erkenntnis",
+      "moodLabel": "Besserwissen & Umdenken",
+      "virtue": "Wahrhaftigkeit und Demut",
+      "referenceFrame": "holodeck-assets/scene-18.png",
+      "target": "holodeck-assets/motion/scene-18.mp4",
+      "filmDurationSeconds": 34,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a beach in Goa at golden hour: palms, soft surf, a low table with drinks in the sand, warm haze. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a moment of realization: a face brightens, the light shifts a little, everyone settles; nobody speaks. Camera: slow pull-back from a tight frame to the half-total. Mood: Besserwissen & Umdenken (Wahrhaftigkeit und Demut).",
+      "cameraDe": "50 mm · selbstsicherer Einsatz, Pause beim Gegenargument, entspanntes Zurücklehnen beim Eingeständnis.",
+      "cameraCss": {
+        "from": "scale(1.04)",
+        "to": "scale(1.005)",
+        "origin": "50% 36%",
+        "duration": 30
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Ich hielt meine Erfahrung für einen Beweis. Vielleicht war sie nur eine einzelne Geschichte."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Lass uns eine zweite Perspektive suchen, bevor wir daraus eine Regel machen."
+        }
+      ],
+      "music": {
+        "palette": "Organische Downtempo-Elektronik, dezente Handpercussion, weiche Bassimpulse und Meeresatmosphäre",
+        "tempo": 94,
+        "mood": "Kurzer heller Akzent beim Perspektivwechsel, dann ruhige offene Harmonie."
+      },
+      "anchors": {
+        "bene": [
+          0.23,
+          0.29
+        ],
+        "madeleine": [
+          0.51,
+          0.31
+        ],
+        "john": [
+          0.79,
+          0.3
+        ]
+      }
+    },
+    {
+      "asset": "scene-19",
+      "id": "19",
+      "title": "Weite im Kopf",
+      "place": "anden",
+      "placeLabel": "Anden",
+      "mood": "ruhe",
+      "moodLabel": "Ruhe & Buddha-Vibe",
+      "virtue": "Mitgefühl und Besonnenheit",
+      "referenceFrame": "holodeck-assets/scene-19.png",
+      "target": "holodeck-assets/motion/scene-19.mp4",
+      "filmDurationSeconds": 24,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a high Andean plateau at dawn: wide sky, distant snow peaks, thin cool light, wind in the grass. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: almost still: natural breathing, a slow blink, candle or fire flicker, subtle ambient motion; nobody speaks. Camera: locked-off, very slow push-in (about 2 %). Mood: Ruhe & Buddha-Vibe (Mitgefühl und Besonnenheit).",
+      "cameraDe": "24 mm · langsame Annäherung, dann ruhige Halbtotale. Atempausen, Wind oder leises Raumgeräusch.",
+      "cameraCss": {
+        "from": "scale(1)",
+        "to": "scale(1.018)",
+        "origin": "50% 36%",
+        "duration": 38
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Die Weite löst unsere Frage nicht. Aber sie erinnert daran, dass wir mehr als eine Möglichkeit haben."
+        },
+        {
+          "speaker": "john",
+          "text": "Welche davon möchtest Du heute ernsthaft betrachten?"
+        }
+      ],
+      "music": {
+        "palette": "Behutsam eingesetzte Zupfsaiten, zurückhaltende Flötenfarbe, tiefe Streicher und weiter Raum",
+        "tempo": 66,
+        "mood": "Viel Stille, ausklingende Töne; kein antreibender Rhythmus."
+      },
+      "anchors": {
+        "bene": [
+          0.2,
+          0.32
+        ],
+        "madeleine": [
+          0.49,
+          0.33
+        ],
+        "john": [
+          0.75,
+          0.29
+        ]
+      }
+    },
+    {
+      "asset": "scene-20",
+      "id": "20",
+      "title": "Ein Schritt über den Pass",
+      "place": "anden",
+      "placeLabel": "Anden",
+      "mood": "business",
+      "moodLabel": "Geschäftlich smart",
+      "virtue": "Ehrlichkeit und Verlässlichkeit",
+      "referenceFrame": "holodeck-assets/scene-20.png",
+      "target": "holodeck-assets/motion/scene-20.mp4",
+      "filmDurationSeconds": 26,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a high Andean plateau at dawn: wide sky, distant snow peaks, thin cool light, wind in the grass. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: small purposeful gestures: a hand on the notebook, an exchanged glance, a short nod; nobody speaks. Camera: slow push-in toward the faces (about 4 %). Mood: Geschäftlich smart (Ehrlichkeit und Verlässlichkeit).",
+      "cameraDe": "50 mm · Blickwechsel und Hand am Notizbuch. Präzise Sätze, eine Pause vor der Entscheidung.",
+      "cameraCss": {
+        "from": "scale(1.005)",
+        "to": "scale(1.045)",
+        "origin": "53% 38%",
+        "duration": 25
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Welcher nächste Schritt ist klein genug, dass wir ihn tatsächlich gehen können?"
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Und wer übernimmt ihn aus eigener Zusage? Namen schreiben wir erst danach dazu."
+        }
+      ],
+      "music": {
+        "palette": "Behutsam eingesetzte Zupfsaiten, zurückhaltende Flötenfarbe, tiefe Streicher und weiter Raum",
+        "tempo": 66,
+        "mood": "Leichter, regelmäßiger Puls; beim entscheidenden Satz fast ganz ausblenden."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.28
+        ],
+        "madeleine": [
+          0.49,
+          0.31
+        ],
+        "john": [
+          0.78,
+          0.26
+        ]
+      }
+    },
+    {
+      "asset": "scene-21",
+      "id": "21",
+      "title": "Ein Toast auf den Weg",
+      "place": "anden",
+      "placeLabel": "Anden",
+      "mood": "feier",
+      "moodLabel": "Ein Glas zu viel",
+      "virtue": "Verantwortung und Freundschaft",
+      "referenceFrame": "holodeck-assets/scene-21.png",
+      "target": "holodeck-assets/motion/scene-21.mp4",
+      "filmDurationSeconds": 28,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a high Andean plateau at dawn: wide sky, distant snow peaks, thin cool light, wind in the grass. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: relaxed warmth: quiet laughter, glasses raised gently, loose easy movement; nobody speaks. Camera: gentle lateral drift left to right, no zoom. Mood: Ein Glas zu viel (Verantwortung und Freundschaft).",
+      "cameraDe": "35 mm · kleine Verzögerung beim Antworten, warmes Lachen; ein Freund schiebt Wasser heran. Heimfahrt bleibt organisiert.",
+      "cameraCss": {
+        "from": "scale(1.028) translateX(-.6%)",
+        "to": "scale(1.028) translateX(.6%)",
+        "origin": "50% 40%",
+        "duration": 22
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Ich möchte auf die Mühe anstoßen. Einen Erfolg behaupten wir erst, wenn Du ihn bestätigt hast."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Genau. Auch ein noch offener Weg verdient einen freundlichen Abend."
+        }
+      ],
+      "music": {
+        "palette": "Behutsam eingesetzte Zupfsaiten, zurückhaltende Flötenfarbe, tiefe Streicher und weiter Raum",
+        "tempo": 66,
+        "mood": "Wärmer und rhythmischer, lockere kleine Akzente; Musik verdeckt keine Sprache."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.32
+        ],
+        "madeleine": [
+          0.48,
+          0.34
+        ],
+        "john": [
+          0.76,
+          0.31
+        ]
+      }
+    },
+    {
+      "asset": "scene-22",
+      "id": "22",
+      "title": "Ein Lächeln über den Wolken",
+      "place": "anden",
+      "placeLabel": "Anden",
+      "mood": "flirt",
+      "moodLabel": "Flirt & Abendglanz",
+      "virtue": "Respekt und Aufrichtigkeit",
+      "referenceFrame": "holodeck-assets/scene-22.png",
+      "target": "holodeck-assets/motion/scene-22.mp4",
+      "filmDurationSeconds": 30,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a high Andean plateau at dawn: wide sky, distant snow peaks, thin cool light, wind in the grass. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a held glance, a small smile, a slight lean in, hair moving in a light breeze; nobody speaks. Camera: slow push-in toward the faces (about 3 %). Mood: Flirt & Abendglanz (Respekt und Aufrichtigkeit).",
+      "cameraDe": "85 mm · Blick, kleines Lächeln, dann bewusster Gegenschnitt. Humor und freie Antwort, kein Druck.",
+      "cameraCss": {
+        "from": "scale(1.018)",
+        "to": "scale(1.05)",
+        "origin": "49% 34%",
+        "duration": 32
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "So viel Aussicht, und Du schaust trotzdem herüber. Das ist mindestens eine gute Gesprächseröffnung."
+        },
+        {
+          "speaker": "john",
+          "text": "Ich gebe zu: Gegen diesen Satz kommt mein Bergwissen gerade nicht an."
+        }
+      ],
+      "music": {
+        "palette": "Behutsam eingesetzte Zupfsaiten, zurückhaltende Flötenfarbe, tiefe Streicher und weiter Raum",
+        "tempo": 66,
+        "mood": "Wenige warme Töne, Platz für Blickkontakt und Pausen; keine übertriebene Verführungsmusik."
+      },
+      "anchors": {
+        "bene": [
+          0.25,
+          0.32
+        ],
+        "madeleine": [
+          0.48,
+          0.35
+        ],
+        "john": [
+          0.74,
+          0.3
+        ]
+      }
+    },
+    {
+      "asset": "scene-23",
+      "id": "23",
+      "title": "Gegenwind zulassen",
+      "place": "anden",
+      "placeLabel": "Anden",
+      "mood": "konflikt",
+      "moodLabel": "Sauer, aber fair",
+      "virtue": "Gerechtigkeit und Selbstbeherrschung",
+      "referenceFrame": "holodeck-assets/scene-23.png",
+      "target": "holodeck-assets/motion/scene-23.mp4",
+      "filmDurationSeconds": 32,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a high Andean plateau at dawn: wide sky, distant snow peaks, thin cool light, wind in the grass. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: tense stillness: a slow exhale, one person looks away and back, hands still; nobody speaks. Camera: gentle lateral drift right to left, slightly tighter frame. Mood: Sauer, aber fair (Gerechtigkeit und Selbstbeherrschung).",
+      "cameraDe": "50 mm · zunächst feste Kamera und Abstand, beim Zuhören weicher Gegenschnitt. Ärger bekommt klare Worte.",
+      "cameraCss": {
+        "from": "scale(1.04) translateX(.5%)",
+        "to": "scale(1.04) translateX(-.5%)",
+        "origin": "50% 35%",
+        "duration": 29
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Wir sehen dieselbe Lage und ziehen verschiedene Schlüsse. Das macht mich ungeduldig, aber Dich nicht falsch."
+        },
+        {
+          "speaker": "john",
+          "text": "Dann trennen wir Beobachtung und Deutung. Mit welcher Tatsache sind wir beide einverstanden?"
+        }
+      ],
+      "music": {
+        "palette": "Behutsam eingesetzte Zupfsaiten, zurückhaltende Flötenfarbe, tiefe Streicher und weiter Raum",
+        "tempo": 66,
+        "mood": "Rhythmus zurücknehmen, Spannung sparsam halten; beim Zuhören Raum für Stille lassen."
+      },
+      "anchors": {
+        "bene": [
+          0.23,
+          0.29
+        ],
+        "madeleine": [
+          0.53,
+          0.33
+        ],
+        "john": [
+          0.78,
+          0.29
+        ]
+      }
+    },
+    {
+      "asset": "scene-24",
+      "id": "24",
+      "title": "Die andere Perspektive",
+      "place": "anden",
+      "placeLabel": "Anden",
+      "mood": "erkenntnis",
+      "moodLabel": "Besserwissen & Umdenken",
+      "virtue": "Wahrhaftigkeit und Demut",
+      "referenceFrame": "holodeck-assets/scene-24.png",
+      "target": "holodeck-assets/motion/scene-24.mp4",
+      "filmDurationSeconds": 34,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a high Andean plateau at dawn: wide sky, distant snow peaks, thin cool light, wind in the grass. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a moment of realization: a face brightens, the light shifts a little, everyone settles; nobody speaks. Camera: slow pull-back from a tight frame to the half-total. Mood: Besserwissen & Umdenken (Wahrhaftigkeit und Demut).",
+      "cameraDe": "50 mm · selbstsicherer Einsatz, Pause beim Gegenargument, entspanntes Zurücklehnen beim Eingeständnis.",
+      "cameraCss": {
+        "from": "scale(1.04)",
+        "to": "scale(1.005)",
+        "origin": "50% 36%",
+        "duration": 30
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Von hier sieht der Weg anders aus. Ich nehme meine erste Einschätzung zurück."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Das ist eine nützliche Fähigkeit. Was ändern wir aufgrund der neuen Sicht?"
+        }
+      ],
+      "music": {
+        "palette": "Behutsam eingesetzte Zupfsaiten, zurückhaltende Flötenfarbe, tiefe Streicher und weiter Raum",
+        "tempo": 66,
+        "mood": "Kurzer heller Akzent beim Perspektivwechsel, dann ruhige offene Harmonie."
+      },
+      "anchors": {
+        "bene": [
+          0.21,
+          0.31
+        ],
+        "madeleine": [
+          0.5,
+          0.33
+        ],
+        "john": [
+          0.79,
+          0.3
+        ]
+      }
+    },
+    {
+      "asset": "scene-25",
+      "id": "25",
+      "title": "Morgenlicht am Brunnen",
+      "place": "rom",
+      "placeLabel": "Altstadt von Rom",
+      "mood": "ruhe",
+      "moodLabel": "Ruhe & Buddha-Vibe",
+      "virtue": "Mitgefühl und Besonnenheit",
+      "referenceFrame": "holodeck-assets/scene-25.png",
+      "target": "holodeck-assets/motion/scene-25.mp4",
+      "filmDurationSeconds": 24,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a small Roman piazza in the evening: warm stone, a fountain, café tables, strings of light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: almost still: natural breathing, a slow blink, candle or fire flicker, subtle ambient motion; nobody speaks. Camera: locked-off, very slow push-in (about 2 %). Mood: Ruhe & Buddha-Vibe (Mitgefühl und Besonnenheit).",
+      "cameraDe": "24 mm · langsame Annäherung, dann ruhige Halbtotale. Atempausen, Wind oder leises Raumgeräusch.",
+      "cameraCss": {
+        "from": "scale(1)",
+        "to": "scale(1.018)",
+        "origin": "50% 36%",
+        "duration": 38
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Bevor die Stadt laut wird: Welche eine Sache möchtest Du heute mit Aufmerksamkeit tun?"
+        },
+        {
+          "speaker": "john",
+          "text": "Wir dürfen einen ruhigen Anfang wählen, ohne den ganzen Tag schon zu verplanen."
+        }
+      ],
+      "music": {
+        "palette": "Nylongitarre, Kontrabass und einzelne Klaviertöne; leises Leben auf dem Platz",
+        "tempo": 78,
+        "mood": "Viel Stille, ausklingende Töne; kein antreibender Rhythmus."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.29
+        ],
+        "madeleine": [
+          0.49,
+          0.31
+        ],
+        "john": [
+          0.76,
+          0.29
+        ]
+      }
+    },
+    {
+      "asset": "scene-26",
+      "id": "26",
+      "title": "Eine Sache zu Ende bringen",
+      "place": "rom",
+      "placeLabel": "Altstadt von Rom",
+      "mood": "business",
+      "moodLabel": "Geschäftlich smart",
+      "virtue": "Ehrlichkeit und Verlässlichkeit",
+      "referenceFrame": "holodeck-assets/scene-26.png",
+      "target": "holodeck-assets/motion/scene-26.mp4",
+      "filmDurationSeconds": 26,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a small Roman piazza in the evening: warm stone, a fountain, café tables, strings of light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: small purposeful gestures: a hand on the notebook, an exchanged glance, a short nod; nobody speaks. Camera: slow push-in toward the faces (about 4 %). Mood: Geschäftlich smart (Ehrlichkeit und Verlässlichkeit).",
+      "cameraDe": "50 mm · Blickwechsel und Hand am Notizbuch. Präzise Sätze, eine Pause vor der Entscheidung.",
+      "cameraCss": {
+        "from": "scale(1.005)",
+        "to": "scale(1.045)",
+        "origin": "53% 38%",
+        "duration": 25
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Welche Entscheidung von uns braucht jetzt eine konkrete Handlung?"
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Wenn wir noch keine getroffen haben, sagen wir das. Ein schöner Satz ist noch kein Beschluss."
+        }
+      ],
+      "music": {
+        "palette": "Nylongitarre, Kontrabass und einzelne Klaviertöne; leises Leben auf dem Platz",
+        "tempo": 78,
+        "mood": "Leichter, regelmäßiger Puls; beim entscheidenden Satz fast ganz ausblenden."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.27
+        ],
+        "madeleine": [
+          0.5,
+          0.28
+        ],
+        "john": [
+          0.8,
+          0.27
+        ]
+      }
+    },
+    {
+      "asset": "scene-27",
+      "id": "27",
+      "title": "Die letzte Runde am Platz",
+      "place": "rom",
+      "placeLabel": "Altstadt von Rom",
+      "mood": "feier",
+      "moodLabel": "Ein Glas zu viel",
+      "virtue": "Verantwortung und Freundschaft",
+      "referenceFrame": "holodeck-assets/scene-27.png",
+      "target": "holodeck-assets/motion/scene-27.mp4",
+      "filmDurationSeconds": 28,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a small Roman piazza in the evening: warm stone, a fountain, café tables, strings of light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: relaxed warmth: quiet laughter, glasses raised gently, loose easy movement; nobody speaks. Camera: gentle lateral drift left to right, no zoom. Mood: Ein Glas zu viel (Verantwortung und Freundschaft).",
+      "cameraDe": "35 mm · kleine Verzögerung beim Antworten, warmes Lachen; ein Freund schiebt Wasser heran. Heimfahrt bleibt organisiert.",
+      "cameraCss": {
+        "from": "scale(1.028) translateX(-.6%)",
+        "to": "scale(1.028) translateX(.6%)",
+        "origin": "50% 40%",
+        "duration": 22
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Eine letzte Runde am Platz, dann Wasser und ein geordneter Heimweg. Das ist mein heutiger Luxus."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Meiner ist, morgen ohne Ausreden an diesen Abend denken zu können."
+        }
+      ],
+      "music": {
+        "palette": "Nylongitarre, Kontrabass und einzelne Klaviertöne; leises Leben auf dem Platz",
+        "tempo": 78,
+        "mood": "Wärmer und rhythmischer, lockere kleine Akzente; Musik verdeckt keine Sprache."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.35
+        ],
+        "madeleine": [
+          0.47,
+          0.35
+        ],
+        "john": [
+          0.76,
+          0.34
+        ]
+      }
+    },
+    {
+      "asset": "scene-28",
+      "id": "28",
+      "title": "Dolce vita, klare Absichten",
+      "place": "rom",
+      "placeLabel": "Altstadt von Rom",
+      "mood": "flirt",
+      "moodLabel": "Flirt & Abendglanz",
+      "virtue": "Respekt und Aufrichtigkeit",
+      "referenceFrame": "holodeck-assets/scene-28.png",
+      "target": "holodeck-assets/motion/scene-28.mp4",
+      "filmDurationSeconds": 30,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a small Roman piazza in the evening: warm stone, a fountain, café tables, strings of light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a held glance, a small smile, a slight lean in, hair moving in a light breeze; nobody speaks. Camera: slow push-in toward the faces (about 3 %). Mood: Flirt & Abendglanz (Respekt und Aufrichtigkeit).",
+      "cameraDe": "85 mm · Blick, kleines Lächeln, dann bewusster Gegenschnitt. Humor und freie Antwort, kein Druck.",
+      "cameraCss": {
+        "from": "scale(1.018)",
+        "to": "scale(1.05)",
+        "origin": "49% 34%",
+        "duration": 32
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Rom kann gut mit Andeutungen. Ich mag irgendwann trotzdem eine ehrliche Frage."
+        },
+        {
+          "speaker": "john",
+          "text": "Dann ist das jetzt ein ausgezeichneter Moment, sie zu stellen."
+        }
+      ],
+      "music": {
+        "palette": "Nylongitarre, Kontrabass und einzelne Klaviertöne; leises Leben auf dem Platz",
+        "tempo": 78,
+        "mood": "Wenige warme Töne, Platz für Blickkontakt und Pausen; keine übertriebene Verführungsmusik."
+      },
+      "anchors": {
+        "bene": [
+          0.19,
+          0.27
+        ],
+        "madeleine": [
+          0.46,
+          0.32
+        ],
+        "john": [
+          0.79,
+          0.28
+        ]
+      }
+    },
+    {
+      "asset": "scene-29",
+      "id": "29",
+      "title": "Ein Streit ohne Verlierer",
+      "place": "rom",
+      "placeLabel": "Altstadt von Rom",
+      "mood": "konflikt",
+      "moodLabel": "Sauer, aber fair",
+      "virtue": "Gerechtigkeit und Selbstbeherrschung",
+      "referenceFrame": "holodeck-assets/scene-29.png",
+      "target": "holodeck-assets/motion/scene-29.mp4",
+      "filmDurationSeconds": 32,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a small Roman piazza in the evening: warm stone, a fountain, café tables, strings of light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: tense stillness: a slow exhale, one person looks away and back, hands still; nobody speaks. Camera: gentle lateral drift right to left, slightly tighter frame. Mood: Sauer, aber fair (Gerechtigkeit und Selbstbeherrschung).",
+      "cameraDe": "50 mm · zunächst feste Kamera und Abstand, beim Zuhören weicher Gegenschnitt. Ärger bekommt klare Worte.",
+      "cameraCss": {
+        "from": "scale(1.04) translateX(.5%)",
+        "to": "scale(1.04) translateX(-.5%)",
+        "origin": "50% 35%",
+        "duration": 29
+      },
+      "script": [
+        {
+          "speaker": "madeleine",
+          "text": "Ich möchte nicht gewinnen und dabei unser Gespräch verlieren. Was ist Dir an diesem Punkt besonders wichtig?"
+        },
+        {
+          "speaker": "john",
+          "text": "Ich sage es Dir. Und dann höre ich mir an, was ich bei Dir übersehen habe."
+        }
+      ],
+      "music": {
+        "palette": "Nylongitarre, Kontrabass und einzelne Klaviertöne; leises Leben auf dem Platz",
+        "tempo": 78,
+        "mood": "Rhythmus zurücknehmen, Spannung sparsam halten; beim Zuhören Raum für Stille lassen."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.34
+        ],
+        "madeleine": [
+          0.51,
+          0.36
+        ],
+        "john": [
+          0.8,
+          0.34
+        ]
+      }
+    },
+    {
+      "asset": "scene-30",
+      "id": "30",
+      "title": "Sokratische Espresso-Pause",
+      "place": "rom",
+      "placeLabel": "Altstadt von Rom",
+      "mood": "erkenntnis",
+      "moodLabel": "Besserwissen & Umdenken",
+      "virtue": "Wahrhaftigkeit und Demut",
+      "referenceFrame": "holodeck-assets/scene-30.png",
+      "target": "holodeck-assets/motion/scene-30.mp4",
+      "filmDurationSeconds": 34,
+      "loopDurationSeconds": 10,
+      "visualPrompt": "Image-to-video from the reference frame. Setting: a small Roman piazza in the evening: warm stone, a fountain, café tables, strings of light. Cast: the host: slim, athletic build, exactly as in the reference frame; Madeleine: dark hair, warm and attentive, exactly as in the reference frame; John: relaxed, charming, dry humour in his face, exactly as in the reference frame. Motion: a moment of realization: a face brightens, the light shifts a little, everyone settles; nobody speaks. Camera: slow pull-back from a tight frame to the half-total. Mood: Besserwissen & Umdenken (Wahrhaftigkeit und Demut).",
+      "cameraDe": "50 mm · selbstsicherer Einsatz, Pause beim Gegenargument, entspanntes Zurücklehnen beim Eingeständnis.",
+      "cameraCss": {
+        "from": "scale(1.04)",
+        "to": "scale(1.005)",
+        "origin": "50% 36%",
+        "duration": 30
+      },
+      "script": [
+        {
+          "speaker": "john",
+          "text": "Mein Espresso ist stark. Meine Gewissheit war es offenbar zu früh."
+        },
+        {
+          "speaker": "madeleine",
+          "text": "Dann behalten wir den Espresso und verbessern die Begründung. Welche Frage ist noch offen?"
+        }
+      ],
+      "music": {
+        "palette": "Nylongitarre, Kontrabass und einzelne Klaviertöne; leises Leben auf dem Platz",
+        "tempo": 78,
+        "mood": "Kurzer heller Akzent beim Perspektivwechsel, dann ruhige offene Harmonie."
+      },
+      "anchors": {
+        "bene": [
+          0.22,
+          0.3
+        ],
+        "madeleine": [
+          0.5,
+          0.3
+        ],
+        "john": [
+          0.8,
+          0.32
+        ]
+      }
+    }
+  ]
+}
