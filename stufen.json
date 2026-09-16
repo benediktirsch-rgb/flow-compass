@@ -20,7 +20,8 @@
       "subdomain": "{sub}.vishnuartists.com",
       "kasOrdner": "/{sub}.vishnuartists.com",
       "kennzeichnen": false,
-      "freigabe": "sofort",
+      "freigabe": "commit",
+      "_seit": "16.09.2026 — Benes Entscheidung E2 (Abendcheck 15.09.), eingeschaltet nach E1 (staging-bene, staging-demo im KAS).",
       "_freigabe": "sofort = wie bisher: jeder Lauf von publish-compass.ps1 baut Prod aus der Arbeitskopie. commit = Prod (eigene Instanz, Demo-Commit, Team-Instanzen) wird nur ausgerollt, wenn die Arbeitskopie keine uncommitteten Aenderungen an getrackten Dateien hat — Freigabe ist dann der Commit auf main (Freigabe-Dialog im Compass oder git-flow.ps1 -Modus freigeben). Die gitignorierte Datenschicht (Checkins, *-data.js, instanz.js) zaehlt nicht als Aenderung und fliesst weiter sofort. Einmalig uebersteuern: publish-compass.ps1 -Erzwingen."
     }
   }

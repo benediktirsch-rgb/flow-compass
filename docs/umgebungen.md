@@ -37,9 +37,9 @@ wird gespiegelt) — Staging ist kein zweites Berechtigungssystem.
 
 `stufen.json › prod.freigabe`:
 
-- `sofort` (Startwert) — wie bisher: jeder Lauf baut Prod aus der Arbeitskopie. Staging und Prod tragen
+- `sofort` — wie bis zum 16.09.2026: jeder Lauf baut Prod aus der Arbeitskopie. Staging und Prod tragen
   dann denselben Stand, eine halbe Stunde versetzt; Staging ist dann nur die Vorschau mit Balken.
-- `commit` — Prod (eigene Instanz, Demo-Commit, Team-Instanzen) wird nur ausgerollt, wenn
+- `commit` (**gilt seit 16.09.2026**, Benes Entscheidung E2) — Prod (eigene Instanz, Demo-Commit, Team-Instanzen) wird nur ausgerollt, wenn
   `git status --porcelain --untracked-files=no` leer ist. Uncommittete Arbeit an getrackten Dateien
   hält Prod an; Staging trägt den Stand derweil, und das Log sagt, welche Dateien warten. Die
   gitignorierte Datenschicht (Checkins, `*-data.js`, `instanz.js`, `portal.js`) zählt nicht als
@@ -48,8 +48,10 @@ wird gespiegelt) — Staging ist kein zweites Berechtigungssystem.
   Freigabe“, `POST /api/git`), `git-flow.ps1 -Modus freigeben` oder von Hand.
   Einmalig übersteuern: `publish-compass.ps1 -Erzwingen`.
 
-Der Wechsel auf `commit` ist Benes Entscheidung (Rückfrage `staging-freigabe-commit` im Compass): er
-ändert den Alltag — eine Änderung erreicht bene. erst nach dem Commit, nicht mehr nach 30 Minuten.
+Der Wechsel auf `commit` war Benes Entscheidung (Rückfrage `staging-freigabe-commit`, Abendcheck 15.09.,
+eingeschaltet am 16.09., nachdem die Subdomains im KAS standen): er ändert den Alltag — eine Codeänderung
+erreicht bene. erst nach dem Commit, nicht mehr nach 30 Minuten. Liegt Arbeit einer anderen Session
+uncommittet herum, wartet Prod auf deren Freigabe (Karte „📦 Pakete warten auf Freigabe“ im Compass).
 
 ## Aufrufe
 
@@ -72,10 +74,12 @@ Außerhalb eines Dokumentenverzeichnisses sind sie von außen nicht erreichbar. 
 Subdomain `staging-bene` (bzw. `staging-demo`) anlegen → als Dokumentenverzeichnis den vorhandenen
 Ordner wählen → SSL (Let's Encrypt) einschalten. Ab dann läuft die Tür, weil `.htaccess` und
 `gate.php` schon drin liegen; `weiter.php` lässt `*.vishnuartists.com` als Rücksprungziel zu.
+**Erledigt am 16.09.2026** — beide Adressen antworten (staging-bene. → Anmeldung, staging-demo. → 200 mit Balken).
 
-Danach nachziehen (Session-Aufgabe): `_tools\domain-uebersicht.ps1 › $PRUEFEN` (beide mit `soll='login'`
-bzw. 200), `john-server.ps1 › -WachtSeiten` (Staging-Zeilen mit `geschuetzt = $true`), und die
-Deploy-Wächter-Paare, wenn gewünscht.
+Nachgezogen: `_tools\domain-uebersicht.ps1 › $PRUEFEN` (16.09.). Offen: `john-server.ps1 › -WachtSeiten`
+(Staging-Zeilen mit `geschuetzt = $true`) — die Session „ECC-Befunde umsetzen“ trägt dort gerade die Instanzen ein,
+die Staging-Zeilen kommen mit demselben Paket. Deploy-Wächter-Paare bekommt Staging bewusst nicht: es trägt
+den Arbeitsstand, nicht HEAD — ein Vergleich gegen HEAD wäre dort immer „alt“.
 
 ## Wo Staging noch fehlt (Stand 15.09.2026)
 
