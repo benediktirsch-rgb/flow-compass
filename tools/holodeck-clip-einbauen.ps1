@@ -21,6 +21,8 @@
 param(
   [string]$Szene,
   [string]$Clip,
+  [string]$Standbild,
+  [string]$Platz,
   [switch]$Optimieren,
   [switch]$Entfernen,
   [switch]$Liste,
@@ -66,16 +68,57 @@ if ($Liste) {
     $wo = if ($a.video) { if ($orte.Count) { $orte -join ', ' } else { 'FEHLT (Manifest zeigt auf nichts)' } } else { '' }
     '{0,-20} {1,-22} {2,-28} {3}' -f $n, $a.poster, $clip, $wo
   }
+  if ($m.PSObject.Properties['plaetze'] -and $m.plaetze) { ''; 'Plätze aus dem Manifest (zusätzlich zu den vier Standardplätzen):'; foreach ($p in @($m.plaetze)) { "  $($p.key): $($p.titel) → $($p.asset) · Klang $($p.klang)" } }
   return
 }
 
 if (-not $Szene) { throw 'Bitte -Szene angeben (z. B. scene-02, enterprise-lounge, cinema-welcome) — oder -Liste.' }
 if ($Szene -notmatch '^[a-z0-9-]+$') { throw "Ungültiger Szenenname: $Szene (nur a-z, 0-9, Bindestrich)" }
 $ref = Lies-Manifest $Wurzeln[0]
-if (-not $ref.assets.PSObject.Properties[$Szene]) {
-  throw "Szene '$Szene' steht nicht im Manifest. Bekannt: $(($ref.assets.PSObject.Properties.Name | Sort-Object) -join ', ')"
+if (-not $Standbild -and -not $ref.assets.PSObject.Properties[$Szene]) {
+  throw "Szene '$Szene' steht nicht im Manifest. Bekannt: $(($ref.assets.PSObject.Properties.Name | Sort-Object) -join ', ') — ein neues Set kommt mit -Standbild <png> herein."
 }
 $relativ = "motion/$Szene.mp4"
+
+# Neues Set als Standbild (16.09.2026): PNG + WebP in beide Ordner, Manifest-Eintrag, optional ein Platz im Erlebnisraum.
+# -Platz "key|Titel|Detail|klang"  → experience.js zeigt den Knopf, sobald das Bild im Manifest steht.
+if ($Standbild) {
+  if (-not (Test-Path -LiteralPath $Standbild)) { throw "Standbild nicht gefunden: $Standbild" }
+  $ffmpeg = Get-Command ffmpeg -ErrorAction SilentlyContinue; $ffprobe = Get-Command ffprobe -ErrorAction SilentlyContinue
+  if (-not $ffmpeg -or -not $ffprobe) { throw 'ffmpeg/ffprobe nicht gefunden (winget install Gyan.FFmpeg).' }
+  $quelle = (Resolve-Path -LiteralPath $Standbild).Path
+  $dim = ((& $ffprobe.Source -v error -select_streams v:0 -show_entries stream=width,height -of csv=p=0 $quelle) -join '') -split ','
+  if ($dim.Count -lt 2) { throw 'Bildmaße nicht lesbar.' }
+  $stamm = Join-Path $env:TEMP "holodeck-$Szene"
+  & $ffmpeg.Source -v error -y -i $quelle -frames:v 1 "$stamm.png"; if ($LASTEXITCODE -ne 0) { throw 'PNG-Umwandlung gescheitert.' }
+  & $ffmpeg.Source -v error -y -i $quelle -frames:v 1 -quality 82 "$stamm.webp"; if ($LASTEXITCODE -ne 0) { throw 'WebP-Umwandlung gescheitert.' }
+  $pl = $null
+  if ($Platz) {
+    $t = $Platz -split '\|'
+    if ($t.Count -lt 2 -or $t[0] -notmatch '^[a-z0-9-]{1,32}$') { throw 'Platz-Angabe: "key|Titel|Detail|klang" (key nur a-z, 0-9, Bindestrich).' }
+    $pl = [pscustomobject]@{ key = $t[0]; titel = $t[1]; detail = $(if ($t.Count -gt 2) { $t[2] } else { '' }); asset = $Szene; klang = $(if ($t.Count -gt 3 -and $t[3]) { $t[3] } else { 'enterprise' }) }
+  }
+  foreach ($w in $Wurzeln) {
+    Copy-Item -LiteralPath "$stamm.png" -Destination (Join-Path $w "$Szene.png") -Force
+    Copy-Item -LiteralPath "$stamm.webp" -Destination (Join-Path $w "$Szene.webp") -Force
+    $m = Lies-Manifest $w
+    $eintrag = [pscustomobject]@{ poster = "$Szene.webp"; width = [int]$dim[0]; height = [int]$dim[1] }
+    if ($m.assets.PSObject.Properties[$Szene]) { if ($m.assets.$Szene.video) { $eintrag | Add-Member -NotePropertyName video -NotePropertyValue $m.assets.$Szene.video }; $m.assets.$Szene = $eintrag }
+    else { $m.assets | Add-Member -NotePropertyName $Szene -NotePropertyValue $eintrag }
+    if ($pl) {
+      # Nicht $liste nennen: PowerShell-Variablen sind nicht groß-klein-sensitiv, das wäre der Schalter -Liste.
+      $plaetzeNeu = New-Object Collections.ArrayList
+      if ($m.PSObject.Properties['plaetze'] -and $m.plaetze) { foreach ($p in @($m.plaetze)) { if ($p.key -ne $pl.key) { [void]$plaetzeNeu.Add($p) } } }
+      [void]$plaetzeNeu.Add($pl)
+      if ($m.PSObject.Properties['plaetze']) { $m.plaetze = @($plaetzeNeu.ToArray()) } else { $m | Add-Member -NotePropertyName plaetze -NotePropertyValue @($plaetzeNeu.ToArray()) }
+    }
+    Schreib-Manifest $w $m
+    "Standbild eingebaut: $w\$Szene.png + .webp ($($dim[0])x$($dim[1]))$(if ($pl) { " · Platz '$($pl.key)' → $($pl.titel)" })"
+  }
+  ''
+  "Weiter: build-compass.ps1 → Holodeck → Platzwahl. Clip später: -Szene $Szene -Clip <mp4> -Optimieren."
+  return
+}
 
 if ($Entfernen) {
   foreach ($w in $Wurzeln) {

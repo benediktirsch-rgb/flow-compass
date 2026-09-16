@@ -60,7 +60,7 @@ Stufe 1 (sieben Räume) kostet damit rund 580 Credits in medium oder 1 300 in hi
 
 Diese Mappe. Calliopes Gratis-Werkzeuge (Scriptwriting, Storyboard) dürfen sie prüfen und in Benes Stimme glätten — das kostet nichts.
 
-Szenen: cinema-welcome, enterprise-lounge, scene-01, scene-02, scene-03, scene-04, scene-05, scene-06, scene-07, scene-08, scene-09, scene-10, scene-11, scene-12, scene-13, scene-14, scene-15, scene-16, scene-17, scene-18, scene-19, scene-20, scene-21, scene-22, scene-23, scene-24, scene-25, scene-26, scene-27, scene-28, scene-29, scene-30
+Szenen: cinema-welcome, enterprise-lounge, enterprise-bruecke, enterprise-aussicht, enterprise-maschinenraum, scene-01, scene-02, scene-03, scene-04, scene-05, scene-06, scene-07, scene-08, scene-09, scene-10, scene-11, scene-12, scene-13, scene-14, scene-15, scene-16, scene-17, scene-18, scene-19, scene-20, scene-21, scene-22, scene-23, scene-24, scene-25, scene-26, scene-27, scene-28, scene-29, scene-30
 
 ### Stufe 1 · Die sieben Räume — Credits: 7 Clips à 10 s
 
@@ -111,6 +111,39 @@ Mix: Gespräch hat Vorrang. Musik während Sprache deutlich absenken, weiche Üb
 **Kamera (Regie):** 28 mm · weite Totale, Sterne ziehen langsam, Figuren fast still.
 
 **Musik:** Weite Flächen, tiefe Streicher, ein einzelner Klavierton · 58 bpm · Viel Stille, ausklingende Töne; kein antreibender Rhythmus.
+
+### enterprise-bruecke · Auf der Brücke
+
+**Ort:** Auf der Brücke · **Stimmung:** Weitblick und klare Entscheidungen · **Tugend:** Verantwortung  
+**Startbild:** `kein Still — Stilreferenz holodeck-assets/enterprise-lounge.png, Figurenreferenz bene-wardrobe-v2.png · madeleine-portrait.png · john-wardrobe-v2.png` · **Ziel:** `holodeck-assets/enterprise-bruecke.png (Standbild 1672×941 oder 1920×1080), danach holodeck-assets/motion/enterprise-bruecke.mp4` · **Loop:** 10 s (Filmlänge laut Regie: 24 s)
+
+**Prompt (Image-to-Video):** Still image, text-to-image with reference images. Setting: the bridge of a starship, original design: a wide curved viewscreen showing a slow starfield, a raised captain's chair and two console seats in front of it, brushed metal and dark wood, soft amber and blue panel light; no emblems, no insignia, no lettering. Cast: the host (slim, athletic build), Madeleine (dark hair, warm) and John (relaxed, charming) exactly as on the reference images, seated or standing naturally in the set, mid-conversation, nobody looks into the camera. Mood: Weitblick und klare Entscheidungen. Light and palette matching the reference still of the lounge. Photographic, calm, 16:9.
+
+**Kamera (Regie):** 28 mm · leicht erhöhte Totale von hinten links, der Sternenschirm füllt das obere Drittel.
+
+**Musik:** Weite Flächen, tiefe Streicher, ein einzelner Klavierton · 58 bpm · Leichter, regelmäßiger Puls; beim entscheidenden Satz fast ganz ausblenden.
+
+### enterprise-aussicht · In der Aussichtslounge
+
+**Ort:** In der Aussichtslounge · **Stimmung:** Durchatmen mit Blick auf den Nebel · **Tugend:** Gelassenheit  
+**Startbild:** `kein Still — Stilreferenz holodeck-assets/enterprise-lounge.png, Figurenreferenz bene-wardrobe-v2.png · madeleine-portrait.png · john-wardrobe-v2.png` · **Ziel:** `holodeck-assets/enterprise-aussicht.png (Standbild 1672×941 oder 1920×1080), danach holodeck-assets/motion/enterprise-aussicht.mp4` · **Loop:** 10 s (Filmlänge laut Regie: 24 s)
+
+**Prompt (Image-to-Video):** Still image, text-to-image with reference images. Setting: an observation lounge on a starship, original design: floor-to-ceiling windows on a nebula, a bar counter with a few glasses, low round tables, warm downlights against the cool light from outside; no emblems, no lettering. Cast: the host (slim, athletic build), Madeleine (dark hair, warm) and John (relaxed, charming) exactly as on the reference images, seated or standing naturally in the set, mid-conversation, nobody looks into the camera. Mood: Durchatmen mit Blick auf den Nebel. Light and palette matching the reference still of the lounge. Photographic, calm, 16:9.
+
+**Kamera (Regie):** 35 mm · Halbtotale, die Fenster als Lichtquelle im Rücken, Gläser im Vordergrund.
+
+**Musik:** Weite Flächen, tiefe Streicher, ein einzelner Klavierton · 58 bpm · Viel Stille, ausklingende Töne; kein antreibender Rhythmus.
+
+### enterprise-maschinenraum · Im Maschinenraum
+
+**Ort:** Im Maschinenraum · **Stimmung:** Unter Druck, aber am Werk · **Tugend:** Klarheit  
+**Startbild:** `kein Still — Stilreferenz holodeck-assets/enterprise-lounge.png, Figurenreferenz bene-wardrobe-v2.png · madeleine-portrait.png · john-wardrobe-v2.png` · **Ziel:** `holodeck-assets/enterprise-maschinenraum.png (Standbild 1672×941 oder 1920×1080), danach holodeck-assets/motion/enterprise-maschinenraum.mp4` · **Loop:** 10 s (Filmlänge laut Regie: 24 s)
+
+**Prompt (Image-to-Video):** Still image, text-to-image with reference images. Setting: the engine room of a starship, original design: a tall pulsing reactor column of blue-white light, catwalks and railings, a standing console, steam and haze in the depth; no emblems, no lettering. Cast: the host (slim, athletic build), Madeleine (dark hair, warm) and John (relaxed, charming) exactly as on the reference images, seated or standing naturally in the set, mid-conversation, nobody looks into the camera. Mood: Unter Druck, aber am Werk. Light and palette matching the reference still of the lounge. Photographic, calm, 16:9.
+
+**Kamera (Regie):** 24 mm · Untersicht am Geländer, die Reaktorsäule als Lichtachse.
+
+**Musik:** Weite Flächen, tiefe Streicher, ein einzelner Klavierton · 58 bpm · Rhythmus zurücknehmen, Spannung sparsam halten; beim Zuhören Raum für Stille lassen.
 
 ### scene-01 · Erst einmal landen
 
@@ -591,4 +624,46 @@ Mix: Gespräch hat Vorrang. Musik während Sprache deutlich absenken, weiche Üb
 - **Madeleine:** Dann behalten wir den Espresso und verbessern die Begründung. Welche Frage ist noch offen?
 
 **Musik:** Nylongitarre, Kontrabass und einzelne Klaviertöne; leises Leben auf dem Platz · 78 bpm · Kurzer heller Akzent beim Perspektivwechsel, dann ruhige offene Harmonie.
+
+## 8 · Auftrag an Astra: drei Enterprise-Sets als Standbilder
+
+Bene (16.09.2026): eigene Sets im Stil der Serie, keine echten Serienszenen. Regeln: **keine Abzeichen, keine Schriftzüge, keine Gesichter echter Schauspieler**; die drei Avatare exakt wie auf den Referenzbildern; Licht und Palette wie `enterprise-lounge.png`; 16:9, mindestens 1672 × 941. Ein Bild je Set, kein Text im Bild.
+
+**enterprise-bruecke** — Auf der Brücke
+
+Prompt: Still image, text-to-image with reference images. Setting: the bridge of a starship, original design: a wide curved viewscreen showing a slow starfield, a raised captain's chair and two console seats in front of it, brushed metal and dark wood, soft amber and blue panel light; no emblems, no insignia, no lettering. Cast: the host (slim, athletic build), Madeleine (dark hair, warm) and John (relaxed, charming) exactly as on the reference images, seated or standing naturally in the set, mid-conversation, nobody looks into the camera. Mood: Weitblick und klare Entscheidungen. Light and palette matching the reference still of the lounge. Photographic, calm, 16:9.
+
+Kamera: 28 mm · leicht erhöhte Totale von hinten links, der Sternenschirm füllt das obere Drittel.
+
+Einbau, sobald das PNG da ist:
+
+```
+powershell -NoProfile -File tools/holodeck-clip-einbauen.ps1 -Szene enterprise-bruecke -Standbild "<pfad>.png" -Platz "bruecke|Auf die Brücke|Weitblick und klare Entscheidungen|enterprise"
+```
+
+**enterprise-aussicht** — In der Aussichtslounge
+
+Prompt: Still image, text-to-image with reference images. Setting: an observation lounge on a starship, original design: floor-to-ceiling windows on a nebula, a bar counter with a few glasses, low round tables, warm downlights against the cool light from outside; no emblems, no lettering. Cast: the host (slim, athletic build), Madeleine (dark hair, warm) and John (relaxed, charming) exactly as on the reference images, seated or standing naturally in the set, mid-conversation, nobody looks into the camera. Mood: Durchatmen mit Blick auf den Nebel. Light and palette matching the reference still of the lounge. Photographic, calm, 16:9.
+
+Kamera: 35 mm · Halbtotale, die Fenster als Lichtquelle im Rücken, Gläser im Vordergrund.
+
+Einbau, sobald das PNG da ist:
+
+```
+powershell -NoProfile -File tools/holodeck-clip-einbauen.ps1 -Szene enterprise-aussicht -Standbild "<pfad>.png" -Platz "aussicht|In die Aussichtslounge|Durchatmen mit Blick auf den Nebel|enterprise"
+```
+
+**enterprise-maschinenraum** — Im Maschinenraum
+
+Prompt: Still image, text-to-image with reference images. Setting: the engine room of a starship, original design: a tall pulsing reactor column of blue-white light, catwalks and railings, a standing console, steam and haze in the depth; no emblems, no lettering. Cast: the host (slim, athletic build), Madeleine (dark hair, warm) and John (relaxed, charming) exactly as on the reference images, seated or standing naturally in the set, mid-conversation, nobody looks into the camera. Mood: Unter Druck, aber am Werk. Light and palette matching the reference still of the lounge. Photographic, calm, 16:9.
+
+Kamera: 24 mm · Untersicht am Geländer, die Reaktorsäule als Lichtachse.
+
+Einbau, sobald das PNG da ist:
+
+```
+powershell -NoProfile -File tools/holodeck-clip-einbauen.ps1 -Szene enterprise-maschinenraum -Standbild "<pfad>.png" -Platz "maschinenraum|In den Maschinenraum|Unter Druck, aber am Werk|enterprise"
+```
+
+Das Skript legt PNG + WebP in beide Asset-Ordner, trägt das Bild und den Platz im Manifest ein; der Erlebnisraum zeigt den neuen Knopf bei der Platzwahl von selbst (Klang: Enterprise-Palette). Ein Loop kommt später über `-Clip`, wie bei jeder anderen Szene.
 

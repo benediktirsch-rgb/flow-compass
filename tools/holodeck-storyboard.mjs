@@ -25,7 +25,10 @@ const places = {
   anden: 'a high Andean plateau at dawn: wide sky, distant snow peaks, thin cool light, wind in the grass',
   rom: 'a small Roman piazza in the evening: warm stone, a fountain, café tables, strings of light',
   enterprise: 'the lounge of a starship: a wide observation window with slowly drifting stars, soft blue-white panel light, two armchairs',
-  reception: 'the reception of Hotel Vaikuntha: a dignified concierge beside the door to the bar, lotus emblem, warm evening light'
+  reception: 'the reception of Hotel Vaikuntha: a dignified concierge beside the door to the bar, lotus emblem, warm evening light',
+  bruecke: 'the bridge of a starship, original design: a wide curved viewscreen showing a slow starfield, a raised captain\'s chair and two console seats in front of it, brushed metal and dark wood, soft amber and blue panel light; no emblems, no insignia, no lettering',
+  aussicht: 'an observation lounge on a starship, original design: floor-to-ceiling windows on a nebula, a bar counter with a few glasses, low round tables, warm downlights against the cool light from outside; no emblems, no lettering',
+  maschinenraum: 'the engine room of a starship, original design: a tall pulsing reactor column of blue-white light, catwalks and railings, a standing console, steam and haze in the depth; no emblems, no lettering'
 };
 const moodMotion = {
   ruhe: 'almost still: natural breathing, a slow blink, candle or fire flicker, subtle ambient motion; nobody speaks',
@@ -86,7 +89,24 @@ const extra = [
    cameraDe:'28 mm · weite Totale, Sterne ziehen langsam, Figuren fast still.', cameraCss: directionFor({mood:'ruhe'}), script:[],
    music:{palette:'Weite Flächen, tiefe Streicher, ein einzelner Klavierton', tempo:58, mood:moodMusic.ruhe}, anchors:{}}
 ];
-const briefs = [...extra, ...scenes.map(sceneBrief)];
+// Drei weitere Enterprise-Sets (16.09.2026, Bene: „mache es"). Eigene Entwürfe im Stil der Serie — keine Abzeichen, keine
+// Schriftzüge, keine Gesichter echter Schauspieler. Erst als Standbild (Imagegen über Astra, Referenz enterprise-lounge.png
+// + Avatar-Referenzen), dann optional als Loop. Einbau: tools/holodeck-clip-einbauen.ps1 -Standbild … -Platz "…".
+const castStill = 'the host (slim, athletic build), Madeleine (dark hair, warm) and John (relaxed, charming) exactly as on the reference images, seated or standing naturally in the set, mid-conversation, nobody looks into the camera';
+const enterpriseSets = [
+  {asset:'enterprise-bruecke', id:'E2', title:'Auf der Brücke', place:'bruecke', placeLabel:'Auf der Brücke', mood:'business', moodLabel:'Weitblick und klare Entscheidungen', virtue:'Verantwortung',
+   platz:'bruecke|Auf die Brücke|Weitblick und klare Entscheidungen|enterprise', cameraDe:'28 mm · leicht erhöhte Totale von hinten links, der Sternenschirm füllt das obere Drittel.'},
+  {asset:'enterprise-aussicht', id:'E3', title:'In der Aussichtslounge', place:'aussicht', placeLabel:'In der Aussichtslounge', mood:'ruhe', moodLabel:'Durchatmen mit Blick auf den Nebel', virtue:'Gelassenheit',
+   platz:'aussicht|In die Aussichtslounge|Durchatmen mit Blick auf den Nebel|enterprise', cameraDe:'35 mm · Halbtotale, die Fenster als Lichtquelle im Rücken, Gläser im Vordergrund.'},
+  {asset:'enterprise-maschinenraum', id:'E4', title:'Im Maschinenraum', place:'maschinenraum', placeLabel:'Im Maschinenraum', mood:'konflikt', moodLabel:'Unter Druck, aber am Werk', virtue:'Klarheit',
+   platz:'maschinenraum|In den Maschinenraum|Unter Druck, aber am Werk|enterprise', cameraDe:'24 mm · Untersicht am Geländer, die Reaktorsäule als Lichtachse.'}
+].map(s => ({...s,
+  referenceFrame:'kein Still — Stilreferenz holodeck-assets/enterprise-lounge.png, Figurenreferenz bene-wardrobe-v2.png · madeleine-portrait.png · john-wardrobe-v2.png',
+  target:`holodeck-assets/${s.asset}.png (Standbild 1672×941 oder 1920×1080), danach holodeck-assets/motion/${s.asset}.mp4`,
+  filmDurationSeconds:24, loopDurationSeconds:LOOP,
+  visualPrompt:`Still image, text-to-image with reference images. Setting: ${places[s.place]}. Cast: ${castStill}. Mood: ${s.moodLabel}. Light and palette matching the reference still of the lounge. Photographic, calm, 16:9.`,
+  cameraCss:directionFor({mood:s.mood}), script:[], music:{palette:'Weite Flächen, tiefe Streicher, ein einzelner Klavierton', tempo:58, mood:moodMusic[s.mood]}, anchors:{}}));
+const briefs = [...extra, ...enterpriseSets, ...scenes.map(sceneBrief)];
 const batches = [
   {name:'Stufe 0 · Skript und Storyboard', credits:'keine', assets:briefs.map(b => b.asset),
    note:'Diese Mappe. Calliopes Gratis-Werkzeuge (Scriptwriting, Storyboard) dürfen sie prüfen und in Benes Stimme glätten — das kostet nichts.'},
@@ -150,5 +170,10 @@ for (const b of briefs) {
   if (b.script.length) md.push('**Skript (Vorspann — wird live vom Raum gesprochen, nicht in den Clip):**', '', ...b.script.map(l => `- **${name(l.speaker)}:** ${l.text}`), '');
   md.push(`**Musik:** ${b.music.palette}${b.music.tempo ? ` · ${b.music.tempo} bpm` : ''} · ${b.music.mood}`, '');
 }
+md.push('## 8 · Auftrag an Astra: drei Enterprise-Sets als Standbilder', '',
+  'Bene (16.09.2026): eigene Sets im Stil der Serie, keine echten Serienszenen. Regeln: **keine Abzeichen, keine Schriftzüge, keine Gesichter echter Schauspieler**; die drei Avatare exakt wie auf den Referenzbildern; Licht und Palette wie `enterprise-lounge.png`; 16:9, mindestens 1672 × 941. Ein Bild je Set, kein Text im Bild.', '',
+  ...enterpriseSets.flatMap(s => [`**${s.asset}** — ${s.title}`, '', `Prompt: ${s.visualPrompt}`, '', `Kamera: ${s.cameraDe}`, '',
+    'Einbau, sobald das PNG da ist:', '', '```', `powershell -NoProfile -File tools/holodeck-clip-einbauen.ps1 -Szene ${s.asset} -Standbild "<pfad>.png" -Platz "${s.platz}"`, '```', '']),
+  'Das Skript legt PNG + WebP in beide Asset-Ordner, trägt das Bild und den Platz im Manifest ein; der Erlebnisraum zeigt den neuen Knopf bei der Platzwahl von selbst (Klang: Enterprise-Palette). Ein Loop kommt später über `-Clip`, wie bei jeder anderen Szene.', '');
 writeFileSync(join(root, 'docs/holodeck-calliope.md'), md.join('\n') + '\n');
 console.log(`${briefs.length} Szenen → docs/holodeck-storyboard.json + docs/holodeck-calliope.md`);

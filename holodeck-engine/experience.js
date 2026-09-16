@@ -106,10 +106,31 @@ export function mountHolodeck(host, options = {}) {
     clip.src = url; clip.play().catch(finish); entranceTimer = setTimeout(finish,6000);
   }
   let manifest = {};
+  // Plätze: vier Standardplätze plus alles, was holodeck-assets/manifest.json unter `plaetze` nennt. So kommt ein
+  // neues Set (Brücke, Aussichtslounge, Maschinenraum …) als Upload herein — Standbild + Manifestzeile — ohne dass
+  // hier eine Zeile zu ändern ist. Ein Platz erscheint nur, wenn sein Bild im Manifest steht.
+  const seatDefaults = [
+    {key:'enterprise', titel:'Auf die Enterprise', detail:'Coaching zwischen den Sternen', asset:'enterprise-lounge', klang:'enterprise'},
+    {key:'bar', titel:'An die Bar', detail:'Ein lockerer Austausch', asset:'scene-02', klang:'bar'},
+    {key:'huette', titel:'An den Tisch', detail:'Zeit für ein wichtiges Thema', asset:'scene-07', klang:'huette'},
+    {key:'goa', titel:'An den Strand', detail:'Durchatmen und Gedanken sortieren', asset:'scene-13', klang:'goa'}
+  ];
+  const seatHidden = {anden:'scene-19', rom:'scene-25'}; // über setPlace erreichbar, ohne eigenen Knopf
+  let seats = seatDefaults.slice();
+  const seatFor = key => seats.find(s => s.key === key) || (seatHidden[key] ? {key, asset:seatHidden[key], klang:key, titel:key} : null);
+  function mergeSeats(list) {
+    const out = seatDefaults.slice();
+    for (const p of Array.isArray(list) ? list : []) {
+      if (!p || typeof p.key !== 'string' || !/^[a-z0-9-]{1,32}$/.test(p.key) || typeof p.asset !== 'string' || !manifest[p.asset]) continue;
+      const platz = {key:p.key, asset:p.asset, titel:String(p.titel || p.key).slice(0, 40), detail:String(p.detail || '').slice(0, 60), klang:typeof p.klang === 'string' ? p.klang : p.key};
+      const i = out.findIndex(s => s.key === platz.key); if (i >= 0) out[i] = platz; else out.push(platz);
+    }
+    return out;
+  }
   const manifestTimer = setTimeout(() => controller.abort(), 2500);
   fetch(base + 'manifest.json', {signal: controller.signal, credentials: 'same-origin'})
     .then(r => r.ok ? r.json() : {})
-    .then(data => { manifest = data.assets || {}; if (!disposed && !paused) showAsset(currentAsset); })
+    .then(data => { manifest = data.assets || {}; seats = mergeSeats(data.plaetze); if (!disposed && !paused) { showAsset(currentAsset); if (phase === 'seating') seating(); } })
     .catch(() => {}).finally(() => clearTimeout(manifestTimer));
 
   function clearVideo() {
@@ -171,17 +192,18 @@ export function mountHolodeck(host, options = {}) {
     clearMotion();
     stopGuide(); setPhase('seating'); subtitle.hidden = true;
     center.append(make('p','holo-eyebrow','WO MÖCHTEST DU SEIN?'),make('h3','','Such dir einen Platz.'));
-    const seats = make('div','holo-seats');
-    for (const [key, title, detail] of [['enterprise','Auf die Enterprise','Coaching zwischen den Sternen'],['bar','An die Bar','Ein lockerer Austausch'],['huette','An den Tisch','Zeit für ein wichtiges Thema'],['goa','An den Strand','Durchatmen und Gedanken sortieren']]) {
-      const seat = button(title, () => sit(key), 'holo-seat'); seat.append(make('small','',detail)); seats.append(seat);
+    const list = make('div','holo-seats');
+    for (const s of seats) {
+      const seat = button(s.titel, () => sit(s.key), 'holo-seat'); if (s.detail) seat.append(make('small','',s.detail)); list.append(seat);
     }
-    center.append(seats); bottom.append(sound);
+    center.append(list); bottom.append(sound);
   }
   function sit(key) {
     clearMotion();
-    place = key; options.onPlace?.(key); audio.setScene(key);
-    setPhase('transition'); showAsset(({enterprise:'enterprise-lounge',bar:'scene-02',huette:'scene-07',goa:'scene-13',anden:'scene-19',rom:'scene-25'})[key] || 'scene-02');
-    image.alt = (options.places?.[key] || key) + ' mit John und Madeleine';
+    const platz = seatFor(key) || seats[0]; key = platz.key;
+    place = key; options.onPlace?.(key); audio.setScene(platz.klang || key);
+    setPhase('transition'); showAsset(platz.asset);
+    image.alt = (options.places?.[key] || platz.titel || key) + ' mit John und Madeleine';
     center.append(make('h3','','Hier ist dein Platz.'),button('Platz nehmen', converse, 'holo-primary'));
     clearTimeout(transitionTimer); transitionTimer = setTimeout(converse, reduced ? 0 : 1400);
   }
