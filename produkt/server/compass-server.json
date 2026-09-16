@@ -8,6 +8,7 @@
   "modell": "claude-opus-5",
   "effort": "medium",
   "daten": "daten",
+  "origins": "",
   "anbieter": {
     "url": "",
     "modell": ""

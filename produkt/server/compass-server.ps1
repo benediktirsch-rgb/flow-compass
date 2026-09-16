@@ -108,9 +108,9 @@ $JiraProjekt    = [string](Get-Feld (Get-Feld $K 'jira' $null) 'projekt' '')
 $AnbieterUrl    = [string](Get-Feld (Get-Feld $K 'anbieter' $null) 'url' '')
 $AnbieterModell = [string](Get-Feld (Get-Feld $K 'anbieter' $null) 'modell' '')
 # Erlaubte Web-Urspruenge zusaetzlich zu localhost (16.09.2026): "origins" in compass-server.json, ein Wert oder eine
-# Liste, z. B. "https://compass.meine-firma.de" — der Ursprung, unter dem dein Compass im Browser liegt. Die Subdomains
-# von vishnuartists.com sind immer erlaubt; dort liegen die Team-Instanzen, die diesen Server auf dem eigenen Rechner
-# ansprechen. Geprueft wird in Test-OriginErlaubt.
+# Liste, z. B. "https://compass.meine-firma.de" — der Ursprung, unter dem dein Compass im Browser liegt.
+# "https://*.meine-firma.de" erlaubt die Domain und alle ihre Subdomains. Das mitgelieferte Paket traegt hier
+# schon den Ursprung, von dem du es geladen hast. Geprueft wird in Test-OriginErlaubt.
 $Origins = @()
 foreach ($og in @(Get-Feld $K 'origins' $null)) { $v = ([string]$og).Trim().TrimEnd('/'); if ($v) { $Origins += $v.ToLowerInvariant() } }
 
@@ -1053,14 +1053,20 @@ function Send-Html($ctx, [string]$html, [int]$code = 200) {
 }
 # Welche Web-Urspruenge duerfen diesen Server ansprechen (16.09.2026). Bisher stand hier `Access-Control-Allow-Origin: *`
 # plus Allow-Private-Network — damit konnte jede geoeffnete Webseite den Stapel, Trello und Jira ueber diesen Server
-# lesen. Erlaubt: der Rechner selbst, die Subdomains von vishnuartists.com und was unter "origins" in
-# compass-server.json steht. Ohne Origin-Kopf (curl, Invoke-WebRequest, Adresszeile) gilt die Anfrage als erlaubt —
+# lesen. Erlaubt: der Rechner selbst und was unter "origins" in compass-server.json steht
+# ("https://*.domain" = Domain samt Subdomains). Ohne Origin-Kopf (curl, Invoke-WebRequest, Adresszeile) gilt die Anfrage als erlaubt —
 # CORS ist ein Browser-Thema.
 function Test-OriginErlaubt([string]$origin) {
   if (-not $origin) { return $true }
   if ($origin -match '^https?://(localhost|127\.0\.0\.1)(:\d+)?$') { return $true }
-  if ($origin -match '^https://([a-z0-9-]+\.)?vishnuartists\.com$') { return $true }
-  if ($Origins -contains $origin.ToLowerInvariant().TrimEnd('/')) { return $true }
+  $o = $origin.ToLowerInvariant().TrimEnd('/')
+  foreach ($erlaubt in $Origins) {
+    if ($erlaubt -eq $o) { return $true }
+    if ($erlaubt -match '^(https?)://\*\.(.+)$') {
+      $muster = '^' + $Matches[1] + '://([a-z0-9-]+\.)*' + [regex]::Escape($Matches[2]) + '$'
+      if ($o -match $muster) { return $true }
+    }
+  }
   return $false
 }
 # POST-Body als JSON lesen (16.09.2026). Ungueltiges JSON → 400 BAD_JSON, $ok bleibt $false, und der Zweig im Router

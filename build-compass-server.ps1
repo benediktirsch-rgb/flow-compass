@@ -74,6 +74,12 @@ if ($NurPruefen) { return }
 
 # ── 2. Konfiguration (je Instanz vorbelegt) ─────────────────────────────────
 $konfig = (Read-Utf8 (Join-Path $src 'compass-server.json')).Replace("`r`n","`n")
+# Erlaubter Web-Ursprung (16.09.2026): der Server antwortet Browsern nur noch fuer localhost und "origins".
+# Demo und Team-Instanzen liegen auf Subdomains von vishnuartists.com — das steht deshalb hier im Build und
+# nicht im ausgelieferten Code. Die Wortpruefung der Demo-Konfiguration nimmt genau diesen einen Wert aus.
+$eigeneOrigins = 'https://*.vishnuartists.com'
+$konfig = [regex]::Replace($konfig, '"origins":\s*""', ('"origins": "' + $eigeneOrigins + '"'), 1)
+if ($konfig -notmatch [regex]::Escape($eigeneOrigins)) { throw 'ANKER FEHLT: "origins" in produkt\server\compass-server.json' }
 $slug = ''
 if ($Instanz) {
   $slug = ($Instanz.ToLower() -replace '[^a-z0-9]+','-').Trim('-')
@@ -105,7 +111,7 @@ if ($Instanz) {
   $Ziel = Join-Path $base 'site\compass-demo\compass-server.zip'
 }
 if (-not $slug -and $Ziel -like '*compass-demo*') {
-  $f2 = Pruefe $konfig 'compass-server.json'
+  $f2 = Pruefe ($konfig.Replace($eigeneOrigins, '')) 'compass-server.json'
   if ($f2.Count) { $f2 | ForEach-Object { Write-Host $_ }; throw 'Konfiguration fuer die Demo enthaelt Persoenliches.' }
 }
 
