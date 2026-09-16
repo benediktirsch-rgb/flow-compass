@@ -29,6 +29,13 @@
   const save=()=>{ try{ localStorage.setItem('beneMadeleine', JSON.stringify(VERLAUF.slice(-60))); }catch(e){} };
   const kontext=()=>{ try{ return typeof johnKontext==='function' ? johnKontext() : ''; }catch(e){ return ''; } };
   const sag=(m,art)=>{ try{ if(typeof toast==='function') toast(m,art); }catch(e){} };
+  /* Seit 15.09.2026 spricht der Compass auf der Subdomain mit dem Wolkenserver (Compass-Server-Paket).
+     Der kennt Madeleine nicht — sie denkt nur auf Benes Rechner — und antwortet mit 404 NICHT_IM_PAKET.
+     Das ist kein „Server läuft, aber …", sondern derselbe Fall wie ein ausgeschalteter Rechner:
+     Fragen gehen in den Briefkasten, Beraterrunden gibt es nur am Rechner. */
+  const FERN='Madeleine denkt nur auf deinem Rechner — hier ist der Wolkenserver verbunden';
+  const nichtHier=(r,j)=>!!(r && r.status===404 && j && j.error==='NICHT_IM_PAKET');
+  const RUNDE_FERN='Beraterrunden laufen nur auf deinem Rechner (john-server). Von hier aus geht der Chat über den Briefkasten — Madeleine antwortet, sobald dein Rechner läuft.';
 
   /* ---------- CSS: den John-Dialog für #madeleine klonen, Karte und Runde eigen ---------- */
   function css(){
@@ -108,7 +115,8 @@
       const msgs=VERLAUF.filter(m=>m.role==='user'||m.role==='assistant').map(m=>({role:m.role,content:m.content}));
       const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),300000);
       const r=await fetch(API()+'/api/madeleine',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,context:kontext()}),signal:ctrl.signal});
-      clearTimeout(tm); const j=await r.json();
+      clearTimeout(tm); const j=await r.json().catch(()=>({error:'HTTP '+r.status}));
+      if(nichtHier(r,j)) throw new Error(FERN);
       if(!r.ok||j.error){ VERLAUF.push({role:'system',content:/^(CODEX_[A-Z_]+|NO_[A-Z]+|LIMIT)$/.test(j.error)?(j.hint||j.error):('Fehler: '+(j.error||r.status))}); }
       else { const meta=[j.model||'', (j.tools&&j.tools.length)?'✎ Notiz festgehalten':''].filter(Boolean).join(' · '); VERLAUF.push({role:'assistant',content:j.text||'(keine Antwort)',meta}); }
     }catch(e){
@@ -116,8 +124,8 @@
          ehrlich sagen, samt der Wartezeit, die das bedeutet. */
       const gelegt = await briefWerfen(t);
       VERLAUF.push({role:'system',content: gelegt
-        ? '✉ Dein Rechner ist gerade nicht erreichbar — die Frage liegt im Briefkasten. Madeleine beantwortet sie, sobald er wieder läuft; die Antwort erscheint hier von selbst.'
-        : 'Madeleine ist nicht erreichbar, und der Briefkasten nimmt gerade auch nichts an. Läuft john-server.cmd? ('+e.message+')'});
+        ? '✉ Dein Rechner ist von hier aus nicht erreichbar — die Frage liegt im Briefkasten. Madeleine beantwortet sie, sobald er läuft; die Antwort erscheint hier von selbst.'
+        : 'Madeleine ist nicht erreichbar, und der Briefkasten nimmt gerade auch nichts an'+(MAD.briefFehler?' ('+MAD.briefFehler+')':'')+'. Läuft john-server.cmd? ('+e.message+')'});
     }
     MAD.chatBusy=false; btn.disabled=false; save(); madRender(); inp.focus();
   }
@@ -130,7 +138,14 @@
         body:JSON.stringify({art:'madeleine', datum:new Date().toLocaleDateString('sv-SE'), frage:frage, kontext:kontext()}),
         signal:AbortSignal.timeout(15000)});
       const d=await r.json().catch(()=>null);
-      if(!r.ok||!d||!d.ok){ if(d&&d.error==='ZU_VIELE') sag('Drei Fragen warten schon im Briefkasten','bad'); return false; }
+      MAD.briefFehler='';
+      if(!r.ok||!d||!d.ok){
+        if(d&&d.error==='ZU_VIELE') sag('Drei Fragen warten schon im Briefkasten','bad');
+        /* Seit 16.09.2026 nimmt der Kasten nur von der Besitzerin der Instanz an. */
+        if(d&&d.error==='NUR_BESITZER') MAD.briefFehler='die Tür erkennt dich nicht als Besitzer dieser Instanz — $GATE_MAIL prüfen';
+        else MAD.briefFehler=(d&&d.error)||('HTTP '+r.status);
+        return false;
+      }
       briefTakt(true); return true;
     }catch(e){ return false; }
   }
@@ -193,6 +208,8 @@
       if(isFinite(min) && min>30) brief += ` (seit ${min<120?min+' Min':Math.round(min/60)+' Std'} holt sie niemand ab)`;
     }
     if(s===null) return brief || 'verbinde …';
+    if(s===false && MAD.fern) return brief ? brief+' — Madeleine beantwortet sie, sobald dein Rechner läuft'
+                               : (BRIEF ? FERN+' · Fragen gehen über den Briefkasten' : FERN);
     if(s===false) return brief ? brief+' — dein Rechner ist aus, sie wird beantwortet, sobald er läuft'
                                : (BRIEF ? 'Server aus — Fragen gehen so lange in den Briefkasten' : 'Server aus — john-server.cmd starten');
     if(s.ok && s.key) return (brief ? brief+' · ' : '')+`verbunden · ${s.model||'GPT'} · ${(s.geladen||[]).length} Quellen (Wissen, Finanzlauf, Johns Notizen …)`;
@@ -200,8 +217,9 @@
   }
   async function madStatus(frisch){
     if(!frisch && MAD.status && Date.now()-MAD.statusZeit<120000){ statusMalen(); return; }
-    try{ const r=await fetch(API()+'/api/madeleine/status'+(frisch?'?fresh=1':''),{cache:'no-store'}); MAD.status=await r.json(); }
-    catch(e){ MAD.status=false; }
+    try{ const r=await fetch(API()+'/api/madeleine/status'+(frisch?'?fresh=1':''),{cache:'no-store'}); const j=await r.json();
+      MAD.fern=nichtHier(r,j); MAD.status=MAD.fern?false:j; }
+    catch(e){ MAD.status=false; MAD.fern=false; }
     MAD.statusZeit=Date.now(); statusMalen();
   }
   function statusMalen(){
@@ -210,7 +228,8 @@
   }
   async function madRundenLaden(frisch){
     if(!frisch && MAD.runden) return;
-    try{ const r=await fetch(API()+'/api/beraterrunde',{cache:'no-store'}); const j=await r.json(); MAD.runden=j.runden||[]; MAD.anzahl=j.anzahl||0; }
+    try{ const r=await fetch(API()+'/api/beraterrunde',{cache:'no-store'}); const j=await r.json();
+      MAD.rundenFern=nichtHier(r,j); MAD.runden=j.runden||[]; MAD.anzahl=j.anzahl||0; }
     catch(e){ MAD.runden=[]; }
     madMalen();
   }
@@ -264,8 +283,9 @@
       const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),300000);
       const r=await fetch(API()+'/api/beraterrunde/antwort',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({antwort:t,context:kontext()}),signal:ctrl.signal});
-      clearTimeout(tm); const j=await r.json();
+      clearTimeout(tm); const j=await r.json().catch(()=>({error:'HTTP '+r.status}));
       MAD.entBusy=false;
+      if(nichtHier(r,j)){ MAD.entFehler='Entscheidungen hält dein Rechner fest (john/coaching/beraterrunde.md) — von hier aus ist er nicht verbunden. Dein Text bleibt stehen; am Rechner noch einmal drücken.'; madMalen(); return; }
       if(!r.ok||!j.ok){ MAD.entFehler=j.hint||j.error||('Fehler '+r.status); madMalen(); sag('Entscheidung nicht festgehalten','bad'); return; }
       MAD.entText=''; MAD.voll=true;
       MAD.runden=[{datum:j.datum,thema:j.thema,beitraege:j.beitraege}].concat((MAD.runden||[]).slice(1));
@@ -282,6 +302,7 @@
   function bodyHtml(){
     if(MAD.busy) return '<div class="muted">🤝 John spricht … dann Madeleine … dann John. Das dauert bis zu vier Minuten; der Server ist so lange belegt.</div>';
     if(MAD.runden===null) return '<div class="muted">lade die letzte Beraterrunde …</div>';
+    if(MAD.rundenFern && !MAD.runden.length) return `<div class="muted">${H(RUNDE_FERN)}</div>`;
     if(!MAD.runden.length) return '<div class="muted">Noch keine Beraterrunde. Starte eine — John und Madeleine beraten sich zu deinem Thema, du liest mit. Alles landet in john/coaching/beraterrunde.md, beide kennen es danach.</div>';
     const r=MAD.runden[0];
     /* Die offene Frage steht über der Runde — sie ist das, was von Bene noch gebraucht wird. */
@@ -312,8 +333,9 @@
     try{
       const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),420000);
       const r=await fetch(API()+'/api/beraterrunde',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({thema:thema.trim(),context:kontext()}),signal:ctrl.signal});
-      clearTimeout(tm); const j=await r.json();
+      clearTimeout(tm); const j=await r.json().catch(()=>({error:'HTTP '+r.status}));
       MAD.busy=false;
+      if(nichtHier(r,j)){ MAD.rundenFern=true; madMalen(); sag('Beraterrunde nur am Rechner','bad'); return; }
       if(!r.ok||j.error){ const b=document.getElementById('madBody'); if(b) b.innerHTML=`<div class="muted">Beraterrunde nicht möglich: ${H(j.hint||j.error||r.status)}</div>`; sag('Beraterrunde nicht möglich','bad'); return; }
       MAD.runden=[{datum:j.datum,thema:j.thema,beitraege:j.beitraege}].concat(MAD.runden||[]); MAD.anzahl=(MAD.anzahl||0)+1; MAD.voll=true; madMalen();
       sag('🤝 Beraterrunde festgehalten — John und Madeleine kennen sie jetzt beide.');
