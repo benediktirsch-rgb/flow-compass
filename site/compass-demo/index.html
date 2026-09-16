@@ -1357,7 +1357,8 @@ const LOC = window.LOC || (()=>'de-DE');
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 /* Ortszeit, nicht toISOString(): UTC liegt nachts (bis 1 bzw. 2 Uhr) noch im Vortag — der Morgencheck,
    die Streak und jeder Tagesschlüssel hätten dann das falsche Datum (16.09.2026). */
-const heute=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const heute=()=>ymd(new Date());
 
 /* ---------- Tageslicht + Theme (19.08.) ----------
    Fünf Tagesphasen färben den Compass (data-phase am <html>): Sonnenaufgang 5–8, Morgen 8–12, Tag 12–17,
@@ -1487,7 +1488,7 @@ function streakFort(){
   const d=new Date(); let vor=new Date(d); vor.setDate(d.getDate()-1);
   if(d.getDay()===1) vor.setDate(d.getDate()-3);
   else if(d.getDay()===0) vor.setDate(d.getDate()-2);
-  S.streak = (l===vor.toISOString().slice(0,10)) ? S.streak+1 : 1;
+  S.streak = (l===ymd(vor)) ? S.streak+1 : 1;
   S.lastMorgen=heute();
 }
 
@@ -1909,7 +1910,7 @@ function koerper(s){
      Ein Tipp übernimmt den Text ins Feld, dort lässt er sich noch umschreiben. */
   if(s.id==='fokus' && FLOW.art==='morgen'){
     const fm=S.fokusMorgen||{};
-    const gestern=new Date(Date.now()-864e5).toISOString().slice(0,10);
+    const gestern=ymd(new Date(Date.now()-864e5));
     const hg=S.hist[gestern]||{};
     const vs=[];
     if(fm.text && fm.datum===gestern) vs.push(['🌙','Gestern Abend vorgenommen',fm.text]);
@@ -2214,7 +2215,7 @@ function boardCta(){
   else if((b=find('morgen',h)))      text='🌅 Morgenboard · heute';
   else if((b=find('abend',g)))       text='🌙 Abendboard · gestern Abend';
   else {
-    const grenze=new Date(Date.now()-4*864e5).toISOString().slice(0,10);
+    const grenze=ymd(new Date(Date.now()-4*864e5));
     b=liste.filter(x=>x.datum<h&&x.datum>=grenze).sort((x,y)=>x.datum<y.datum?1:-1)[0]||null;
     /* 06.09.: ein Sonntag zeigte hier „Morgenboard · 04.09.“ — das las sich wie heute. Der Wochentag
        davor macht klar, dass es ein älteres Board ist; das von heute entsteht erst mit dem Morgencheck. */
@@ -3270,7 +3271,7 @@ function pkQuellen(){
     const jk=(/^(?:va|jira):([A-Z][A-Z0-9]+-\d+)$/.exec(id)||[])[1]||null;
     out.push({id,name:e.name,url:e.url||null,src:e.src||'eigen',jiraKey:jk,projekt:jk?jk.split('-')[0]:undefined,col:e.col||'bereit',seit:e.seit||null,liste:e.liste||'',extra:e.extra||e.notiz||'',due:e.due||''}); });
   /* Compass-lokale Zuordnung darüberlegen */
-  const seit7=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const seit7=ymd(new Date(Date.now()-7*864e5));
   const map={};
   out.forEach(c=>{
     if(S.kan.done[c.id]){ if(S.kan.done[c.id].am>=seit7){ c.col='done'; c.am=S.kan.done[c.id].am; c.gezogen=true; c.synced=!!S.kan.done[c.id].synced; } else return; }
@@ -3977,13 +3978,13 @@ function vaPasst(x){
   if(VAF.init && x.init!==VAF.init) return false;
   if(VAF.thema && vaThemaVon(x.init)!==VAF.thema) return false;
   if(VAF.faellig==='over'){ if(!(x.due && x.due<vaHeute() && !x.erledigt)) return false; }
-  else if(VAF.faellig==='week'){ const g=new Date(Date.now()+7*864e5).toISOString().slice(0,10); if(!(x.due && x.due<=g && !x.erledigt)) return false; }
+  else if(VAF.faellig==='week'){ const g=ymd(new Date(Date.now()+7*864e5)); if(!(x.due && x.due<=g && !x.erledigt)) return false; }
   else if(VAF.faellig==='none'){ if(x.due) return false; }
   if(VAF.q){ const q=VAF.q.toLowerCase(); if(!(x.key.toLowerCase().includes(q)||x.titel.toLowerCase().includes(q)||x.person.toLowerCase().includes(q))) return false; }
   return true;
 }
 function vaAuswahl(){
-  const grenze=new Date(Date.now()-(VAF.doneTage||14)*864e5).toISOString().slice(0,10);
+  const grenze=ymd(new Date(Date.now()-(VAF.doneTage||14)*864e5));
   return VA.tickets.filter(x=>{
     if(x.erledigt && !(x.resolved && x.resolved>=grenze)) return false;   /* Done-Fenster */
     return vaPasst(x);
@@ -4015,7 +4016,7 @@ function vaMetrik(){
   const blk=off.filter(x=>x.blocker);
   const over=off.filter(x=>x.due&&x.due<t);
   const aeltest=wip.slice().sort((a,b)=>b.alter-a.alter)[0]||off.slice().sort((a,b)=>b.alter-a.alter)[0]||null;
-  const seit=n=>new Date(Date.now()-n*864e5).toISOString().slice(0,10);
+  const seit=n=>ymd(new Date(Date.now()-n*864e5));
   const d7=VA.tickets.filter(x=>x.resolved&&x.resolved>=seit(7)).length;
   const d28=VA.tickets.filter(x=>x.resolved&&x.resolved>=seit(28)).length;
   const lead=VA.tickets.filter(x=>x.resolved&&x.resolved>=seit(28)).map(x=>vaTage(x.created,x.resolved)).sort((a,b)=>a-b);
@@ -5930,7 +5931,7 @@ function meldeRefresh(){
   if(g2) g2.insertBefore(t.firstElementChild,g2.firstChild);
 }
 const fmtMin=m=>m==null?'–':(m>=60?`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`:`${m} min`);
-function gesternKey(){ const d=new Date(); const wd=d.getDay(); d.setDate(d.getDate()-(wd===1?3:wd===0?2:1)); return d.toISOString().slice(0,10); }
+function gesternKey(){ const d=new Date(); const wd=d.getDay(); d.setDate(d.getDate()-(wd===1?3:wd===0?2:1)); return ymd(d); }
 function histWert(key){ /* letzter gespeicherter Wert vor heute */
   const tage=Object.keys(S.kpiHist).filter(t=>t<heute()).sort();
   for(let i=tage.length-1;i>=0;i--){ const v=S.kpiHist[tage[i]][key]; if(typeof v==='number') return v; }
