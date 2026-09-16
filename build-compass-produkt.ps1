@@ -874,6 +874,12 @@ $sysm = [Text.RegularExpressions.Regex]::Replace($sysm, '\bBenes\b', 'ihren')
 $sysm = [Text.RegularExpressions.Regex]::Replace($sysm, '\bBene\b',  'die Nutzerin')
 Write-Lf (Join-Path $Ziel 'compass-systemik.js') $sysm
 
+# Tower-Karte (16.09.2026): compass-tower.js setzt die Tower-Summen hinter die Finanzkarte. Ohne
+# eingerichtete Quelle (Compass-Server ohne firma.towerUrl → NO_FIRMA, Demo ohne Server) zeigt sie nichts.
+$towj = (Read-Utf8 (Join-Path $Quelle 'compass-tower.js')).Replace("`r`n","`n")
+$towj = [Text.RegularExpressions.Regex]::Replace($towj, '\bBene\b', 'die Nutzerin')
+Write-Lf (Join-Path $Ziel 'compass-tower.js') $towj
+
 # Sprachen (28.08.2026): compass-i18n.js uebersetzt die fertig gerenderte Oberflaeche
 # (Deutsch/English/Arabisch inkl. RTL). dashboard.html laedt sie im Kopf — fehlt sie,
 # gibt es einen 404 und die Seite bleibt einsprachig. Die Woerterbuch-SCHLUESSEL sind

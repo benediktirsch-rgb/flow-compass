@@ -306,6 +306,8 @@ param(
   # kennzahlen-data.js und stand deshalb am 09.09. noch auf dem 01.09. Jetzt holt der Server sie
   # selbst, genau wie beim Verein. Gleiche Cache-Zeit: Tageszahlen aendern sich in Stunden.
   [string]$VishnuStatsUrl = 'https://vishnuartists.com/stats.php',
+  [string]$TowerStand = 'C:/dev/vishnu-tower/site/stand.json',   # /api/tower (16.09.2026), geschrieben von tools\stand-bauen.ps1
+  [string]$TowerUrl = 'https://tower.vishnuartists.com/',
   [int]$VishnuCacheSec = 3600,
   [int]$VishnuTimeoutSec = 12,
   # Finanzlauf (02.09.2026): Kennzahlen, Entscheidungen und GF-Sync aus der Finanzverwaltung auf
@@ -3323,6 +3325,27 @@ function Get-VishnuTraffic([bool]$fresh) {
 }
 
 # ---------------------------------------------------------------------------
+# Vishnu Tower — /api/tower (16.09.2026, Bene: "FAB und Tower sind auch angeschlossen?" → "ja, auch bei mir")
+#   Liest die Summen, die vishnu-tower/tools\stand-bauen.ps1 aus dem Ledger der Pruefkette und pool-api.php
+#   baut (nur Aggregate, keine Namen). Hier die lokale Datei — die Firmensicht auf dem Wolkenserver holt
+#   dieselbe Datei von tower. (produkt/server/firmen-daten.ps1 › Get-Tower); die Antwort hat dieselbe Form.
+#   pool.antwort_h bleibt draussen: misst nicht, was der Name sagt (vishnu-tower-Memory).
+# ---------------------------------------------------------------------------
+function Get-Tower {
+  if (-not (Test-Path -LiteralPath $TowerStand)) {
+    return @{ ok = $false; error = 'NO_DATA'; hint = "Keine Tower-Zahlen: $TowerStand fehlt — vishnu-tower/publish-tower.ps1 laufen lassen." }
+  }
+  try { $s = [IO.File]::ReadAllText($TowerStand, [Text.Encoding]::UTF8) | ConvertFrom-Json }
+  catch { return @{ ok = $false; error = 'BAD_JSON'; hint = ('stand.json nicht lesbar: ' + $_.Exception.Message) } }
+  $alter = $null; $d = [datetime]::MinValue
+  if ([datetime]::TryParse([string]$s.stand, [ref]$d)) { $alter = [Math]::Round(((Get-Date) - $d).TotalHours, 1) }
+  $pool = $null
+  if ($s.pool) { $pool = @{}; foreach ($f in 'pool','verfuegbar','offen','im_einsatz','angebote_90','platziert_90','abgesagt_90') { if ($s.pool.PSObject.Properties[$f]) { $pool[$f] = $s.pool.$f } } }
+  @{ ok = $true; stand = [string]$s.stand; alterStd = $alter; url = $TowerUrl; quelle = 'lokal'
+     ledger = $s.ledger; pool = $pool; fehlt = @(@($s.fehlt) | Where-Object { $_ } | ForEach-Object { [string]$_ }) }
+}
+
+# ---------------------------------------------------------------------------
 # Finanzlauf — /api/finanzen (02.09.2026, Bene: "da muss immer alles ankommen")
 #   Die Finanzverwaltung lebt auf vishnuartists.com/finanzlauf (Kontostand, Deckung, Monats-
 #   ergebnis, Belegstand, neun Entscheidungen des Strategiepapiers mit Stimmen von Bene und
@@ -5128,6 +5151,7 @@ try {
         continue
       }
 
+      if ($path -eq '/api/tower') { Send-Json $ctx (Get-Tower) 200; continue }
       if ($path -eq '/api/vishnu') {
         $v = Get-VishnuTraffic ($req.QueryString['fresh'] -eq '1')
         Send-Json $ctx $v 200                                   # auch {ok:false} ist eine Antwort

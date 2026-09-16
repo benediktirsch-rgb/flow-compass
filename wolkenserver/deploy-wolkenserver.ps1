@@ -155,7 +155,7 @@ function Firma-Block([string]$stimme) {
   if (-not $stimme) { return $null }
   [ordered]@{ stimme = $stimme; finanzUrl = 'https://vishnuartists.com/finanzlauf/'; nutzerUrl = 'https://vishnuartists.com/nutzer-kpi.php'
               poolUrl = 'https://vishnuartists.com/pool-api.php'; pflegeUrl = 'https://vishnuartists.com/portal-admin.php?v=bewerbungen'
-              statsUrl = 'https://vishnuartists.com/stats.php' }
+              statsUrl = 'https://vishnuartists.com/stats.php'; towerUrl = 'https://tower.vishnuartists.com/' }
 }
 function Konfig-Json([string]$name, [string]$coach, [int]$port, [string]$backend, [string]$daten, [string]$privat, [string]$arbeit, [string]$site, [string]$projekt, [string]$hinweis, $firma = $null) {
   $k = [ordered]@{
@@ -185,13 +185,21 @@ $paare = @(
 $envZeilen = @('# Umgebung des Dienstes compass-server — geschrieben von deploy-wolkenserver.ps1, nur root lesbar.', 'COMPASS_BACKEND=cli')
 $finTok = Env-User 'FINANZ_TOKEN'
 if (-not $finTok) { Sag 'FINANZ_TOKEN fehlt auf diesem Rechner — die Firmensicht bleibt auf dem Server ohne Zahlen (NO_KEY).' }
+# Maschinenschlüssel der Tower-Tür (16.09.2026): dieselbe Zeichenfolge wie $GATE_KEY in vishnu-tower\site\gate-config.php.
+$towKey = Env-User 'TOWER_GATE_KEY'
+if (-not $towKey) { Sag 'TOWER_GATE_KEY fehlt auf diesem Rechner — die Tower-Karte auf dem Server sagt NO_KEY.' }
 $da = @(); $fehlt = @()
 foreach ($p in $paare) {
   $v = Env-User $p[1]
   if ($v) { $envZeilen += (Env-Zeile $p[0] $v); $da += $p[0] } else { $fehlt += $p[1] }
 }
 # Staging bekommt $envZeilen als Kopie (siehe unten) — FINANZ_TOKEN deshalb nur in die Hauptinstanz-Datei.
-Write-Lf (Join-Path $stage 'env') ((($envZeilen + $(if ($finTok -and $FirmaSicht.ContainsKey('')) { @(Env-Zeile 'FINANZ_TOKEN' $finTok) } else { @() })) -join "`n") + "`n")
+$hauptFirma = @()
+if ($FirmaSicht.ContainsKey('')) {
+  if ($finTok) { $hauptFirma += (Env-Zeile 'FINANZ_TOKEN' $finTok) }
+  if ($towKey) { $hauptFirma += (Env-Zeile 'TOWER_GATE_KEY' $towKey) }
+}
+Write-Lf (Join-Path $stage 'env') ((($envZeilen + $hauptFirma) -join "`n") + "`n")
 Sag ("Schlüssel für den Server: {0}" -f ($da -join ', '))
 if ($fehlt.Count) { Sag ("FEHLT auf diesem Rechner (bleibt auf dem Server leer): {0}" -f ($fehlt -join ', ')) }
 if ($fehlt -contains 'WOLKE_CLAUDE_TOKEN') { Sag 'Ohne WOLKE_CLAUDE_TOKEN läuft der Coach ohne Anmeldung (NO_LOGIN) - Trello, Jira und der Stapel aus Dateien gehen trotzdem. Setzen: claude setup-token, dann [Environment]::SetEnvironmentVariable(''WOLKE_CLAUDE_TOKEN'',''<token>'',''User'') und erneut deployen.' }
@@ -256,6 +264,7 @@ foreach ($s in $inst.Keys) {
     $schl += 'Jira'
   }
   if ($fs -and $finTok) { $ez += (Env-Zeile 'FINANZ_TOKEN' $finTok); $schl += "Firmensicht ($fs)" }
+  if ($fs -and $towKey) { $ez += (Env-Zeile 'TOWER_GATE_KEY' $towKey); $schl += 'Tower' }
   Write-Lf (Join-Path $d 'env') (($ez -join "`n") + "`n")
   Write-Lf (Join-Path $d "$s.caddy") ("handle_path /$($e.pfad)/* {`n`treverse_proxy localhost:$($e.port) {`n`t`theader_up Host localhost:$($e.port)`n`t}`n}`n")
   Sag ("Instanz {0}: Name {1} · Port {2} · Backend {3} · Trello {4}/{5} · Jira {6}/{7} · Schlüssel der Person: {8}" -f $s, $w.name, $e.port, $backend, $w.privat, $w.arbeit, $w.site, $w.projekt, $(if ($schl.Count) { $schl -join ', ' } else { "keine (TRELLO_${sv}_*, JIRA_${sv}_* nicht gesetzt)" }))

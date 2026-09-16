@@ -28,7 +28,7 @@ $PoolUrl       = [string](Get-Feld $FirmaK 'poolUrl' '')
 $PortalAdminUrl = [string](Get-Feld $FirmaK 'pflegeUrl' '')
 $StatsUrl      = [string](Get-Feld $FirmaK 'statsUrl' '')
 if ($FinanzUrl -and -not $FinanzUrl.EndsWith('/')) { $FinanzUrl += '/' }
-$FirmaAn       = [bool]($FinanzUrl -or $NutzerUrl -or $PoolUrl -or $StatsUrl)
+$FirmaAn       = [bool]($FinanzUrl -or $NutzerUrl -or $PoolUrl -or $StatsUrl -or (Get-Feld $FirmaK 'towerUrl' ''))
 $FinanzCacheSec = 300; $NutzerCacheSec = 900; $PoolCacheSec = 300; $StatsCacheSec = 3600; $FirmaTimeoutSec = 12
 
 function Get-FirmaAus([string]$was) {
@@ -295,6 +295,40 @@ function Get-Traffic([bool]$fresh) {
   $out
 }
 
+# ---------- Tower (Matching und Ausschreibungen) ----------
+# Die Tower-Seite legt ihre Summen als stand.json hinter ihre Tür (nur Aggregate, keine Namen). Gelesen wird
+# mit dem Maschinenschlüssel der Tür (Kopf X-Vf-Key, Umgebungsvariable TOWER_GATE_KEY). Ohne Schlüssel leitet die
+# Tür zur Anmeldung um — das wird als NO_KEY gemeldet, nie als leerer Stand. Form wie der persönliche Server.
+$TowerUrl = [string](Get-Feld $FirmaK 'towerUrl' '')
+if ($TowerUrl -and -not $TowerUrl.EndsWith('/')) { $TowerUrl += '/' }
+$script:TowerCache = @{ zeit = $null; out = $null }
+function Get-Tower([bool]$fresh) {
+  if (-not $TowerUrl) { return (Get-FirmaAus 'towerUrl') }
+  $cc = $script:TowerCache
+  if (-not $fresh -and $cc.out -and $cc.zeit -and ((Get-Date) - $cc.zeit).TotalSeconds -lt 900) { return $cc.out }
+  $key = ([string]$env:TOWER_GATE_KEY) -replace '\s', ''
+  if (-not $key) { return @{ ok = $false; error = 'NO_KEY'; hint = 'TOWER_GATE_KEY fehlt in der Umgebung dieses Servers.'; url = $TowerUrl } }
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $r = Invoke-WebRequest -Uri ($TowerUrl + 'stand.json') -Headers @{ 'X-Vf-Key' = $key } -MaximumRedirection 0 -TimeoutSec $FirmaTimeoutSec -UseBasicParsing -ErrorAction Stop
+  } catch {
+    $code = $null; try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+    if ($code -eq 302 -or $code -eq 301) { return @{ ok = $false; error = 'AUTH_INVALID'; hint = 'Die Tür lehnt TOWER_GATE_KEY ab (Umleitung zur Anmeldung).'; url = $TowerUrl } }
+    $f = Get-FirmaFehler $_ 'stand.json'; $f.url = $TowerUrl; return $f
+  }
+  if ([int]$r.StatusCode -ne 200) { return @{ ok = $false; error = 'AUTH_INVALID'; hint = "Die Tür antwortet $([int]$r.StatusCode) statt der Zahlen."; url = $TowerUrl } }
+  try { $s = ([Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())) | ConvertFrom-Json }
+  catch { return @{ ok = $false; error = 'BAD_JSON'; hint = 'stand.json nicht lesbar.'; url = $TowerUrl } }
+  $alter = $null; $d = [datetime]::MinValue
+  if ([datetime]::TryParse([string]$s.stand, [ref]$d)) { $alter = [Math]::Round(((Get-Date) - $d).TotalHours, 1) }
+  $pool = $null
+  if ($s.pool) { $pool = @{}; foreach ($f in 'pool','verfuegbar','offen','im_einsatz','angebote_90','platziert_90','abgesagt_90') { if ($s.pool.PSObject.Properties[$f]) { $pool[$f] = $s.pool.$f } } }
+  $out = @{ ok = $true; stand = [string]$s.stand; alterStd = $alter; url = $TowerUrl; quelle = 'tuer'
+            ledger = $s.ledger; pool = $pool; fehlt = @(@($s.fehlt) | Where-Object { $_ } | ForEach-Object { [string]$_ }) }
+  $script:TowerCache = @{ zeit = Get-Date; out = $out }
+  $out
+}
+
 # Router-Hilfe: $true, wenn der Pfad hier beantwortet wurde. compass-server.ps1 ruft sie vor seinem 404.
 function Invoke-FirmaRoute($ctx, $req, [string]$path) {
   $fresh = ($req.QueryString['fresh'] -eq '1')
@@ -304,6 +338,7 @@ function Invoke-FirmaRoute($ctx, $req, [string]$path) {
     '/api/pool'      { Send-Json $ctx (Get-Pool $fresh) 200; return $true }
     '/api/trichter'  { Send-Json $ctx (Get-Trichter $fresh) 200; return $true }
     '/api/traffic'   { Send-Json $ctx (Get-Traffic $fresh) 200; return $true }
+    '/api/tower'     { Send-Json $ctx (Get-Tower $fresh) 200; return $true }
     '/api/vishnu'    { Send-Json $ctx (Get-Traffic $fresh) 200; return $true }
     '/api/finanzen/entscheidung' {
       if ($req.HttpMethod -ne 'POST') { Send-Json $ctx @{ ok = $false; error = 'NUR_POST' } 405; return $true }
