@@ -72,6 +72,16 @@ function Get-CliToken { foreach ($s in @('Process','User')) { $v = [Environment]
 
 # ---------- Konfiguration (compass-server.json) ----------
 function Read-Text($p) { if (Test-Path -LiteralPath $p) { try { return [IO.File]::ReadAllText($p, [Text.Encoding]::UTF8) } catch { return '' } } return '' }
+# Zeitpunkt lesen (16.09.2026): pwsh 7 macht aus ISO-Zeitstempeln beim JSON-Lesen schon [datetime]; ein
+# [DateTime]::Parse ueber den daraus entstandenen Text (US-Form) scheitert unter de_DE. Beide Formen annehmen.
+function ConvertTo-Zeitpunkt($v) {
+  if ($v -is [datetime]) { return $v }
+  if ($v -is [DateTimeOffset]) { return $v.LocalDateTime }
+  $s = [string]$v; if (-not $s) { throw 'LEERER_ZEITPUNKT' }
+  $d = [datetime]::MinValue
+  if ([datetime]::TryParse($s, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::None, [ref]$d)) { return $d }
+  [datetime]::Parse($s)
+}
 function Get-Feld($obj, [string]$name, $standard) {
   if ($null -eq $obj) { return $standard }
   $p = $obj.PSObject.Properties[$name]
@@ -118,6 +128,15 @@ foreach ($og in @(Get-Feld $K 'origins' $null)) { $v = ([string]$og).Trim().Trim
 $FirmaModul = Join-Path $Here 'firmen-daten.ps1'
 $FirmaGeladen = $false
 if (Test-Path -LiteralPath $FirmaModul) { . $FirmaModul; $FirmaGeladen = $true }
+# Weitere Module (16.09.2026) — jedes nur, wenn seine Datei neben diesem Skript liegt:
+#   gedaechtnis.ps1  /api/antworten, /api/checkin, /api/einstellungen (Rückfragen, Rituale, Vorlieben über Geräte hinweg)
+#   ausgabe.ps1      /api/ausgabe (Erfolgs-Ausgabe, Morgen- und Abendausgabe)
+#   systembild.ps1   /api/systembild (Wirkungsbild neben der Coach-Karte)
+$ModulGeladen = @{}
+foreach ($mn in 'gedaechtnis','ausgabe','systembild') {
+  $mp = Join-Path $Here "$mn.ps1"
+  if (Test-Path -LiteralPath $mp) { . $mp; $ModulGeladen[$mn] = $true }
+}
 
 # Datenordner beim ersten Start anlegen — die Vorlagen kommen aus vorlagen\ (werden nie überschrieben).
 if (-not (Test-Path -LiteralPath $DatenDir)) { New-Item -ItemType Directory -Force $DatenDir | Out-Null }
@@ -634,7 +653,7 @@ function Save-Stapel {
   $s = Read-Stapel
   $grenze = (Get-Date).AddDays(-30)
   foreach ($k in @($s.stand.Keys)) {
-    $ts = $null; try { $ts = [datetime]::Parse([string]$s.stand[$k].ts) } catch { $ts = $null }
+    $ts = $null; try { $ts = ConvertTo-Zeitpunkt $s.stand[$k].ts } catch { $ts = $null }
     if ($ts -and $ts -lt $grenze) { $s.stand.Remove($k) }
   }
   $o = @{ geschrieben = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
@@ -722,7 +741,7 @@ function Coach-Stapel($in) {
     $st = $s.stand[$k]
     if ($st.status -eq 'ok') { $lage += , @{ key = $k; status = 'ok'; titel = $st.titel; am = $st.ts } }
     elseif ($st.status -eq 'wieder') {
-      $bis = $null; try { $bis = [datetime]::Parse($st.bis) } catch { $bis = $null }
+      $bis = $null; try { $bis = ConvertTo-Zeitpunkt $st.bis } catch { $bis = $null }
       $lage += , @{ key = $k; status = $(if ($bis -and $bis -le $jetzt) { 'wiedervorlage-faellig' } else { 'wiedervorlage-laeuft' })
                     titel = $st.titel; aktion = $st.aktion; seit = $st.ts; bis = $st.bis }
     }
@@ -730,7 +749,7 @@ function Coach-Stapel($in) {
   $fresh = [bool]$in.fresh
   $l = $s.letzte
   if (-not $fresh -and $l -and [string]$l.hash -eq $hash) {
-    $alter = $null; try { $alter = ($jetzt - [datetime]::Parse([string]$l.stand)).TotalMinutes } catch { $alter = $null }
+    $alter = $null; try { $alter = ($jetzt - (ConvertTo-Zeitpunkt $l.stand)).TotalMinutes } catch { $alter = $null }
     if ($alter -ne $null -and $alter -lt 240) {
       return @{ ok = $true; punkte = @($l.punkte); stand = $s.stand; datum = [string]$l.datum; model = [string]$l.model; cache = $true; stand_um = [string]$l.stand }
     }
@@ -989,7 +1008,7 @@ function Get-JiraKpi([bool]$fresh = $false) {
   $heute = (Get-Date).Date; $gestern = $heute.AddDays(-1); if ($heute.DayOfWeek -eq 'Monday') { $gestern = $heute.AddDays(-3) }
   $dHeute = 0; $dGestern = 0; $d7 = 0; $lead = New-Object System.Collections.Generic.List[double]; $liste = New-Object System.Collections.ArrayList
   foreach ($i in @($done.issues)) {
-    $rs = [DateTime]::Parse($i.fields.resolutiondate).ToLocalTime(); $cr = [DateTime]::Parse($i.fields.created).ToLocalTime()
+    $rs = (ConvertTo-Zeitpunkt $i.fields.resolutiondate).ToLocalTime(); $cr = (ConvertTo-Zeitpunkt $i.fields.created).ToLocalTime()
     if ($rs.Date -eq $heute) { $dHeute++ }
     if ($rs.Date -ge $gestern -and $rs.Date -lt $heute) { $dGestern++ }
     if ($rs -ge $heute.AddDays(-7)) { $d7++ }
@@ -1319,6 +1338,9 @@ try {
         continue
       }
       # --- alles andere unter /api/: ehrlich sagen, dass es dieses Paket nicht hat ---
+      if ($ModulGeladen['gedaechtnis'] -and (Invoke-GedaechtnisRoute $ctx $req $path)) { continue }
+      if ($ModulGeladen['ausgabe'] -and (Invoke-AusgabeRoute $ctx $req $path)) { continue }
+      if ($ModulGeladen['systembild'] -and (Invoke-SystembildRoute $ctx $req $path)) { continue }
       if ($FirmaGeladen -and (Invoke-FirmaRoute $ctx $req $path)) { continue }
       if ($path -like '/api/*') { Send-Json $ctx @{ ok = $false; error = 'NICHT_IM_PAKET'; hint = "$path gibt es im Compass-Server-Paket nicht (nur Coach, Stapel, Trello, Jira$(if ($FirmaGeladen) { ', Firmensicht' }))." } 404; continue }
       # --- Statusseite bzw. optional ein Compass-Build ---

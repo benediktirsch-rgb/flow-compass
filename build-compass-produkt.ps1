@@ -742,7 +742,13 @@ RepX '\n<!-- Rückfragen aus der Rezeption \(16\.09\.2026,.*?-->\n<script src="c
 # Erfolgs-Ausgabe (11.09.2026): compass-ausgabe.js macht aus der Anerkennungs-Folie ein Boulevardblatt aus
 # Benes Commits, Jira und Checkins (john-ausgabe.ps1). Ohne eigenen Server gibt es nichts zu drucken —
 # in der Demo bleibt die Anerkennung aus den Beispieldaten. Kommentar und Skriptzeile raus, Datei nie kopiert.
-RepX '\n<!-- Erfolgs-Ausgabe \(11\.09\.2026\):.*?-->\n<script src="compass-ausgabe\.js"></script>' '' 'Erfolgs-Ausgabe nur in der eigenen Instanz'
+# Seit 16.09.2026 (Bene: „baue ihm auch die Features von mir ein — Bildzeitung …“) druckt auch der
+# Compass-Server einer Instanz eine Ausgabe (produkt\server\ausgabe.ps1). Deshalb nur noch in der Demo raus;
+# eine Instanz behält die Zeile, die Datei kopiert der Schritt neben compass-tower.js. Ohne /api/ausgabe
+# fällt compass-ausgabe.js von selbst auf die alte Anerkennungsliste zurück.
+if (-not $slug) {
+  RepX '\n<!-- Erfolgs-Ausgabe \(11\.09\.2026\):.*?-->\n<script src="compass-ausgabe\.js"></script>' '' 'Erfolgs-Ausgabe nur in der eigenen Instanz'
+}
 
 # -Check (16.09.2026): bis hierher ist jeder Anker, jede Listenersetzung und die Wortpruefung ueber die
 # gebaute Seite gelaufen — ab hier wuerde geschrieben. Der Check hoert deshalb genau hier auf; die
@@ -879,6 +885,10 @@ Write-Lf (Join-Path $Ziel 'compass-systemik.js') $sysm
 $towj = (Read-Utf8 (Join-Path $Quelle 'compass-tower.js')).Replace("`r`n","`n")
 $towj = [Text.RegularExpressions.Regex]::Replace($towj, '\bBene\b', 'die Nutzerin')
 Write-Lf (Join-Path $Ziel 'compass-tower.js') $towj
+if ($slug) {
+  $ausj = (Read-Utf8 (Join-Path $Quelle 'compass-ausgabe.js')).Replace("`r`n","`n")
+  Write-Lf (Join-Path $Ziel 'compass-ausgabe.js') $ausj
+}
 
 # Sprachen (28.08.2026): compass-i18n.js uebersetzt die fertig gerenderte Oberflaeche
 # (Deutsch/English/Arabisch inkl. RTL). dashboard.html laedt sie im Kopf — fehlt sie,

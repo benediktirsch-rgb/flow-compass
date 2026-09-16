@@ -133,7 +133,7 @@ if ($Status) {
 $stage = Join-Path $env:TEMP ("wolke-deploy-" + [DateTime]::Now.Ticks)
 New-Item -ItemType Directory -Force (Join-Path $stage 'paket\vorlagen'), (Join-Path $stage 'daten') | Out-Null
 $paketQuelle = Join-Path $repo 'produkt\server'
-foreach ($f in 'compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','firmen-daten.ps1','README.md') { Write-Lf (Join-Path $stage "paket\$f") (Read-Utf8 (Join-Path $paketQuelle $f)) }
+foreach ($f in 'compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','firmen-daten.ps1','gedaechtnis.ps1','ausgabe.ps1','systembild.ps1','README.md') { Write-Lf (Join-Path $stage "paket\$f") (Read-Utf8 (Join-Path $paketQuelle $f)) }
 foreach ($f in 'persona.md','TASKS.md') { Write-Lf (Join-Path $stage "paket\vorlagen\$f") (Read-Utf8 (Join-Path $paketQuelle "vorlagen\$f")) }
 $sha = [Security.Cryptography.SHA256]::Create(); $ms = New-Object IO.MemoryStream
 foreach ($f in (Get-ChildItem (Join-Path $stage 'paket') -Recurse -File | Sort-Object FullName)) { $b = [IO.File]::ReadAllBytes($f.FullName); $ms.Write($b, 0, $b.Length) }

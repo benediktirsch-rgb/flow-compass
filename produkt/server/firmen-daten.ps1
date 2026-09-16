@@ -43,6 +43,14 @@ function Get-FinanzAusweis([string]$token) {
   $sha = [Security.Cryptography.SHA256]::Create()
   try { -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($token)) | ForEach-Object { $_.ToString('x2') }) } finally { $sha.Dispose() }
 }
+# pwsh 7 macht aus ISO-Zeitstempeln beim Einlesen schon [datetime]; [string] ergaebe dann das US-Format,
+# das der Compass (und jede Kultur ausser en-US) falsch liest. Deshalb jeden Zeitstempel hierueber ausgeben.
+function ConvertTo-FirmaZeit($v) {
+  if ($null -eq $v) { return '' }
+  if ($v -is [datetime]) { return $v.ToString('yyyy-MM-ddTHH:mm:ss') }
+  if ($v -is [DateTimeOffset]) { return $v.ToString('yyyy-MM-ddTHH:mm:sszzz') }
+  [string]$v
+}
 function Get-FirmaFehler($err, [string]$quelle) {
   $e = $err.Exception; while ($e.InnerException) { $e = $e.InnerException }
   $code = $null; try { $code = [int]$err.Exception.Response.StatusCode } catch { }
@@ -73,7 +81,7 @@ function Get-Finanzen([bool]$fresh) {
   foreach ($x in @($r.entscheidungen)) {
     if (-not $x) { continue }
     $st = @{}
-    foreach ($p in @($x.stimmen.PSObject.Properties)) { if ($p) { $st[$p.Name] = @{ wahl = $p.Value.wahl; kommentar = [string]$p.Value.kommentar; zeit = [string]$p.Value.zeit; spaeter = [string]$p.Value.spaeter } } }
+    foreach ($p in @($x.stimmen.PSObject.Properties)) { if ($p) { $st[$p.Name] = @{ wahl = $p.Value.wahl; kommentar = [string]$p.Value.kommentar; zeit = (ConvertTo-FirmaZeit $p.Value.zeit); spaeter = (ConvertTo-FirmaZeit $p.Value.spaeter) } } }
     $ent += , @{ id = [string]$x.id; titel = [string]$x.titel; frage = [string]$x.frage; warum = [string]$x.warum
                  optionen = @($x.optionen | ForEach-Object { [string]$_ }); empfehlung = [int]$x.empfehlung
                  stimmen = $st; einig = [bool]$x.einig
@@ -86,7 +94,7 @@ function Get-Finanzen([bool]$fresh) {
             # sonst hielte der Compass fremde Stimmen für die eigenen.
             ich = $(if ($FirmaStimme) { $FirmaStimme } else { [string]$r.ich })
             teilnehmer = @($r.teilnehmer | ForEach-Object { [string]$_ })
-            zahlen = $z; stichtag = [string]$r.stichtag; ausgewertet = [string]$r.ausgewertet
+            zahlen = $z; stichtag = (ConvertTo-FirmaZeit $r.stichtag); ausgewertet = (ConvertTo-FirmaZeit $r.ausgewertet)
             kontostand = $(if ($z) { [double]$r.kontostand } else { $null })
             deckung = $(if ($z -and $null -ne $r.deckung) { [double]$r.deckung } else { $null })
             ergebnis = $(if ($z) { [double]$r.ergebnis } else { $null }); vormonat = $(if ($z -and $null -ne $r.vormonat) { [double]$r.vormonat } else { $null })
@@ -151,11 +159,11 @@ function Get-Nutzer([bool]$fresh) {
   }
   $mHit = $(if ($r.hitliste) { @{ gesamt = [int]$r.hitliste.gesamt; vor30 = [int]$r.hitliste.vor30
                                   nachArt = @(@($r.hitliste.nachArt) | Where-Object { $_ } | ForEach-Object { @{ art = [string]$_.art; n = [int]$_.n } }) } } else { $null })
-  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); cacheSec = $NutzerCacheSec; gemessen = [string]$r.stand
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); cacheSec = $NutzerCacheSec; gemessen = (ConvertTo-FirmaZeit $r.stand)
             konten = $mKonten; neu = $mNeu; aktiv = $mAktiv; hitliste = $mHit
             fehlt = @(@($r.fehlt) | ForEach-Object { [string]$_ })
-            personen = @(@($r.personen) | Where-Object { $_ } | ForEach-Object { @{ name = [string]$_.name; n = [int]$_.n; zuletzt = [string]$_.zuletzt } })
-            neueste  = @(@($r.neueste)  | Where-Object { $_ } | ForEach-Object { @{ name = [string]$_.name; quelle = [string]$_.quelle; erstellt = [string]$_.erstellt } }) }
+            personen = @(@($r.personen) | Where-Object { $_ } | ForEach-Object { @{ name = [string]$_.name; n = [int]$_.n; zuletzt = (ConvertTo-FirmaZeit $_.zuletzt) } })
+            neueste  = @(@($r.neueste)  | Where-Object { $_ } | ForEach-Object { @{ name = [string]$_.name; quelle = [string]$_.quelle; erstellt = (ConvertTo-FirmaZeit $_.erstellt) } }) }
   $script:NutzerCache = @{ zeit = Get-Date; out = $out }
   $out
 }
@@ -211,7 +219,7 @@ function Get-Pool([bool]$fresh) {
     $offen += , @{ id = [int]$b.id; personId = [int]$b.person_id; name = [string]$b.anzeigename; mail = $mail
                    art = [string]$b.art; status = [string]$b.status; rolle = [string]$b.rolle
                    kunde = [string]$b.kunde; ort = [string]$b.ort; ab = [string]$b.ab
-                   erstellt = [string]$b.erstellt; geaendert = [string]$b.geaendert }
+                   erstellt = (ConvertTo-FirmaZeit $b.erstellt); geaendert = (ConvertTo-FirmaZeit $b.geaendert) }
   }
   $out = @{ ok = $true; stand = (Get-Date).ToString('o'); cacheSec = $PoolCacheSec
             url = $PoolUrl; urlPflege = $PortalAdminUrl
@@ -219,6 +227,37 @@ function Get-Pool([bool]$fresh) {
             offen = @($offen); offenN = @($offen).Count; fehlt = @($fehlt) }
   $script:PoolCache = @{ zeit = Get-Date; out = $out }
   $out
+}
+# Einen Vorgang eine Stufe weiterschieben — POST /api/pool/schritt {id, status[, notiz]} (16.09.2026).
+# Gegenüber pool-api.php genau EINE Aktion: bewerbung_weiter. Nicht anlegen, nicht pflegen, nichts löschen —
+# der Token könnte das alles, deshalb steht die Grenze hier im Code. Im Zeitstrahl drüben steht, von wem es kam.
+function Send-PoolSchritt($in) {
+  if (-not $PoolUrl) { return (Get-FirmaAus 'poolUrl') }
+  $token = Get-FinanzToken
+  if (-not $token) { return $NoKeyFirma }
+  $id = 0; try { $id = [int]$in.id } catch { }
+  $status = [string]$in.status
+  if (-not $id) { return @{ ok = $false; error = 'BAD_ID'; hint = 'id des Vorgangs fehlt.' } }
+  $erlaubt = @()
+  foreach ($a in @($script:PoolStufen.Keys)) { $erlaubt += @($script:PoolStufen[$a].Keys) }
+  if ($erlaubt -notcontains $status) { return @{ ok = $false; error = 'BAD_STATUS'; hint = ('Unbekannte Stufe: ' + $status) } }
+  $wer = 'Flow Compass'; if ($FirmaStimme) { $wer = "Flow Compass ($FirmaStimme)" }
+  $body = @{ tun = 'bewerbung_weiter'; id = $id; status = $status; wer = $wer }
+  if ([string]$in.notiz) { $body.notiz = [string]$in.notiz }
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $r = Invoke-RestMethod -Uri $PoolUrl -Method Post -TimeoutSec $FirmaTimeoutSec -ContentType 'application/json; charset=utf-8' `
+           -Headers @{ 'X-Finanz-Token' = (Get-FinanzAusweis $token) } -UserAgent 'Flow-Compass-Server/1.0' `
+           -Body ([Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json -Compress)))
+  } catch {
+    $e = $_.Exception; while ($e.InnerException) { $e = $e.InnerException }
+    $code = $null; try { $code = [int]$_.Exception.Response.StatusCode } catch { }
+    return @{ ok = $false; error = $(if ($code -eq 401) { 'AUTH_INVALID' } elseif ($code -eq 400) { 'ABGELEHNT' } elseif ($code -eq 404) { 'UNBEKANNT' } else { 'UNREACHABLE' })
+              status = $code; hint = $e.Message }
+  }
+  $script:PoolCache = @{ zeit = $null; out = $null }
+  Write-Host ("[{0}] Pool: Vorgang {1} -> {2}" -f (Get-Date -Format 'HH:mm:ss'), $id, $status) -ForegroundColor Green
+  @{ ok = [bool]$r.ok; id = $id; status = $status }
 }
 function Get-TrichterTage([string]$zeit) {
   if (-not $zeit) { return $null }
@@ -285,7 +324,7 @@ function Get-Traffic([bool]$fresh) {
   }
   $heute = @($tage | Where-Object { $_.tag -eq $heuteStr })
   $top = @(@($r.pages) | Select-Object -First 5 | ForEach-Object { @{ path = [string]$_.path; titel = [string]$_.title; views = [int]$_.views } })
-  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); quelle = $StatsUrl; cacheSec = $StatsCacheSec; seit = [string]$r.seit
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); quelle = $StatsUrl; cacheSec = $StatsCacheSec; seit = (ConvertTo-FirmaZeit $r.seit)
             traffic = @{ tag = $(if ($gestern) { $gestern.tag } else { $null }); aufrufe = $(if ($gestern) { $gestern.n } else { $null })
                          heute = $(if ($heute.Count) { $heute[0].n } else { $null })
                          schnitt7 = $schnitt7; abweichung = $abweichung
@@ -343,6 +382,12 @@ function Invoke-FirmaRoute($ctx, $req, [string]$path) {
     '/api/traffic'   { Send-Json $ctx (Get-Traffic $fresh) 200; return $true }
     '/api/tower'     { Send-Json $ctx (Get-Tower $fresh) 200; return $true }
     '/api/vishnu'    { Send-Json $ctx (Get-Traffic $fresh) 200; return $true }
+    '/api/pool/schritt' {
+      if ($req.HttpMethod -ne 'POST') { Send-Json $ctx @{ ok = $false; error = 'NUR_POST' } 405; return $true }
+      $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { return $true }
+      if (-not $in) { Send-Json $ctx @{ ok = $false; error = 'NO_BODY' } 400; return $true }
+      Send-Json $ctx (Send-PoolSchritt $in) 200; return $true
+    }
     '/api/finanzen/entscheidung' {
       if ($req.HttpMethod -ne 'POST') { Send-Json $ctx @{ ok = $false; error = 'NUR_POST' } 405; return $true }
       $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { return $true }
