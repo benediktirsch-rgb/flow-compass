@@ -319,11 +319,14 @@ function Get-Tower([bool]$fresh) {
   if ([int]$r.StatusCode -ne 200) { return @{ ok = $false; error = 'AUTH_INVALID'; hint = "Die Tür antwortet $([int]$r.StatusCode) statt der Zahlen."; url = $TowerUrl } }
   try { $s = ([Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())) | ConvertFrom-Json }
   catch { return @{ ok = $false; error = 'BAD_JSON'; hint = 'stand.json nicht lesbar.'; url = $TowerUrl } }
-  $alter = $null; $d = [datetime]::MinValue
-  if ([datetime]::TryParse([string]$s.stand, [ref]$d)) { $alter = [Math]::Round(((Get-Date) - $d).TotalHours, 1) }
+  # pwsh 7 macht aus "2026-09-16T16:07:58" beim Einlesen schon ein DateTime — [string] ergaebe dann das
+  # US-Format, und TryParse scheitert still (Karte: „Alter unbekannt“). Deshalb beide Formen annehmen.
+  $alter = $null; $d = [datetime]::MinValue; $standText = [string]$s.stand
+  if ($s.stand -is [datetime]) { $d = $s.stand; $standText = $d.ToString('yyyy-MM-ddTHH:mm:ss'); $alter = [Math]::Round(((Get-Date) - $d).TotalHours, 1) }
+  elseif ([datetime]::TryParse($standText, [ref]$d)) { $alter = [Math]::Round(((Get-Date) - $d).TotalHours, 1) }
   $pool = $null
   if ($s.pool) { $pool = @{}; foreach ($f in 'pool','verfuegbar','offen','im_einsatz','angebote_90','platziert_90','abgesagt_90') { if ($s.pool.PSObject.Properties[$f]) { $pool[$f] = $s.pool.$f } } }
-  $out = @{ ok = $true; stand = [string]$s.stand; alterStd = $alter; url = $TowerUrl; quelle = 'tuer'
+  $out = @{ ok = $true; stand = $standText; alterStd = $alter; url = $TowerUrl; quelle = 'tuer'
             ledger = $s.ledger; pool = $pool; fehlt = @(@($s.fehlt) | Where-Object { $_ } | ForEach-Object { [string]$_ }) }
   $script:TowerCache = @{ zeit = Get-Date; out = $out }
   $out
