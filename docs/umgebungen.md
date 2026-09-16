@@ -81,10 +81,18 @@ Nachgezogen: `_tools\domain-uebersicht.ps1 › $PRUEFEN` (16.09.). Offen: `john-
 die Staging-Zeilen kommen mit demselben Paket. Deploy-Wächter-Paare bekommt Staging bewusst nicht: es trägt
 den Arbeitsstand, nicht HEAD — ein Vergleich gegen HEAD wäre dort immer „alt“.
 
-## Wo Staging noch fehlt (Stand 15.09.2026)
+## Team-Cockpit (seit 16.09.2026, Repo flow-cockpit)
 
-Die Stufe ist für den Compass gebaut. Cockpit (`flow-cockpit`, `publish-cockpit.ps1` → `va.` und
-`demo./cockpit/`), Website (`vishnuartists-website-redesign`, Workflow → `vishnuartists.com`),
+`flow-cockpit/stufen.json` + `publish-cockpit.ps1 -Stufe alle|staging|prod [-Erzwingen]`:
+`site/staging/va` → `staging-va.vishnuartists.com` (eigene Tür, eigenes Geheimnis, `va-data.json` als Kopie
+des Live-Stands von va.), `site/staging/cockpit` → `staging-demo.vishnuartists.com/cockpit/`. Gekennzeichnet
+mit `build-stufe.ps1` aus diesem Repo (ein Werkzeug für alle Produkte). Prod-Regel `commit` gilt auch dort —
+**außer für `va-data.json`**: der stündliche Datenlauf (`_tools\va-datenlauf.ps1` → `-NurVa`) lädt Daten
+immer, Code nur aus einer sauberen Arbeitskopie. Offen: Subdomain `staging-va` im KAS (Bene).
+
+## Wo Staging noch fehlt (Stand 16.09.2026)
+
+Die Stufe ist für Compass und Team-Cockpit gebaut. Website (`vishnuartists-website-redesign`, Workflow → `vishnuartists.com`),
 Tower (`publish-tower.ps1`), Johns Rezeption (`john-agent`, `hotel-vaikuntha.de/john/`), Vaikuntha
 (WordPress) und das Porsche-Cockpit (GitHub Pages) haben weiter nur lokal und Prod. Das Muster ist
 dasselbe: `stufen.json`-Regel, `staging-<sub>`-Ziel, Kennzeichnung, Freigabe = Commit. Reihenfolge
