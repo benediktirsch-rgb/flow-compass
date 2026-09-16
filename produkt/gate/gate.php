@@ -222,8 +222,18 @@ if ( isset( $_GET['wer'] ) ) {
 	if ( ! $ich || ! file_exists( $KONFIG ) ) { echo json_encode( array( 'ok' => false ) ); exit; }
 	/* rollen: null = Cookie von vor dem 11.09.2026 (ohne Rollen) — das Portal nimmt dann die Rollen
 	   aus portal.js, bis das Cookie spätestens nach $STUNDEN Stunden neu ausgestellt ist. */
-	echo json_encode( array( 'ok' => true, 'person' => (int) $ich['p'], 'mail' => (string) $ich['m'], 'name' => (string) ( $ich['n'] ?? '' ),
-		'rollen' => isset( $ich['r'] ) ? g_rollen_sauber( $ich['r'] ) : null, 'besitzer' => g_besitzer( $ich ) ), JSON_UNESCAPED_UNICODE );
+	$aus = array( 'ok' => true, 'person' => (int) $ich['p'], 'mail' => (string) $ich['m'], 'name' => (string) ( $ich['n'] ?? '' ),
+		'rollen' => isset( $ich['r'] ) ? g_rollen_sauber( $ich['r'] ) : null, 'besitzer' => g_besitzer( $ich ) );
+	/* Madeleine-Ticket (16.09.2026): Madeleine läuft auf dem Wolkenserver und kennt Benes private Finanzen. Der
+	   Server beantwortet sie nur mit diesem Ticket — ausgestellt nur der Besitzerin, nur auf eine Anfrage der
+	   eigenen Seite (nicht über CORS an eine Schwester-Subdomain), 10 Minuten gültig, signiert mit $GATE_KEY
+	   (auf dem Server: MADELEINE_TICKET_KEY). Format: <exp>.<person>.<hmac-sha256 hex von "madeleine|exp|person">. */
+	$gleich = isset( $_SERVER['HTTP_SEC_FETCH_SITE'] ) && $_SERVER['HTTP_SEC_FETCH_SITE'] === 'same-origin';
+	if ( $aus['besitzer'] && $gleich && is_string( $GATE_KEY ) && strlen( $GATE_KEY ) >= 16 ) {
+		$exp = time() + 600; $pers = (int) $ich['p'];
+		$aus['madeleine'] = $exp . '.' . $pers . '.' . hash_hmac( 'sha256', 'madeleine|' . $exp . '|' . $pers, $GATE_KEY );
+	}
+	echo json_encode( $aus, JSON_UNESCAPED_UNICODE );
 	exit;
 }
 

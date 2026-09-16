@@ -43,6 +43,8 @@ param(
   [string]$Effort = 'medium',
   [string]$JiraProjekt = 'VA',
   [string]$JohnDir = 'C:\dev\john',
+  # Madeleine (16.09.2026): Persona, Wissen, private Konten — nur in die Hauptinstanz und Staging, nie in Team-Instanzen.
+  [string]$MadeleineDir = 'C:\dev\madeleine',
   [string]$Schluessel = (Join-Path $env:USERPROFILE '.ssh\id_ed25519_wolke'),
   [switch]$NurStaging,
   [switch]$Staging,
@@ -133,7 +135,7 @@ if ($Status) {
 $stage = Join-Path $env:TEMP ("wolke-deploy-" + [DateTime]::Now.Ticks)
 New-Item -ItemType Directory -Force (Join-Path $stage 'paket\vorlagen'), (Join-Path $stage 'daten') | Out-Null
 $paketQuelle = Join-Path $repo 'produkt\server'
-foreach ($f in 'compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','firmen-daten.ps1','gedaechtnis.ps1','ausgabe.ps1','systembild.ps1','README.md') { Write-Lf (Join-Path $stage "paket\$f") (Read-Utf8 (Join-Path $paketQuelle $f)) }
+foreach ($f in 'compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','firmen-daten.ps1','gedaechtnis.ps1','ausgabe.ps1','systembild.ps1','madeleine.ps1','README.md') { Write-Lf (Join-Path $stage "paket\$f") (Read-Utf8 (Join-Path $paketQuelle $f)) }
 foreach ($f in 'persona.md','TASKS.md') { Write-Lf (Join-Path $stage "paket\vorlagen\$f") (Read-Utf8 (Join-Path $paketQuelle "vorlagen\$f")) }
 $sha = [Security.Cryptography.SHA256]::Create(); $ms = New-Object IO.MemoryStream
 foreach ($f in (Get-ChildItem (Join-Path $stage 'paket') -Recurse -File | Sort-Object FullName)) { $b = [IO.File]::ReadAllBytes($f.FullName); $ms.Write($b, 0, $b.Length) }
@@ -157,7 +159,7 @@ function Firma-Block([string]$stimme) {
               poolUrl = 'https://vishnuartists.com/pool-api.php'; pflegeUrl = 'https://vishnuartists.com/portal-admin.php?v=bewerbungen'
               statsUrl = 'https://vishnuartists.com/stats.php'; towerUrl = 'https://tower.vishnuartists.com/' }
 }
-function Konfig-Json([string]$name, [string]$coach, [int]$port, [string]$backend, [string]$daten, [string]$privat, [string]$arbeit, [string]$site, [string]$projekt, [string]$hinweis, $firma = $null) {
+function Konfig-Json([string]$name, [string]$coach, [int]$port, [string]$backend, [string]$daten, [string]$privat, [string]$arbeit, [string]$site, [string]$projekt, [string]$hinweis, $firma = $null, [bool]$madeleine = $false) {
   $k = [ordered]@{
     _hinweis = $hinweis
     name = $name; coach = $coach; sprache = 'Deutsch'; port = $port; backend = $backend; modell = $Modell; effort = $Effort
@@ -170,9 +172,10 @@ function Konfig-Json([string]$name, [string]$coach, [int]$port, [string]$backend
     origins = @('https://*.vishnuartists.com')
   }
   if ($firma) { $k.firma = $firma }
+  if ($madeleine) { $k.madeleine = [ordered]@{ an = $true; modell = '' } }
   return (($k | ConvertTo-Json -Depth 5) + "`n")
 }
-Write-Lf (Join-Path $stage 'compass-server.json') (Konfig-Json $Name $Coach 8787 'cli' '/var/lib/compass-server/daten' $trPrivat $trArbeit $jiraSite $JiraProjekt 'Konfiguration des Compass-Servers auf dem Wolkenserver — geschrieben von deploy-wolkenserver.ps1. Schlüssel liegen in /etc/compass-server/env.' (Firma-Block $FirmaSicht['']))
+Write-Lf (Join-Path $stage 'compass-server.json') (Konfig-Json $Name $Coach 8787 'cli' '/var/lib/compass-server/daten' $trPrivat $trArbeit $jiraSite $JiraProjekt 'Konfiguration des Compass-Servers auf dem Wolkenserver — geschrieben von deploy-wolkenserver.ps1. Schlüssel liegen in /etc/compass-server/env.' (Firma-Block $FirmaSicht['']) $true)
 
 # Schlüssel: nur aus Benutzer-Umgebungsvariablen, nie ausgeben. Auf dem Server heißt der Claude-Token
 # CLAUDE_CODE_OAUTH_TOKEN — hier trägt er einen eigenen Namen, damit er das lokale Claude Code nicht umstellt.
@@ -206,6 +209,29 @@ if ($FirmaSicht.ContainsKey('')) {
   if ($finTok) { $hauptFirma += (Env-Zeile $finName $finTok) }
   if ($towKey) { $hauptFirma += (Env-Zeile 'TOWER_GATE_KEY' $towKey) }
 }
+# Madeleine (16.09.2026): das Ticket der Tür von bene. (und staging-bene, dieselbe gate-config) ist mit deren
+# Maschinenschlüssel signiert — der Server prüft es mit demselben Wert. Ohne ihn bleibt Madeleine zu.
+# VAIKUNTHA_TOKEN liest nur die Vereinsstatistik.
+$madEnv = @()
+$gateKey = Env-User 'VA_GATE_KEY'
+if ($gateKey) { $madEnv += (Env-Zeile 'MADELEINE_TICKET_KEY' $gateKey) } else { Sag 'VA_GATE_KEY fehlt auf diesem Rechner — Madeleine bleibt auf dem Server zu (NO_TICKET_KEY).' }
+$vkTok = Env-User 'VAIKUNTHA_TOKEN'
+if ($vkTok) { $hauptFirma += (Env-Zeile 'VAIKUNTHA_TOKEN' $vkTok) }
+$hauptFirma += $madEnv
+# Madeleines Wissen: vom Rechner in den Staging-Ordner (daten\madeleine), install.sh legt es nach <daten>/madeleine.
+# notizen\beratung.md und beraterrunde.md übernimmt der Server nur beim ersten Mal — danach schreibt Madeleine dort selbst.
+$madZiel = Join-Path $stage 'daten\madeleine'
+if (Test-Path (Join-Path $MadeleineDir 'CLAUDE.md')) {
+  New-Item -ItemType Directory -Force (Join-Path $madZiel 'wissen'), (Join-Path $madZiel 'privat'), (Join-Path $madZiel 'notizen') | Out-Null
+  Write-Lf (Join-Path $madZiel 'CLAUDE.md') (Read-Utf8 (Join-Path $MadeleineDir 'CLAUDE.md'))
+  # persona-gemeinsam.md (Session „Eine Madelene", 16.09.2026): Persona für beide Laufwege, sobald es sie gibt.
+  $q = Join-Path $MadeleineDir 'persona-gemeinsam.md'; if (Test-Path $q) { Write-Lf (Join-Path $madZiel 'persona-gemeinsam.md') (Read-Utf8 $q) }
+  Get-ChildItem (Join-Path $MadeleineDir 'wissen') -Filter *.md -File -ErrorAction SilentlyContinue | ForEach-Object { Write-Lf (Join-Path $madZiel "wissen\$($_.Name)") (Read-Utf8 $_.FullName) }
+  $q = Join-Path $MadeleineDir 'privat\stand.json'; if (Test-Path $q) { Copy-Item -LiteralPath $q (Join-Path $madZiel 'privat\stand.json') }
+  $q = Join-Path $MadeleineDir 'notizen\beratung.md'; if (Test-Path $q) { Write-Lf (Join-Path $madZiel 'notizen\beratung.md') (Read-Utf8 $q) }
+  $q = Join-Path $JohnDir 'coaching\beraterrunde.md'; if (Test-Path $q) { Write-Lf (Join-Path $madZiel 'beraterrunde.md') (Read-Utf8 $q) }
+  Sag ("Madeleine: Persona, {0} Wissensdatei(en), private Konten {1}" -f @(Get-ChildItem (Join-Path $madZiel 'wissen') -File).Count, $(if (Test-Path (Join-Path $madZiel 'privat\stand.json')) { 'ja' } else { 'fehlen' }))
+} else { Sag "Madeleine: $MadeleineDir\CLAUDE.md fehlt — sie läuft auf dem Server mit der Standard-Persona." }
 Write-Lf (Join-Path $stage 'env') ((($envZeilen + $hauptFirma) -join "`n") + "`n")
 Sag ("Schlüssel für den Server: {0}" -f ($da -join ', '))
 if ($fehlt.Count) { Sag ("FEHLT auf diesem Rechner (bleibt auf dem Server leer): {0}" -f ($fehlt -join ', ')) }
@@ -232,9 +258,10 @@ foreach ($s in $inst.Keys) {
     # Boards), dieselben Ausgangsdaten — aber ein eigener Datenordner. Was der Coach dort schreibt (TASKS.md,
     # Coaching-Notizen), bleibt in Staging. Kein instanz.js, kein Eintrag in einer Instanz.
     $d = Join-Path $stage "instanzen\$s"; New-Item -ItemType Directory -Force (Join-Path $d 'daten') | Out-Null
-    Write-Lf (Join-Path $d 'compass-server.json') (Konfig-Json $Name $Coach ([int]$e.port) $(if ($da -contains 'CLAUDE_CODE_OAUTH_TOKEN') { 'cli' } else { 'ohne' }) "/var/lib/compass-server/instanzen/$s/daten" $trPrivat $trArbeit $jiraSite $JiraProjekt 'Staging-Dienst des Compass-Servers (compass-server@staging) — Benes Konfiguration, eigener Datenordner. Geschrieben von deploy-wolkenserver.ps1 -Staging. Schluessel: /etc/compass-server/instanzen/staging.env.')
-    Write-Lf (Join-Path $d 'env') ((($envZeilen | ForEach-Object { $_ -replace '^# Umgebung des Dienstes compass-server ', '# Umgebung des Dienstes compass-server@staging ' }) -join "`n") + "`n")
-    foreach ($f in (Get-ChildItem (Join-Path $stage 'daten') -File)) { Copy-Item -LiteralPath $f.FullName -Destination (Join-Path $d "daten\$($f.Name)") -Force }
+    Write-Lf (Join-Path $d 'compass-server.json') (Konfig-Json $Name $Coach ([int]$e.port) $(if ($da -contains 'CLAUDE_CODE_OAUTH_TOKEN') { 'cli' } else { 'ohne' }) "/var/lib/compass-server/instanzen/$s/daten" $trPrivat $trArbeit $jiraSite $JiraProjekt 'Staging-Dienst des Compass-Servers (compass-server@staging) — Benes Konfiguration, eigener Datenordner. Geschrieben von deploy-wolkenserver.ps1 -Staging. Schluessel: /etc/compass-server/instanzen/staging.env.' $null $true)
+    # Staging: Madeleine mit eigenem Ticket-Schlüssel (staging-bene spiegelt die gate-config von bene.), ohne Firmenzahlen.
+    Write-Lf (Join-Path $d 'env') (((@($envZeilen | ForEach-Object { $_ -replace '^# Umgebung des Dienstes compass-server ', '# Umgebung des Dienstes compass-server@staging ' }) + $madEnv) -join "`n") + "`n")
+    Copy-Item -Path (Join-Path $stage 'daten\*') -Destination (Join-Path $d 'daten') -Recurse -Force
     Write-Lf (Join-Path $d "$s.caddy") ("handle_path /$($e.pfad)/* {`n`treverse_proxy localhost:$($e.port) {`n`t`theader_up Host localhost:$($e.port)`n`t}`n}`n")
     Sag ("Staging: Port {0} · Backend wie Hauptinstanz · Trello {1}/{2} · Jira {3}/{4} · Daten aus dem Hauptordner" -f $e.port, $trPrivat, $trArbeit, $jiraSite, $JiraProjekt)
     continue

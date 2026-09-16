@@ -132,8 +132,9 @@ if (Test-Path -LiteralPath $FirmaModul) { . $FirmaModul; $FirmaGeladen = $true }
 #   gedaechtnis.ps1  /api/antworten, /api/checkin, /api/einstellungen (Rückfragen, Rituale, Vorlieben über Geräte hinweg)
 #   ausgabe.ps1      /api/ausgabe (Erfolgs-Ausgabe, Morgen- und Abendausgabe)
 #   systembild.ps1   /api/systembild (Wirkungsbild neben der Coach-Karte)
+#   madeleine.ps1    /api/madeleine, /api/beraterrunde (zweite Beraterin über Codex; nur mit Block "madeleine")
 $ModulGeladen = @{}
-foreach ($mn in 'gedaechtnis','ausgabe','systembild') {
+foreach ($mn in 'gedaechtnis','ausgabe','systembild','madeleine') {
   $mp = Join-Path $Here "$mn.ps1"
   if (Test-Path -LiteralPath $mp) { . $mp; $ModulGeladen[$mn] = $true }
 }
@@ -359,6 +360,8 @@ function Invoke-Prozess([string]$exe, [string[]]$argv, [string]$stdin, [int]$tim
   foreach ($k in @($psi.EnvironmentVariables.Keys)) { if ($k -match '^(CLAUDECODE|CLAUDE_CODE_)' -and $k -ne 'CLAUDE_CODE_OAUTH_TOKEN') { $psi.EnvironmentVariables.Remove($k) } }
   $tok = Get-CliToken; if ($tok -and -not $psi.EnvironmentVariables.ContainsKey('CLAUDE_CODE_OAUTH_TOKEN')) { $psi.EnvironmentVariables['CLAUDE_CODE_OAUTH_TOKEN'] = $tok }
   if ($opt -and $opt.ohneApiKey) { foreach ($k in @('ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN')) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } } }
+  # Codex (madeleine.ps1): ohne OPENAI_API_KEY, sonst rechnet Codex über die API ab statt über das ChatGPT-Abo.
+  if ($opt -and $opt.ohneOpenAiKey) { foreach ($k in @('OPENAI_API_KEY')) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } } }
   $psi.EnvironmentVariables['DISABLE_AUTOUPDATER'] = '1'
   $psi.EnvironmentVariables['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'] = '1'
   $p = [Diagnostics.Process]::Start($psi)
@@ -1188,7 +1191,7 @@ try {
     if ($origin) {
       $res.Headers['Access-Control-Allow-Origin'] = $origin
       $res.Headers['Vary'] = 'Origin'
-      $res.Headers['Access-Control-Allow-Headers'] = 'Content-Type'
+      $res.Headers['Access-Control-Allow-Headers'] = 'Content-Type, X-Mad-Ticket'
       $res.Headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
       # Der Compass liegt auf https://…, dieser Server auf http://localhost — Chrome verlangt dafür:
       $res.Headers['Access-Control-Allow-Private-Network'] = 'true'
@@ -1341,8 +1344,9 @@ try {
       if ($ModulGeladen['gedaechtnis'] -and (Invoke-GedaechtnisRoute $ctx $req $path)) { continue }
       if ($ModulGeladen['ausgabe'] -and (Invoke-AusgabeRoute $ctx $req $path)) { continue }
       if ($ModulGeladen['systembild'] -and (Invoke-SystembildRoute $ctx $req $path)) { continue }
+      if ($ModulGeladen['madeleine'] -and (Invoke-MadeleineRoute $ctx $req $path)) { continue }
       if ($FirmaGeladen -and (Invoke-FirmaRoute $ctx $req $path)) { continue }
-      if ($path -like '/api/*') { Send-Json $ctx @{ ok = $false; error = 'NICHT_IM_PAKET'; hint = "$path gibt es im Compass-Server-Paket nicht (nur Coach, Stapel, Trello, Jira$(if ($FirmaGeladen) { ', Firmensicht' }))." } 404; continue }
+      if ($path -like '/api/*') { Send-Json $ctx @{ ok = $false; error = 'NICHT_IM_PAKET'; hint = "$path gibt es im Compass-Server-Paket nicht (nur Coach, Stapel, Trello, Jira$(if ($FirmaGeladen) { ', Firmensicht' })$(if ($ModulGeladen['madeleine'] -and $MadeleineAn) { ', Madeleine' }))." } 404; continue }
       # --- Statusseite bzw. optional ein Compass-Build ---
       if (-not $RootFull) {
         if ($path -eq '/') { Send-Html $ctx (Get-StatusSeite) } else { Send-Html $ctx "<!doctype html><meta charset=utf-8><p>404 $(Esc-Html $path) — <a href='/'>Status</a>" 404 }

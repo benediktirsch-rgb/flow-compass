@@ -94,6 +94,21 @@ cp "$QUELLE"/paket/vorlagen/* /opt/compass-server/vorlagen/
 [ -f "$QUELLE/paket/VERSION.txt" ] && cp "$QUELLE/paket/VERSION.txt" /opt/compass-server/
 chown -R compass:compass /opt/compass-server
 
+# Madeleines Wissen (16.09.2026): <quelle>/madeleine → <ziel>/madeleine, nur für den Dienstbenutzer lesbar.
+# Persona, Wissen und private Konten kommen bei jedem Lauf neu; notizen/beratung.md und beraterrunde.md nur beim
+# ersten Mal — danach schreibt Madeleine dort selbst.
+madeleine_daten() {
+  local src="$1/madeleine" dst="$2/madeleine"
+  [ -d "$src" ] || return 0
+  install -d -o compass -g compass -m 750 "$dst" "$dst/wissen" "$dst/privat" "$dst/notizen"
+  for f in "$src"/CLAUDE.md "$src"/persona-gemeinsam.md; do if [ -f "$f" ]; then install -o compass -g compass -m 640 "$f" "$dst/$(basename "$f")"; fi; done
+  for f in "$src"/wissen/*.md; do if [ -e "$f" ]; then install -o compass -g compass -m 640 "$f" "$dst/wissen/$(basename "$f")"; fi; done
+  if [ -f "$src/privat/stand.json" ]; then install -o compass -g compass -m 640 "$src/privat/stand.json" "$dst/privat/stand.json"; fi
+  if [ -f "$src/notizen/beratung.md" ] && [ ! -f "$dst/notizen/beratung.md" ]; then install -o compass -g compass -m 640 "$src/notizen/beratung.md" "$dst/notizen/beratung.md"; fi
+  if [ -f "$src/beraterrunde.md" ] && [ ! -f "$dst/beraterrunde.md" ]; then install -o compass -g compass -m 640 "$src/beraterrunde.md" "$dst/beraterrunde.md"; fi
+  echo "Madeleine: $(ls "$dst/wissen" | wc -l) Wissensdatei(en) in $dst"
+}
+
 log "Konfiguration, Schlüssel, Daten"
 if [ -f "$QUELLE/compass-server.json" ]; then
   install -o root -g compass -m 640 "$QUELLE/compass-server.json" /etc/compass-server/compass-server.json
@@ -113,6 +128,7 @@ if [ -d "$QUELLE/daten" ]; then
     install -o compass -g compass -m 640 "$f" "/var/lib/compass-server/daten/$n"
   done
 fi
+madeleine_daten "$QUELLE/daten" /var/lib/compass-server/daten
 ls -la /var/lib/compass-server/daten | sed -n '1,20p'
 
 log "Claude Code für den Dienstbenutzer (Abo-Weg)"
@@ -120,6 +136,31 @@ if [ ! -x /home/compass/.local/bin/claude ]; then
   su - compass -c 'curl -fsSL https://claude.ai/install.sh | bash' || echo "WARNUNG: Claude Code nicht installiert — der Server läuft, der Coach meldet NO_CLI."
 fi
 [ -x /home/compass/.local/bin/claude ] && su - compass -c '~/.local/bin/claude --version' || true
+
+log "Codex CLI für den Dienstbenutzer (Madeleine, ChatGPT-Abo)"
+# Offizielles Release-Archiv von github.com/openai/codex (statisch gelinkt, kein Node nötig). Aktualisiert wird
+# nur, wenn es fehlt — ein neues Release holt `CODEX_NEU=1` beim Deploy-Aufruf.
+if [ ! -x /home/compass/.local/bin/codex ] || [ "${CODEX_NEU:-0}" = "1" ]; then
+  case "$(dpkg --print-architecture)" in amd64) CX=x86_64 ;; arm64) CX=aarch64 ;; *) CX='' ;; esac
+  URL=''
+  [ -n "$CX" ] && URL=$(curl -fsSL https://api.github.com/repos/openai/codex/releases/latest | grep -o "https://[^\"]*codex-${CX}-unknown-linux-musl\.tar\.gz" | head -1 || true)
+  if [ -n "$URL" ]; then
+    T=$(mktemp -d); curl -fsSL "$URL" | tar -xz -C "$T"
+    install -d -o compass -g compass -m 755 /home/compass/.local/bin
+    install -o compass -g compass -m 755 "$T/codex-${CX}-unknown-linux-musl" /home/compass/.local/bin/codex
+    rm -rf "$T"
+  else
+    echo "WARNUNG: Codex-Archiv nicht gefunden — Madeleine meldet CODEX_NO_CLI."
+  fi
+fi
+# Anmeldung als Datei (nicht im Schlüsselbund) — der Dienst liest ~/.codex/auth.json. Die Anmeldung selbst macht
+# Bene einmal per Gerätecode: wolkenserver\madeleine-anmelden.ps1.
+install -d -o compass -g compass -m 700 /home/compass/.codex
+if [ ! -f /home/compass/.codex/config.toml ] || ! grep -q '^cli_auth_credentials_store' /home/compass/.codex/config.toml; then
+  echo 'cli_auth_credentials_store = "file"' >> /home/compass/.codex/config.toml
+  chown compass:compass /home/compass/.codex/config.toml; chmod 600 /home/compass/.codex/config.toml
+fi
+[ -x /home/compass/.local/bin/codex ] && su - compass -c '~/.local/bin/codex --version; ~/.local/bin/codex login status 2>&1 | head -1' || true
 
 log "Dienst compass-server"
 install -o root -g root -m 644 "$QUELLE/compass-server.service" /etc/systemd/system/compass-server.service
@@ -148,6 +189,7 @@ if [ -d "$QUELLE/instanzen" ]; then
         if [ "$n" = "TASKS.md" ] && [ -f "/var/lib/compass-server/instanzen/$slug/daten/TASKS.md" ]; then continue; fi
         install -o compass -g compass -m 640 "$f" "/var/lib/compass-server/instanzen/$slug/daten/$n"
       done
+      madeleine_daten "$dir/daten" "/var/lib/compass-server/instanzen/$slug/daten"
     fi
     install -o root -g root -m 644 "$dir/$slug.caddy" "/etc/caddy/instanzen/$slug.caddy"
     systemctl enable "compass-server@$slug" >/dev/null 2>&1 || true

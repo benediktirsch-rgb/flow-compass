@@ -35,6 +35,19 @@
      Fragen gehen in den Briefkasten, Beraterrunden gibt es nur am Rechner. */
   const FERN='Madeleine denkt nur auf deinem Rechner — hier ist der Wolkenserver verbunden';
   const nichtHier=(r,j)=>!!(r && r.status===404 && j && j.error==='NICHT_IM_PAKET');
+  /* Ticket der Tür (16.09.2026): Seit Madeleine auf dem Wolkenserver denkt, beantwortet er sie nur mit einem
+     Ticket, das gate.php ?wer=1 der Besitzerin dieser Instanz ausstellt (10 Minuten). Nur für https-Server —
+     der lokale john-server braucht keins, und ein fremder Kopf löste dort nur einen Preflight aus. */
+  const TICKET={t:'',exp:0};
+  async function ticket(){
+    if(!BRIEF || !/^https:/.test(API())) return '';
+    if(TICKET.t && TICKET.exp-60>Date.now()/1000) return TICKET.t;
+    TICKET.t='';
+    try{ const r=await fetch('/gate.php?wer=1',{credentials:'same-origin',cache:'no-store'}); const d=await r.json();
+      if(d && d.madeleine){ TICKET.t=String(d.madeleine); TICKET.exp=+TICKET.t.split('.')[0]||0; } }catch(e){}
+    return TICKET.t;
+  }
+  async function kopf(extra){ const h=Object.assign({},extra||{}); const t=await ticket(); if(t) h['X-Mad-Ticket']=t; return h; }
   const RUNDE_FERN='Beraterrunden laufen nur auf deinem Rechner (john-server). Von hier aus geht der Chat über den Briefkasten — Madeleine antwortet, sobald dein Rechner läuft.';
 
   /* ---------- CSS: den John-Dialog für #madeleine klonen, Karte und Runde eigen ---------- */
@@ -114,10 +127,10 @@
     try{
       const msgs=VERLAUF.filter(m=>m.role==='user'||m.role==='assistant').map(m=>({role:m.role,content:m.content}));
       const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),300000);
-      const r=await fetch(API()+'/api/madeleine',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:msgs,context:kontext()}),signal:ctrl.signal});
+      const r=await fetch(API()+'/api/madeleine',{method:'POST',headers:await kopf({'Content-Type':'application/json'}),body:JSON.stringify({messages:msgs,context:kontext()}),signal:ctrl.signal});
       clearTimeout(tm); const j=await r.json().catch(()=>({error:'HTTP '+r.status}));
       if(nichtHier(r,j)) throw new Error(FERN);
-      if(!r.ok||j.error){ VERLAUF.push({role:'system',content:/^(CODEX_[A-Z_]+|NO_[A-Z]+|LIMIT)$/.test(j.error)?(j.hint||j.error):('Fehler: '+(j.error||r.status))}); }
+      if(!r.ok||j.error){ VERLAUF.push({role:'system',content:/^(CODEX_[A-Z_]+|NO_[A-Z_]+|LIMIT|NUR_BESITZER|TICKET_ABGELAUFEN)$/.test(j.error)?(j.hint||j.error):('Fehler: '+(j.error||r.status))}); }
       else { const meta=[j.model||'', (j.tools&&j.tools.length)?'✎ Notiz festgehalten':''].filter(Boolean).join(' · '); VERLAUF.push({role:'assistant',content:j.text||'(keine Antwort)',meta}); }
     }catch(e){
       /* Der Server ist nicht da. Statt die Frage zu verlieren: in den Briefkasten damit — und das
@@ -217,7 +230,7 @@
   }
   async function madStatus(frisch){
     if(!frisch && MAD.status && Date.now()-MAD.statusZeit<120000){ statusMalen(); return; }
-    try{ const r=await fetch(API()+'/api/madeleine/status'+(frisch?'?fresh=1':''),{cache:'no-store'}); const j=await r.json();
+    try{ const r=await fetch(API()+'/api/madeleine/status'+(frisch?'?fresh=1':''),{cache:'no-store',headers:await kopf()}); const j=await r.json();
       MAD.fern=nichtHier(r,j); MAD.status=MAD.fern?false:j; }
     catch(e){ MAD.status=false; MAD.fern=false; }
     MAD.statusZeit=Date.now(); statusMalen();
@@ -228,8 +241,9 @@
   }
   async function madRundenLaden(frisch){
     if(!frisch && MAD.runden) return;
-    try{ const r=await fetch(API()+'/api/beraterrunde',{cache:'no-store'}); const j=await r.json();
-      MAD.rundenFern=nichtHier(r,j); MAD.runden=j.runden||[]; MAD.anzahl=j.anzahl||0; }
+    try{ const r=await fetch(API()+'/api/beraterrunde',{cache:'no-store',headers:await kopf()}); const j=await r.json();
+      MAD.rundenFern=nichtHier(r,j); MAD.rundenFehler=(!r.ok && !MAD.rundenFern) ? (j.hint||j.error||('HTTP '+r.status)) : '';
+      MAD.runden=j.runden||[]; MAD.anzahl=j.anzahl||0; }
     catch(e){ MAD.runden=[]; }
     madMalen();
   }
@@ -281,7 +295,7 @@
     MAD.entBusy=true; MAD.entFehler=''; MAD.entText=t; madMalen();
     try{
       const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),300000);
-      const r=await fetch(API()+'/api/beraterrunde/antwort',{method:'POST',headers:{'Content-Type':'application/json'},
+      const r=await fetch(API()+'/api/beraterrunde/antwort',{method:'POST',headers:await kopf({'Content-Type':'application/json'}),
         body:JSON.stringify({antwort:t,context:kontext()}),signal:ctrl.signal});
       clearTimeout(tm); const j=await r.json().catch(()=>({error:'HTTP '+r.status}));
       MAD.entBusy=false;
@@ -303,6 +317,7 @@
     if(MAD.busy) return '<div class="muted">🤝 John spricht … dann Madeleine … dann John. Das dauert bis zu vier Minuten; der Server ist so lange belegt.</div>';
     if(MAD.runden===null) return '<div class="muted">lade die letzte Beraterrunde …</div>';
     if(MAD.rundenFern && !MAD.runden.length) return `<div class="muted">${H(RUNDE_FERN)}</div>`;
+    if(MAD.rundenFehler && !MAD.runden.length) return `<div class="muted">Beraterrunden gerade nicht lesbar: ${H(MAD.rundenFehler)}</div>`;
     if(!MAD.runden.length) return '<div class="muted">Noch keine Beraterrunde. Starte eine — John und Madeleine beraten sich zu deinem Thema, du liest mit. Alles landet in john/coaching/beraterrunde.md, beide kennen es danach.</div>';
     const r=MAD.runden[0];
     /* Die offene Frage steht über der Runde — sie ist das, was von Bene noch gebraucht wird. */
@@ -332,7 +347,7 @@
     MAD.busy=true; madMalen();
     try{
       const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),420000);
-      const r=await fetch(API()+'/api/beraterrunde',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({thema:thema.trim(),context:kontext()}),signal:ctrl.signal});
+      const r=await fetch(API()+'/api/beraterrunde',{method:'POST',headers:await kopf({'Content-Type':'application/json'}),body:JSON.stringify({thema:thema.trim(),context:kontext()}),signal:ctrl.signal});
       clearTimeout(tm); const j=await r.json().catch(()=>({error:'HTTP '+r.status}));
       MAD.busy=false;
       if(nichtHier(r,j)){ MAD.rundenFern=true; madMalen(); sag('Beraterrunde nur am Rechner','bad'); return; }
