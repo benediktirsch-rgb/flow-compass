@@ -154,6 +154,9 @@ function Konfig-Json([string]$name, [string]$coach, [int]$port, [string]$backend
     anbieter = [ordered]@{ url = ''; modell = '' }
     trello = [ordered]@{ privat = $privat; arbeit = $arbeit }
     jira = [ordered]@{ site = $site; projekt = $projekt }
+    # Seit 16.09.2026 weist der Server jeden Browser-Ursprung ab, der hier nicht steht (Test-OriginErlaubt) —
+    # ohne diese Zeile bekam jede Compass-Seite auf *.vishnuartists.com 403 ORIGIN.
+    origins = @('https://*.vishnuartists.com')
   }
   return (($k | ConvertTo-Json -Depth 5) + "`n")
 }
