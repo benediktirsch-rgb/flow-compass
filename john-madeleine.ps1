@@ -26,7 +26,26 @@ Technischer Rahmen: Du läufst über die Codex CLI, aber NICHT als Programmierwe
 einem Beratungsgespräch. Es gibt keine Dateien zu lesen, nichts auszuführen, kein Repository; alles, was du
 weißt, steht oben in diesem Text. Antworte nur mit deinem Beitrag (Fließtext, Markdown sparsam), ohne Präfix,
 ohne den Verlauf zu wiederholen. Willst du etwas festhalten, schreib als letzte Zeile: NOTIZ: <ein Satz>
+Soll es auch dein Astra-Laufweg wissen, schreib stattdessen: GEMEINSAM: <ein Satz ohne Beträge, Namen, Adressen>
 "@
+# Eine Madelene, zwei Laufwege (16.09.2026): Gedächtnis, Freigaben und Astras Rückfragen aus der Rezeption.
+$script:MadeleneGemeinsamDatei = Join-Path $PSScriptRoot 'produkt\server\madelene-gemeinsam.ps1'
+if (Test-Path $script:MadeleneGemeinsamDatei) { . $script:MadeleneGemeinsamDatei }
+# Antwortzeilen verarbeiten: NOTIZ bleibt lokal, GEMEINSAM geht ins gemeinsame Gedächtnis (scheitert es, wird
+# eine lokale Notiz daraus — nichts geht verloren, nichts Vertrauliches geht hinaus).
+function Use-MadeleneZeilen([string]$text) {
+  $tools = @()
+  if (Get-Command Split-MadeleneGemeinsam -ErrorAction SilentlyContinue) {
+    $g = Split-MadeleneGemeinsam $text; $text = $g.text
+    foreach ($satz in $g.saetze) {
+      $r = Send-MadeleneGemeinsam $satz
+      if ($r.ok) { $tools += 'gemeinsam' } else { Add-MadeleineNotiz "(nicht geteilt: $($r.grund)) $satz"; $tools += 'notiz' }
+    }
+  }
+  $s = Split-MadeleineNotiz $text
+  foreach ($n in $s.notizen) { Add-MadeleineNotiz $n; $tools += 'notiz' }
+  return @{ text = $s.text; tools = $tools }
+}
 
 function Find-CodexExe {
   $e = [Environment]::GetEnvironmentVariable('JOHN_CODEX_EXE', 'User'); if ($e -and (Test-Path $e)) { return $e }
@@ -98,8 +117,11 @@ function Get-MadeleineFehler([string]$m) {
 function Build-SystemMadeleine {
   $parts = New-Object System.Collections.Generic.List[string]
   $geladen = New-Object System.Collections.Generic.List[string]
+  # Gemeinsame Persona zuerst (16.09.2026) — dieselbe Datei liest der Astra-Laufweg über die Rezeption.
+  $gemeinsam = Read-Text (Join-Path $MadeleineDir 'persona-gemeinsam.md')
+  if ($gemeinsam) { $parts.Add("# Gemeinsame Persona (gilt auch für Astra)`n$gemeinsam"); $geladen.Add('madeleine/persona-gemeinsam.md') }
   $persona = Read-Text (Join-Path $MadeleineDir 'CLAUDE.md')
-  if ($persona) { $parts.Add("# Persona`n$persona"); $geladen.Add('madeleine/CLAUDE.md') }
+  if ($persona) { $parts.Add("# Persona — Beratungs-Laufzeit (nur hier, nie an Astra)`n$persona"); $geladen.Add('madeleine/CLAUDE.md') }
   else { $parts.Add("# Persona`nDu bist Madeleine, $($NutzerName)s Beraterin für Finanzen, Steuern und Organisation der Vishnu Artists GmbH und des Vaikuntha e.V. Klar, zahlenfest, ohne Floskeln, nichts erfinden. Sprache: Deutsch.") }
   $wissen = Join-Path $MadeleineDir 'wissen'
   if (Test-Path $wissen) { Get-ChildItem $wissen -Filter *.md -File | Sort-Object Name | ForEach-Object {
@@ -113,6 +135,10 @@ function Build-SystemMadeleine {
   if ($priv) { $parts.Add("# Benes private Konten — Auszug aus privat/stand.json (JSON, Euro; konten.datum = Stand je Konto, datenalter = Tage seit diesem Stand; monate = ein/aus/saldo ohne Umbuchungen; fixkosten.schnitt = Median je Monat). Nenne bei Kontoständen immer das Datum.`n$($priv.json)"); $geladen.Add("madeleine/privat/stand.json ($($priv.erzeugt))") }
   $notiz = Read-Text (Join-Path $MadeleineDir 'notizen\beratung.md')
   if ($notiz) { $parts.Add("# Datei: madeleine/notizen/beratung.md (deine eigenen Notizen, jüngste zuletzt)`n" + (Limit-Ende $notiz 8000)); $geladen.Add('madeleine/notizen/beratung.md') }
+  if (Get-Command Get-MadeleneGemeinsam -ErrorAction SilentlyContinue) {
+    $gm = Get-MadeleneGemeinsam
+    $parts.Add($gm.text); foreach ($x in $gm.geladen) { $geladen.Add($x) }
+  }
   $coach = Join-Path $JohnDir 'coaching'
   if (Test-Path $coach) { Get-ChildItem $coach -Filter *.md -File | Sort-Object Name | ForEach-Object {
       $t = Read-Text $_.FullName
@@ -154,6 +180,7 @@ Was gilt:
 - Nichts versenden, buchen oder kündigen. Entwürfe ja, Schritte nein.
 - In einer Beraterrunde antwortest du John direkt: zustimmen oder widersprechen, mit Beleg, dann Empfehlung.
 - Willst du etwas festhalten, schreib als letzte Zeile NOTIZ: <ein Satz>. Höchstens eine je Antwort.
+- Du bist eine Person mit zwei Laufwegen: hier die Beratung, dort Astra (Entwicklung). Soll Astra etwas wissen, schreib als letzte Zeile GEMEINSAM: <ein Satz> — nur ohne Beträge, Kontodaten, Adressen, Telefonnummern und Namen von Kundschaft oder Privatpersonen. Privates bleibt in NOTIZ.
 "@)
   return @{ text = ($parts -join "`n`n"); geladen = $geladen }
 }
@@ -229,8 +256,7 @@ function Madeleine-Chat($messages, $context, $fragt) {
   $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })
   $prompt = $sys.text + "`n`n" + $MadeleineHinweis + "`n`n" + (Format-MadeleineVerlauf $msgs $context $fragt)
   $c = Invoke-CodexCli $prompt @{ timeout = 240 }
-  $s = Split-MadeleineNotiz $c.text
-  $tools = @(); foreach ($n in $s.notizen) { Add-MadeleineNotiz $n; $tools += 'notiz' }
+  $s = Use-MadeleneZeilen $c.text; $tools = $s.tools
   return @{ text = $s.text; stop_reason = 'end_turn'; model = $c.model; tools = $tools; geladen = $sys.geladen; backend = 'codex'; systemChars = $sys.text.Length }
 }
 
@@ -252,8 +278,7 @@ function John-Rueckfall($messages, $context, [string]$grund, [string]$grundText)
     "Was außerhalb deines Wissens liegt — Johns Coaching-Details, Pipeline-Interna —, benennst du als offen für John, statt es zu erfinden.") }
   $prompt = $sys.text + "`n`n" + $MadeleineHinweis + "`n`n" + (Format-MadeleineVerlauf $msgs $context $fragt 'John')
   $c = Invoke-CodexCli $prompt @{ timeout = 240 }
-  $s = Split-MadeleineNotiz $c.text
-  $tools = @(); foreach ($n in $s.notizen) { Add-MadeleineNotiz $n; $tools += 'notiz' }
+  $s = Use-MadeleneZeilen $c.text; $tools = $s.tools
   return @{ text = $s.text; stop_reason = 'end_turn'; model = "Madeleine vertritt John · $($c.model) · John: $grund"; tools = $tools
             geladen = $sys.geladen; backend = 'codex'; vertretung = @{ fuer = 'John'; grund = $grund; hint = $grundText }; systemChars = $sys.text.Length }
 }

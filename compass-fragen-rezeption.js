@@ -75,10 +75,11 @@
       const wer = NAMEN[q.von] || q.von || '';
       const projekt = String(q.projekt || '');
       const name = wer.replace(/^\S+\s/, '');
+      const bezug = (q.bezug || []).length ? ' · 📎 bittet um Kontext zu: ' + q.bezug.map(b => kurzText(frageZu(b) || b, 60)).join(' | ') : '';
       return {
         id: q.id,
         projekt: (wer && projekt.indexOf(name) !== 0) ? (wer + ' · ' + projekt) : (projekt || wer),
-        frage: q.frage || '', warum: q.warum || '', optionen: (q.optionen || []).slice(0, 4),
+        frage: q.frage || '', warum: (q.warum || '') + bezug, optionen: (q.optionen || []).slice(0, 4),
         wann: q.wann || '', dringend: !!q.dringend, link: q.link || null, von: q.von || '', quelle: 'rezeption'
       };
     }
@@ -157,8 +158,169 @@
     new MutationObserver(() => {
       if (geplant) return;
       geplant = true;
-      setTimeout(() => { geplant = false; hinweis(); }, 50);   // kein rAF: steht in Hintergrund-Tabs still
+      setTimeout(() => { geplant = false; hinweis(); schmuecken(); }, 50);   // kein rAF: steht in Hintergrund-Tabs still
     }).observe(document.body, { childList: true, subtree: true });
+
+    /* ---------- Freigaben für Madelene (16.09.2026) -----------------------------------------
+       Rückfrage madelene-freigabe-modell, Bene: „Nur pro Frage, mit Vorschau und 30 Tagen" — und
+       „Madelene ist eine Person". An jeder Rückfrage (Ritual, Banner) und jeder Zeile „entschieden"
+       steht „🔓 Für Madelene". Die Vorschau zeigt genau den Text, der hinausgeht: die Frage ist
+       vorbelegt, die Antwort nur auf Wunsch, die Begründung wird nie angeboten. Beträge, IBAN,
+       Mailadressen, Telefonnummern und bekannte Namen blockieren, bis Bene ausdrücklich „trotzdem"
+       sagt. Die Namensliste bleibt im Browser; die Rezeption prüft die vier Muster noch einmal. */
+    const FG = { liste: [], geladen: false, namen: null };
+    window.FG = FG;
+    const MUSTER = [
+      ['betrag', t => /\d[\d.,]*\s?(€|eur\b|euro\b|\$|usd\b|tsd\b|t€|k€)|(€|\$)\s?\d|\b\d+(?:[.,]\d+)?\s?k\b/i.test(t)],
+      ['iban', t => /\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]{4}){3,7}/.test(t.toUpperCase())],
+      ['mail', t => /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i.test(t)],
+      ['telefon', t => /(?:\+|\b00)\d[\d \/-]{7,}\d|\b0\d{2,5}[ \/-]?\d{3,}[\d -]{2,}\d\b/.test(t)]
+    ];
+    function kurzText(t, n) { t = String(t || ''); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
+    function frageZu(id) {
+      const r = window.RHYTHM || {};
+      const q = (r.rueckfragen || []).find(x => x.id === id) || RZF.list.find(x => x.id === id);
+      if (q) return q.frage || '';
+      if (typeof umsZeile === 'function') { const z = umsZeile(id); if (z) return z[2] || ''; }
+      if (typeof antwortText === 'function') return antwortText(id) || '';
+      return '';
+    }
+    async function namenLaden() {
+      if (FG.namen) return FG.namen;
+      FG.namen = [];
+      try {
+        const api = (typeof JOHN_API !== 'undefined' && JOHN_API) ? JOHN_API : '';
+        const r = await fetch(api + '/api/pool', { cache: 'no-store', signal: AbortSignal.timeout(6000) });
+        const d = await r.json();
+        (d.personen || []).forEach(p => { if (p && p.anzeigename) FG.namen.push(String(p.anzeigename)); });
+      } catch (e) { /* ohne Namensliste prüfen nur die vier Muster */ }
+      return FG.namen;
+    }
+    function treffer(text) {
+      const t = String(text || '');
+      const m = MUSTER.filter(([, pruef]) => pruef(t)).map(([n]) => n);
+      const klein = t.toLowerCase();
+      const namen = (FG.namen || []).filter(n => {
+        const teile = n.toLowerCase().split(/\s+/).filter(x => x.length >= 4);
+        return klein.includes(n.toLowerCase()) || teile.some(x => new RegExp('(^|[^a-zäöüß])' + x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^a-zäöüß])').test(klein));
+      });
+      if (namen.length) m.push('name: ' + namen.slice(0, 3).join(', '));
+      return m;
+    }
+    async function freigabenLaden() {
+      if (!RZF.eingerichtet) return;
+      try {
+        const { status, d } = await ruf('freigaben', null, '&fuer=madelene');
+        if (status === 200 && d.ok) { FG.liste = d.freigaben || []; FG.geladen = true; schmuecken(true); }
+      } catch (e) { }
+    }
+    const aktiv = id => FG.liste.find(f => f.bezug === id);
+    function knopf(id, label) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'fg-knopf'; b.dataset.fg = id;
+      const f = aktiv(id);
+      b.textContent = label || (f ? '🔓 für Madelene bis ' + f.bis.slice(8, 10) + '.' + f.bis.slice(5, 7) + '.' : '🔓 Für Madelene …');
+      b.title = 'Diesen Kontext gezielt für Madelene freigeben — mit Vorschau, höchstens 30 Tage, jederzeit widerrufbar';
+      b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); dialog(id); });
+      return b;
+    }
+    function schmuecken(neu) {
+      if (!RZF.eingerichtet) return;
+      document.querySelectorAll('.qa[data-q] .opts, .item.ums[data-ums] > .body > .opts').forEach(opts => {
+        const box = opts.closest('[data-q],[data-ums]');
+        const id = box.dataset.q || box.dataset.ums;
+        let b = opts.querySelector('.fg-knopf[data-fg="' + CSS.escape(id) + '"]');
+        if (b && neu) { b.replaceWith(knopf(id)); b = true; }
+        if (!b) opts.appendChild(knopf(id));
+        const q = RZF.list.find(x => x.id === id);
+        (q && q.bezug || []).forEach(bz => {
+          if (!opts.querySelector('.fg-knopf[data-fg="' + CSS.escape(bz) + '"]')) opts.appendChild(knopf(bz, '📎 Kontext „' + kurzText(frageZu(bz) || bz, 28) + '" freigeben'));
+        });
+      });
+    }
+    function dialog(id) {
+      if (!RZF.eingerichtet) return;
+      namenLaden();
+      const alt = document.getElementById('fgDlg'); if (alt) alt.remove();
+      const f = aktiv(id);
+      const antwort = (typeof S !== 'undefined' && S.antworten && S.antworten[id] && S.antworten[id].a) || '';
+      const ov = document.createElement('div');
+      ov.id = 'fgDlg';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px';
+      /* Farben aus dem Compass (--panel/--ink/--line/--bg), damit die Vorschau hell und dunkel lesbar bleibt. */
+      ov.innerHTML = `<style>#fgDlg textarea,#fgDlg select{background:var(--bg,#fff);color:var(--ink,#111);border:1px solid var(--line,#ccc);border-radius:8px;padding:6px;font:inherit}#fgDlg label,#fgDlg .hint,#fgDlg .mini,#fgDlg h3{color:var(--ink,#111)}#fgDlg button{color:var(--ink,#111);background:var(--bg,#fff);border:1px solid var(--line,#ccc);border-radius:8px;padding:6px 10px;cursor:pointer}</style>
+        <div class="card" style="max-width:640px;width:100%;max-height:90vh;overflow:auto;background:var(--panel,#fff);color:var(--ink,#111);border:1px solid var(--line,#ccc);padding:18px;border-radius:14px">
+        <h3 style="margin-top:0">🔓 Für Madelene freigeben</h3>
+        <div class="hint">Madelene (Astra) sieht nur diesen Text, höchstens bis zum Ablaufdatum. Begründungen werden nie mitgeschickt.</div>
+        <label style="display:block;margin-top:10px"><input type="checkbox" checked disabled> Frage</label>
+        <textarea data-f="frage" rows="3" style="width:100%"></textarea>
+        <label style="display:block;margin-top:8px"><input type="checkbox" data-f="mitAntwort"> Deine Antwort</label>
+        <textarea data-f="antwort" rows="2" style="width:100%" placeholder="(keine Antwort gespeichert)"></textarea>
+        <label style="display:block;margin-top:8px">Eine Notiz von dir (optional)</label>
+        <textarea data-f="notiz" rows="2" style="width:100%" placeholder="z. B. Kontext: wir bleiben bei Variante B"></textarea>
+        <label style="display:block;margin-top:8px">Sichtbar für <select data-f="tage"><option value="7">7 Tage</option><option value="14">14 Tage</option><option value="30" selected>30 Tage</option></select></label>
+        <div class="mini" style="margin-top:10px">So liest Madelene es:</div>
+        <pre data-f="vorschau" style="white-space:pre-wrap;background:rgba(127,127,127,.12);padding:8px;border-radius:8px;margin:4px 0"></pre>
+        <div data-f="warnung" class="hint" style="color:#b45309"></div>
+        <label data-f="trotzdemZeile" style="display:none"><input type="checkbox" data-f="trotzdem"> Ich habe den Text geprüft — trotzdem senden</label>
+        <div class="opts" style="margin-top:10px">
+          <button type="button" class="a" data-f="senden">🔓 Freigeben</button>
+          ${f ? '<button type="button" data-f="widerrufen">✕ Freigabe widerrufen</button>' : ''}
+          <button type="button" data-f="zu">Abbrechen</button></div>
+        <div data-f="status" class="mini"></div>
+        <div data-f="liste" class="mini" style="margin-top:12px"></div></div>`;
+      document.body.appendChild(ov);
+      const $ = n => ov.querySelector('[data-f="' + n + '"]');
+      $('frage').value = f ? f.frage : frageZu(id);
+      $('antwort').value = f && f.antwort ? f.antwort : antwort;
+      $('mitAntwort').checked = !!(f && f.antwort);
+      $('notiz').value = f && f.notiz ? f.notiz : '';
+      const text = () => [$('frage').value.trim(), $('mitAntwort').checked && $('antwort').value.trim() ? 'Antwort: ' + $('antwort').value.trim() : '', $('notiz').value.trim() ? 'Notiz: ' + $('notiz').value.trim() : ''].filter(Boolean).join('\n');
+      const pruefen = () => {
+        $('vorschau').textContent = text() + '\n— sichtbar bis ' + new Date(Date.now() + (+$('tage').value) * 86400000).toLocaleDateString('de-DE');
+        const t = treffer(text());
+        $('warnung').textContent = t.length ? '⚠ Sieht vertraulich aus: ' + t.join(' · ') + '. Bitte kürzen — oder ausdrücklich bestätigen.' : '';
+        $('trotzdemZeile').style.display = t.length ? 'block' : 'none';
+        return t;
+      };
+      ov.addEventListener('input', pruefen); ov.addEventListener('change', pruefen); pruefen();
+      namenLaden().then(pruefen);
+      const liste = () => {
+        const andere = FG.liste.filter(x => x.bezug !== id);
+        $('liste').innerHTML = andere.length ? '<b>Aktive Freigaben</b><br>' + andere.map(x => `${kurzText(x.frage, 70).replace(/</g, '&lt;')} · bis ${x.bis} <button type="button" data-weg="${x.id}" title="widerrufen">✕</button>`).join('<br>') : '';
+      };
+      liste();
+      ov.addEventListener('click', async e => {
+        if (e.target === ov || e.target.dataset.f === 'zu') { ov.remove(); return; }
+        const weg = e.target.dataset.weg || (e.target.dataset.f === 'widerrufen' && f && f.id);
+        if (weg) {
+          const { status } = await ruf('freigabe', { id: weg, widerrufen: true });
+          $('status').textContent = status === 200 || status === 404 ? '✓ widerrufen — der Eintrag ist in der Rezeption gelöscht.' : 'Widerruf gescheitert (HTTP ' + status + ').';
+          FG.liste = FG.liste.filter(x => x.id !== weg); liste(); schmuecken(true);
+          if (e.target.dataset.f === 'widerrufen') setTimeout(() => ov.remove(), 900);
+          return;
+        }
+        if (e.target.dataset.f !== 'senden') return;
+        const t = pruefen();
+        if (!$('frage').value.trim()) { $('status').textContent = 'Die Frage darf nicht leer sein.'; return; }
+        if (t.length && !$('trotzdem').checked) { $('status').textContent = 'Erst kürzen oder „trotzdem senden" ankreuzen.'; return; }
+        const body = { fuer: 'madelene', bezug: id, frage: $('frage').value.trim(), notiz: $('notiz').value.trim(), tage: +$('tage').value, trotzdem: !!(t.length && $('trotzdem').checked) };
+        if ($('mitAntwort').checked) body.antwort = $('antwort').value.trim();
+        if (f) body.id = f.id;
+        $('status').textContent = 'sende …';
+        try {
+          const { status, d } = await ruf('freigabe', body);
+          if (status === 200 && d.ok) {
+            $('status').textContent = '✓ freigegeben bis ' + d.bis + '.';
+            await freigabenLaden(); setTimeout(() => ov.remove(), 900);
+          } else if (status === 422) {
+            $('status').textContent = 'Die Rezeption hat Vertrauliches erkannt (' + (d.muster || []).join(', ') + ') — kürzen oder bestätigen.';
+            $('trotzdemZeile').style.display = 'block';
+          } else { $('status').textContent = 'Nicht freigegeben: ' + (d.fehler || 'HTTP ' + status); }
+        } catch (err) { $('status').textContent = 'Rezeption nicht erreichbar — nichts freigegeben.'; }
+      });
+    }
+    window.madeleneFreigabe = dialog;
 
     /* ---------- Rezeption ------------------------------------------------------------------ */
     async function ruf(w, body, q) {
@@ -223,7 +385,8 @@
       const ohne = (altOffen() || []).map(q => q.id).join(',');
       if (window.offeneFragen().map(q => q.id + (q.projekt || '')).join(',') !== (altOffen() || []).map(q => q.id + (q.projekt || '')).join(',') || !ohne) neuMalen();
       laden(true);
-      setInterval(() => { if (!document.hidden) laden(true); }, TAKT_MS);
+      freigabenLaden();
+      setInterval(() => { if (!document.hidden) { laden(true); freigabenLaden(); } }, TAKT_MS);
       document.addEventListener('visibilitychange', () => { if (!document.hidden) laden(true); });
     };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else setTimeout(start, 0);
