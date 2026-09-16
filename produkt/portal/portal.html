@@ -296,7 +296,12 @@ var STANDARD = [
      nie Standard. */
   { id:'raumschiff', icon:'🚀', url:'',
     de:['Finanz-Raumschiff','Firma, privat, Verein, Luxemburg — ein Cockpit, ein Kurs.'],
-    en:['Finance spaceship','Company, private, association, Luxembourg — one cockpit, one course.'] }
+    en:['Finance spaceship','Company, private, association, Luxembourg — one cockpit, one course.'] },
+  /* 16.09.2026 (Bene: „FAB und Tower sind auch angeschlossen?“): das dritte Produkt. Sichtbar nur für die
+     Rollen, die die Tür von tower. einlässt (vishnu-tower/site/gate-config.php › gruender, intern). */
+  { id:'tower', icon:'🗼', url:'https://tower.vishnuartists.com/', darf:['gruender','intern'],
+    de:['Vishnu Tower','Freelancer-Stellen, Matching und Tender-Radar — wer passt wohin.'],
+    en:['Vishnu Tower','Freelance roles, matching and tender radar — who fits where.'] }
 ];
 
 /* Die Brücken des Kollektivs (Liste wie $INSTANZEN in publish-compass.ps1 plus bene.).
@@ -311,6 +316,7 @@ function portalLinks(){
     return x;
   });
   l.push({ id:'va',   icon:'📊', url:'https://va.vishnuartists.com/',          darf:R.cockpit, de:'va.vishnuartists.com — Team-Cockpit', en:'va.vishnuartists.com — team cockpit' });
+  l.push({ id:'tower', icon:'🗼', url:'https://tower.vishnuartists.com/',        darf:['gruender','intern'], de:'tower.vishnuartists.com — Vishnu Tower', en:'tower.vishnuartists.com — Vishnu Tower' });
   l.push({ id:'demo', icon:'🎬', url:'https://demo.vishnuartists.com/',        offen:true,     de:'demo.vishnuartists.com — Compass-Demo', en:'demo.vishnuartists.com — Compass demo' });
   l.push({ id:'demo-cockpit', icon:'🎬', url:'https://demo.vishnuartists.com/cockpit/', offen:true, de:'demo.vishnuartists.com/cockpit — Cockpit-Starter', en:'demo.vishnuartists.com/cockpit — cockpit starter' });
   return l;
@@ -653,6 +659,7 @@ function zeichne(){
   if (P.haupt) liste.sort(function(a, b){ return (a.id === P.haupt ? 0 : 1) - (b.id === P.haupt ? 0 : 1); });
   liste.forEach(function(k){
     var u = ziel(k); if (!u) return;
+    if (k.darf && !erlaubt(k)) return;
     n++;
     var t = k[SPR] || k.de;
     var haupt = P.haupt ? (k.id === P.haupt) : !!k.haupt;
