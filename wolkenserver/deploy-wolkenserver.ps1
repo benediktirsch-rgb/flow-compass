@@ -183,8 +183,15 @@ $paare = @(
   @('CLAUDE_CODE_OAUTH_TOKEN','WOLKE_CLAUDE_TOKEN')
 )
 $envZeilen = @('# Umgebung des Dienstes compass-server — geschrieben von deploy-wolkenserver.ps1, nur root lesbar.', 'COMPASS_BACKEND=cli')
-$finTok = Env-User 'FINANZ_TOKEN'
-if (-not $finTok) { Sag 'FINANZ_TOKEN fehlt auf diesem Rechner — die Firmensicht bleibt auf dem Server ohne Zahlen (NO_KEY).' }
+# Governance 16.09.2026: auf den Server gehört der FIRMA_TOKEN (nur lesen/abstimmen), nicht der
+# FINANZ_TOKEN, der auch Raumschiff-Upload, Klärung und Steuerbüro öffnet. Solange FIRMA_TOKEN fehlt,
+# bleibt es beim alten Weg — mit Warnung.
+$finTok = Env-User 'FIRMA_TOKEN'; $finName = 'FIRMA_TOKEN'
+if (-not $finTok) {
+  $finTok = Env-User 'FINANZ_TOKEN'; $finName = 'FINANZ_TOKEN'
+  if ($finTok) { Sag 'WARNUNG: FIRMA_TOKEN fehlt — die Firmensicht bekommt noch den vollen FINANZ_TOKEN. Bitte FIRMA_TOKEN setzen.' }
+}
+if (-not $finTok) { Sag 'FIRMA_TOKEN/FINANZ_TOKEN fehlen auf diesem Rechner — die Firmensicht bleibt auf dem Server ohne Zahlen (NO_KEY).' }
 # Maschinenschlüssel der Tower-Tür (16.09.2026): dieselbe Zeichenfolge wie $GATE_KEY in vishnu-tower\site\gate-config.php.
 $towKey = Env-User 'TOWER_GATE_KEY'
 if (-not $towKey) { Sag 'TOWER_GATE_KEY fehlt auf diesem Rechner — die Tower-Karte auf dem Server sagt NO_KEY.' }
@@ -196,7 +203,7 @@ foreach ($p in $paare) {
 # Staging bekommt $envZeilen als Kopie (siehe unten) — FINANZ_TOKEN deshalb nur in die Hauptinstanz-Datei.
 $hauptFirma = @()
 if ($FirmaSicht.ContainsKey('')) {
-  if ($finTok) { $hauptFirma += (Env-Zeile 'FINANZ_TOKEN' $finTok) }
+  if ($finTok) { $hauptFirma += (Env-Zeile $finName $finTok) }
   if ($towKey) { $hauptFirma += (Env-Zeile 'TOWER_GATE_KEY' $towKey) }
 }
 Write-Lf (Join-Path $stage 'env') ((($envZeilen + $hauptFirma) -join "`n") + "`n")
@@ -263,7 +270,7 @@ foreach ($s in $inst.Keys) {
     if ($jsite) { $ez += (Env-Zeile 'JIRA_SITE' $jsite) }
     $schl += 'Jira'
   }
-  if ($fs -and $finTok) { $ez += (Env-Zeile 'FINANZ_TOKEN' $finTok); $schl += "Firmensicht ($fs)" }
+  if ($fs -and $finTok) { $ez += (Env-Zeile $finName $finTok); $schl += "Firmensicht ($fs, $finName)" }
   if ($fs -and $towKey) { $ez += (Env-Zeile 'TOWER_GATE_KEY' $towKey); $schl += 'Tower' }
   Write-Lf (Join-Path $d 'env') (($ez -join "`n") + "`n")
   Write-Lf (Join-Path $d "$s.caddy") ("handle_path /$($e.pfad)/* {`n`treverse_proxy localhost:$($e.port) {`n`t`theader_up Host localhost:$($e.port)`n`t}`n}`n")

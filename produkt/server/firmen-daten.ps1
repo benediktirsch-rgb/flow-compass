@@ -35,7 +35,11 @@ function Get-FirmaAus([string]$was) {
   @{ ok = $false; error = 'NO_FIRMA'; hint = "Firmensicht nicht eingerichtet: firma.$was in compass-server.json fehlt." }
 }
 function Get-FinanzToken {
-  $t = [Environment]::GetEnvironmentVariable('FINANZ_TOKEN', 'User')
+  # Governance 16.09.2026: die Firmensicht nimmt zuerst ihren eigenen FIRMA_TOKEN (darf nur lesen,
+  # abstimmen, bewerbung_weiter — f/maschine.php). FINANZ_TOKEN bleibt Rückfall auf Benes Rechner.
+  $t = $env:FIRMA_TOKEN
+  if (-not $t) { $t = [Environment]::GetEnvironmentVariable('FIRMA_TOKEN', 'User') }
+  if (-not $t) { $t = [Environment]::GetEnvironmentVariable('FINANZ_TOKEN', 'User') }
   if (-not $t) { $t = $env:FINANZ_TOKEN }
   ([string]$t) -replace '\s', ''
 }
