@@ -734,6 +734,11 @@ RepX '\n<!-- Lobby \(10\.09\.2026,.*?-->\n<script src="compass-john-lobby\.js"><
 # Rezeption — beides gibt es nur in Benes Instanz. Kommentar und Skriptzeile raus, Datei nie kopiert.
 RepX '\n<!-- Gesprächsraum \(11\.09\.2026,.*?-->\n<script src="compass-gespraechsraum\.js"></script>' '' 'Gesprächsraum nur in der eigenen Instanz'
 
+# Rückfragen aus der Rezeption (16.09.2026): compass-fragen-rezeption.js liest Benes persönliche Rezeption
+# (Madelenes und Claudes Rückfragen). Ohne Rezeption täte sie nichts — trotzdem raus, damit die Demo keine
+# Datei ausliefert, die auf hotel-vaikuntha.de zeigt. Kommentar und Skriptzeile raus, Datei nie kopiert.
+RepX '\n<!-- Rückfragen aus der Rezeption \(16\.09\.2026,.*?-->\n<script src="compass-fragen-rezeption\.js"></script>' '' 'Rueckfragen aus der Rezeption nur in der eigenen Instanz'
+
 # Erfolgs-Ausgabe (11.09.2026): compass-ausgabe.js macht aus der Anerkennungs-Folie ein Boulevardblatt aus
 # Benes Commits, Jira und Checkins (john-ausgabe.ps1). Ohne eigenen Server gibt es nichts zu drucken —
 # in der Demo bleibt die Anerkennung aus den Beispieldaten. Kommentar und Skriptzeile raus, Datei nie kopiert.
