@@ -273,7 +273,12 @@ if ($NurBauen) { Schluss 'NurBauen: fertig, nichts hochgeladen, nichts committet
 $prodFrei = $true; $prodGrund = ''
 if ($Stufe -eq 'staging') { $prodFrei = $false; $prodGrund = 'nur Staging angefordert (-Stufe staging).' }
 elseif ($prodFreigabe -eq 'commit' -and -not $Erzwingen) {
-  $dirty = (Git status --porcelain --untracked-files=no).Trim()
+  # Die Demo-Ausgabe (site/compass-demo) schreibt dieser Lauf selbst, bevor hier geprueft wird — und
+  # committet sie erst in Schritt 4, wenn Prod frei ist. Zaehlte sie mit, sperrte jede Aenderung an
+  # dashboard.html Prod fuer immer (16.09.2026: ab 10:01 jeder Lauf „Prod uebersprungen“ wegen der eigenen
+  # Demo). Sie ist aus committeten Quellen gebaut; nur ihre handgepflegte .htaccess zaehlt weiter.
+  $dirty = ((Git status --porcelain --untracked-files=no) -split "`n" | Where-Object {
+    $_.Trim() -and ($_ -notmatch '^.. site/compass-demo/' -or $_ -match '^.. site/compass-demo/\.htaccess$') }) -join "`n"
   if ($dirty) { $prodFrei = $false; $prodGrund = "die Arbeitskopie hat uncommittete Aenderungen an getrackten Dateien — Prod wartet auf die Freigabe (Commit auf main), Staging traegt den Stand; -Erzwingen uebersteuert einmalig.`n$dirty" }
 }
 
