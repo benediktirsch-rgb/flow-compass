@@ -36,9 +36,13 @@ function Get-TtsModelle {
   if (-not (Test-Path $d)) { return @() }
   @(Get-ChildItem -LiteralPath $d -Filter *.onnx -File | Where-Object { Test-Path ($_.FullName + '.json') } | ForEach-Object { $_.BaseName })
 }
+# Ein Eintrag der Besetzung ist entweder ein Modellname oder 'modell#sprecher' (Mehrsprecher-Modelle wie
+# de_DE-mls-medium: 236 Stimmen, Auswahl über --speaker). Rückgabe ist der Eintrag; der Sprecher kommt aus Get-TtsSprecher.
+function Get-TtsSprecher([string]$eintrag) { if ($eintrag -match '#(\d+)$') { [int]$Matches[1] } else { $null } }
 function Resolve-TtsModell([string]$lang, [string]$wer) {
   $prefix = ($lang -split '-')[0].ToLower(); $modelle = Get-TtsModelle
-  $wunsch = $script:TtsBesetzung[$prefix]; if ($wunsch -and $wunsch[$wer] -and ($modelle -contains $wunsch[$wer])) { return $wunsch[$wer] }
+  $wunsch = $script:TtsBesetzung[$prefix]
+  if ($wunsch -and $wunsch[$wer]) { $name = ($wunsch[$wer] -split '#')[0]; if ($modelle -contains $name) { return $wunsch[$wer] } }
   # Ersatz: ein anderes Modell derselben Sprache — lieber die falsche Figur als die alte Windows-Stimme.
   $ersatz = @($modelle | Where-Object { $_ -like "$prefix`_*" })
   if ($ersatz.Count) { return $ersatz[0] }
@@ -69,22 +73,25 @@ function ConvertTo-TtsText([string]$t) {
   $t = $t -replace '\s+', ' '
   $t.Trim()
 }
-function Get-TtsWav([string]$text, [string]$wer, [string]$lang) {
+# $probe: optional 'modell#sprecher' statt der Besetzung — für Hörproben aus dem Gesprächsraum, nie aus dem Cache der Figur.
+function Get-TtsWav([string]$text, [string]$wer, [string]$lang, [string]$probe) {
   $text = ConvertTo-TtsText $text
   if (-not $text) { throw 'TTS_LEER' }
   if ($text.Length -gt 1200) { $text = $text.Substring(0, 1200) }
   if ($wer -notin @('john','madeleine','picard')) { $wer = 'john' }
   if (-not (Test-Path $script:TtsCache)) { New-Item -ItemType Directory -Force $script:TtsCache | Out-Null }
   $exe = Get-TtsExe
-  $modell = $(if ($exe) { Resolve-TtsModell $lang $wer } else { $null })
+  $eintrag = $(if ($exe -and $probe -and $probe -match '^[A-Za-z0-9_.-]+(#\d+)?$' -and ((Get-TtsModelle) -contains ($probe -split '#')[0])) { $probe } elseif ($exe) { Resolve-TtsModell $lang $wer } else { $null })
+  $modell = $(if ($eintrag) { ($eintrag -split '#')[0] } else { $null }); $sprecher = Get-TtsSprecher $eintrag
   $engine = $(if ($modell) { 'piper' } else { 'sapi' })
-  $sha = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($script:Utf8NoBom.GetBytes("$engine|$modell|$wer|$lang|$text"))).Replace('-','').Substring(0,32).ToLower()
+  $sha = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create().ComputeHash($script:Utf8NoBom.GetBytes("$engine|$eintrag|$wer|$lang|$text"))).Replace('-','').Substring(0,32).ToLower()
   $wav = Join-Path $script:TtsCache "$sha.wav"
-  if (Test-Path $wav -PathType Leaf) { return @{ datei = $wav; engine = $engine; modell = $modell; cache = $true } }
+  if (Test-Path $wav -PathType Leaf) { return @{ datei = $wav; engine = $engine; modell = $eintrag; cache = $true } }
   if ($engine -eq 'piper') {
     $p = $script:TtsProsodie[$wer]
     $argv = @('--model', (Join-Path $script:TtsDir "voices\$modell.onnx"), '--output_file', $wav,
               '--length_scale', ([string]$p.length), '--noise_scale', ([string]$p.noise), '--sentence_silence', ([string]$p.pause))
+    if ($sprecher -ne $null) { $argv += @('--speaker', ([string]$sprecher)) }
     $r = Invoke-Prozess $exe $argv $text 60 @{} $script:TtsDir
     if ($r.code -ne 0 -or -not (Test-Path $wav)) { throw "TTS_PIPER: $($r.stderr)" }
   } else {
@@ -103,5 +110,5 @@ function Get-TtsWav([string]$text, [string]$wer, [string]$lang) {
     $script:TtsAufgeraeumt = Get-Date
     Get-ChildItem -LiteralPath $script:TtsCache -Filter *.wav -File | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-14) } | Remove-Item -Force -ErrorAction SilentlyContinue
   }
-  return @{ datei = $wav; engine = $engine; modell = $modell; cache = $false }
+  return @{ datei = $wav; engine = $engine; modell = $eintrag; cache = $false }
 }
