@@ -19,10 +19,15 @@
 # Aufruf
 #   powershell -NoProfile -ExecutionPolicy Bypass -File build-compass-produkt.ps1
 #   powershell -NoProfile -ExecutionPolicy Bypass -File build-compass-produkt.ps1 -Instanz "Muster GmbH"
+#   powershell -NoProfile -ExecutionPolicy Bypass -File build-compass-produkt.ps1 -Check
+#     -Check (16.09.2026): alle Anker- und Ersetzungspruefungen laufen, geschrieben wird NICHTS (weder
+#     site\compass-demo noch instanzen\…). Ausgabe „Check ok: N Anker, M Ersetzungen" oder die Fehlerliste,
+#     Exit-Code 1 bei Fehler. Der pre-commit-Hook ruft das, sobald dashboard.html oder dieses Skript im Index liegt.
 param(
   [string]$Quelle  = (Split-Path -Parent $MyInvocation.MyCommand.Path),   # seit 02.09.2026: Quelle und Build im selben Repo (flow-compass)
   [string]$Instanz = '',
-  [string]$Ziel    = ''
+  [string]$Ziel    = '',
+  [switch]$Check
 )
 $ErrorActionPreference = 'Stop'
 $base = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -46,10 +51,10 @@ if (-not $Ziel) {
 # ausgefuellte an der Wurzel liegen bleibt — die Instanz haette ueber Nacht wieder die
 # Werte der Vorlage. Migriert wird deshalb zuerst, und nur einmal (danach erkennt
 # build-portal.ps1 den Portal-Marker und laesst die Wurzel in Ruhe).
-if ($instanzWurzel -and (Test-Path (Join-Path $instanzWurzel 'index.html'))) {
+if (-not $Check -and $instanzWurzel -and (Test-Path (Join-Path $instanzWurzel 'index.html'))) {
   & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $base 'build-portal.ps1') -Ziel $instanzWurzel -NurMigrieren | ForEach-Object { Write-Host $_ }
 }
-if (-not (Test-Path $Ziel)) { New-Item -ItemType Directory -Force $Ziel | Out-Null }
+if (-not $Check -and -not (Test-Path $Ziel)) { New-Item -ItemType Directory -Force $Ziel | Out-Null }
 
 function Read-Utf8([string]$p) { [IO.File]::ReadAllText($p, [Text.Encoding]::UTF8) }
 function Write-Lf([string]$p, [string]$t) { [IO.File]::WriteAllText($p, $t.Replace("`r`n","`n"), $enc) }
@@ -58,10 +63,11 @@ $script:s = (Read-Utf8 (Join-Path $Quelle 'dashboard.html')).Replace("`r`n","`n"
 
 # Anker aus den (moeglicherweise CRLF-)Here-Strings dieses Skripts CR-frei machen,
 # sonst matchen mehrzeilige Anker nie.
+$script:anker = 0      # gezaehlt fuer die Ausgabe von -Check
 function Rep([string]$old, [string]$new, [string]$name) {
   $old = $old -replace "`r",''; $new = $new -replace "`r",''
   if (-not $script:s.Contains($old)) { throw "ANKER FEHLT (R): $name" }
-  $script:s = $script:s.Replace($old, $new)
+  $script:s = $script:s.Replace($old, $new); $script:anker++
 }
 function RepX([string]$pattern, [string]$new, [string]$name) {
   $pattern = $pattern -replace "`r",''; $new = $new -replace "`r",''
@@ -72,7 +78,7 @@ function RepX([string]$pattern, [string]$new, [string]$name) {
   # es wuerde den Ersatztext an Position 0 einschieben, vor <!doctype html>, ohne Fehler.
   if ($t.Length -eq 0) { throw "ANKER LEER (RX) - das Muster trifft die leere Zeichenkette: $name" }
   $ev = { param($m) $new }.GetNewClosure()
-  $script:s = $rx.Replace($script:s, $ev, 1)
+  $script:s = $rx.Replace($script:s, $ev, 1); $script:anker++
 }
 # RepN - woertlicher Anker mit Platzhalter, ohne Regex-Syntax im Aufruf.
 # '#NR#' steht fuer eine Zahl, die wandert (die Nummern der Sektionskommentare in
@@ -89,7 +95,7 @@ function RepN([string]$text, [string]$new, [string]$name) {
   if ($tr.Count -eq 0) { throw "ANKER FEHLT (N): $name" }
   if ($tr.Count -gt 1) { throw "ANKER MEHRDEUTIG (N, $($tr.Count)x): $name" }
   $ev = { param($m) $new }.GetNewClosure()
-  $script:s = $rx.Replace($script:s, $ev, 1)
+  $script:s = $rx.Replace($script:s, $ev, 1); $script:anker++
 }
 
 Write-Host "Quelle : $Quelle\dashboard.html"
@@ -513,11 +519,6 @@ Server nicht erreichbar — läuft john-server.ps1?
 Der Compass-Server ist nicht erreichbar — läuft er?
 '@),
   @(@'
-(LOKAL?'Läuft <code>john-server.cmd</code>?':'Der Compass spricht dafür deinen lokalen Server an (<code>john-server.cmd</code> starten, dann Checkin wiederholen).')
-'@, @'
-(LOKAL?'Läuft dein Compass-Server?':'Der Compass spricht dafür deinen Compass-Server an — starte ihn und wiederhole den Checkin.')
-'@),
-  @(@'
 'Der John-Server reicht sie durch — läuft er? <code>john-server.cmd</code> starten, dann ↻ Neu laden.'
 '@, @'
 'Der Compass-Server reicht sie durch — läuft er? Starte ihn, dann ↻ Neu laden.'
@@ -565,24 +566,19 @@ Hinterlege den API-Schlüssel im Compass-Server und starte ihn neu.
   @('Vishnu Flow Compass',             'Flow Compass'),
   @('🏢 Vishnu Kanban',                '✈️ Team-Board'),
   @('Vishnu Kanban',                   'Team-Board'),
-  @('🏢 Jira Board VA ↗',              '🎫 Board öffnen ↗'),
-  @('JIRA_EMAIL + JIRA_TOKEN',         'Zugangsdaten im Compass-Server'),
+  @('🎫 Jira Board VA ↗',              '🎫 Board öffnen ↗'),   # Anker nachgezogen 16.09.2026: das Symbol in dashboard.html ist seit dem Umbau 🎫, nicht 🏢
   @('JIRA_EMAIL/JIRA_TOKEN',           'Zugangsdaten im Compass-Server'),
   @('Jira nicht live — JIRA_TOKEN setzen', 'Vorgangssystem nicht angebunden'),
-  @('JIRA_TOKEN setzen',               'Zugang im Compass-Server hinterlegen'),
   @('JIRA_TOKEN)',                     'Zugang im Compass-Server)'),
-  @('TRELLO_<BOARD>_TOKEN',            'den Trello-Zugang im Compass-Server'),
   @('Morgen-Update',                   'Tages-Update'),
   @(' · Porsche-Cockpit ${LOT.data.porsche?''live'':''–''}', ''),
   @('Porsche-Cockpit, ergänzend zum Vishnu Cockpit (Team).', 'Team-Cockpit (Flight Levels).'),
   @('Mit John besprechen',             'Mit dem Coach besprechen'),
   @('John fragen',                     'Coach fragen'),
-  @('direkt mit John',                 'direkt mit dem Coach'),
   @('Im Chat mit John weiterdenken',   'Im Chat mit dem Coach weiterdenken'),
   @('John antwortet nicht',            'Der Coach antwortet nicht'),
   @('John denkt nach',                 'Der Coach denkt nach'),
   @('John formuliert',                 'Der Coach formuliert'),
-  @('John ist nicht erreichbar',       'Der Coach ist nicht erreichbar'),
   @('John ist offline',                'Der Coach ist offline'),
   @('John trägt die Summary vor',      'Der Coach trägt die Summary vor'),
   @('John „trägt vor“',                'Der Coach „trägt vor“'),
@@ -598,18 +594,36 @@ Hinterlege den API-Schlüssel im Compass-Server und starte ihn neu.
   @('Mit Claude als nächstes',         'Mit dem Coach als Nächstes'),
   @('Claude übernimmt',                'Dein Coach übernimmt'),
   @('mit Claude priorisieren',         'mit dem Coach priorisieren'),
-  @('Rückfragen von Claude',           'Offene Entscheidungen'),
+  # Laengster Begriff zuerst (16.09.2026): stand „Rückfragen von Claude" vor „Offene Rückfragen von Claude",
+  # wurde aus Johns Kontextzeile „Offene Offene Entscheidungen" — und der zweite Eintrag traf nie.
   @('Offene Rückfragen von Claude',    'Offene Entscheidungen'),
+  @('Rückfragen von Claude',           'Offene Entscheidungen'),
   @('Claude-Code-Transkripte',         'Aktivitätsprotokoll deines Rechners'),
   @('Praktische Arbeit mit Claude Code','Konzentrierte Arbeit'),
-  @('Arbeit mit Claude Code',          'Konzentrierte Arbeit'),
   @('Arbeit mit Claude',               'Arbeit mit dem Coach'),
   @('in den Claude-Chat einfügen',     'in den Coach-Chat einfügen'),
   @('Claude, hol meine wichtigsten Slack-Nachrichten','Coach, fass mir die wichtigsten Nachrichten zusammen'),
-  @('Claude, aktualisiere mein Dashboard','Bitte aktualisiere mein Cockpit'),
   @('Claude: Dashboard aktualisieren', 'Coach: Cockpit aktualisieren')
 )
-foreach ($p in $ersetzungen) { $script:s = $script:s.Replace(($p[0] -replace "`r",''), ($p[1] -replace "`r",'')) }
+# Trefferpruefung (16.09.2026): anders als Rep/RepX/RepN ersetzten diese Listen blind — ein Eintrag, dessen
+# Text in dashboard.html nicht mehr vorkommt, fiel nie auf, und der neutrale Ersatztext fehlte still in der
+# Demo. Jetzt zaehlt jeder Eintrag seine Treffer (IndexOf, ordinal, vor dem Replace); alle ohne Treffer werden
+# gesammelt und am Ende der Liste mit einem Wurf gemeldet, wie es die uebrigen Anker tun. Tote Eintraege
+# gehoeren dann aus der Liste, echte Anker-Brueche in dashboard.html nachgezogen — nie raten.
+$script:ersetzt = 0    # gezaehlt fuer die Ausgabe von -Check
+function Ersetze-Liste([object[]]$liste, [string]$name) {
+  $fehlt = @()
+  foreach ($p in $liste) {
+    $alt = ($p[0] -replace "`r",''); $neu = ($p[1] -replace "`r",'')
+    if ($script:s.IndexOf($alt, [StringComparison]::Ordinal) -lt 0) { $fehlt += $alt; continue }
+    $script:s = $script:s.Replace($alt, $neu); $script:ersetzt++
+  }
+  if ($fehlt.Count) {
+    $kurz = $fehlt | ForEach-Object { $k = $_ -replace "`n",' ⏎ '; if ($k.Length -gt 120) { $k.Substring(0,120) + '…' } else { $k } }
+    throw ("ANKER FEHLT ({0}): {1} Eintrag/Eintraege ohne Treffer in dashboard.html:`n  {2}" -f $name, $fehlt.Count, ($kurz -join "`n  "))
+  }
+}
+Ersetze-Liste $ersetzungen 'ersetzungen'
 $script:s = [Text.RegularExpressions.Regex]::Replace($script:s, '\bJohns\b', 'Coach-')
 $script:s = [Text.RegularExpressions.Regex]::Replace($script:s, '(?<![a-zA-Z])John(?![a-zA-Z])', 'Coach')
 
@@ -621,7 +635,6 @@ $eigennamen = @(
   @('Team-Werkzeug „Vishnu Cockpit“ (flow-cockpit/site/va)', 'Team-Werkzeug „Team-Cockpit“'),
   @('„Vishnu Cockpit“ (vishnu-artists.de/va)', '„Team-Cockpit“'),
   @('Vishnu Cockpit',        'Team-Cockpit'),
-  @('Vishnu-Cockpit',        'Team-Cockpit'),
   @('Vishnu-Kanban',         'Team-Board'),
   @('Vishnu Artists',        'Kontext 1'),
   @('Vishnu-Partner-Plugin', 'Beispielkarte'),
@@ -632,15 +645,11 @@ $eigennamen = @(
   @('Pilot: Bene. ',         ''),
   @('(Pilot: Bene)',         ''),
   @('„Bene“ trifft „Benedikt Irsch“', '„Alex“ trifft „Alexandra Winter“'),
-  @('vishnu-artists.de/va',  'deine Team-Cockpit-Adresse'),
-  @('bene.vishnuartists.com', 'deine Compass-Adresse'),
-  @('va.vishnuartists.com',  'deine Team-Cockpit-Adresse'),
   @('vishnuartists.com',     'example.com'),
   @('vishnuartists.atlassian.net', 'deine-firma.example'),
-  @('porsche-customer.github.io', 'example.com'),
   @('Jira-Keys (VA/STA/COM/VAEV/KPI → vishnuartists,', 'Jira-Keys (deine Projektkürzel aus instanz.js,')
 )
-foreach ($p in $eigennamen) { $script:s = $script:s.Replace(($p[0] -replace "`r",''), ($p[1] -replace "`r",'')) }
+Ersetze-Liste $eigennamen 'eigennamen'
 # Die Domain klein geschrieben: `\bVaikuntha\b` weiter unten ist gross-/kleinschreibungsempfindlich
 # und liess `vaikuntha.eu` durch — auch die Wortpruefung zaehlt Kleinschreibung nicht. Damit stand in
 # der Verkaufs-Demo die Bluete „Aufrufe vaikuntha.eu“ mit Benes echter Adresse (gefunden 31.08., beim
@@ -729,6 +738,15 @@ RepX '\n<!-- Gesprächsraum \(11\.09\.2026,.*?-->\n<script src="compass-gespraec
 # Benes Commits, Jira und Checkins (john-ausgabe.ps1). Ohne eigenen Server gibt es nichts zu drucken —
 # in der Demo bleibt die Anerkennung aus den Beispieldaten. Kommentar und Skriptzeile raus, Datei nie kopiert.
 RepX '\n<!-- Erfolgs-Ausgabe \(11\.09\.2026\):.*?-->\n<script src="compass-ausgabe\.js"></script>' '' 'Erfolgs-Ausgabe nur in der eigenen Instanz'
+
+# -Check (16.09.2026): bis hierher ist jeder Anker, jede Listenersetzung und die Wortpruefung ueber die
+# gebaute Seite gelaufen — ab hier wuerde geschrieben. Der Check hoert deshalb genau hier auf; die
+# Wortpruefung ueber die uebrigen Ausgabedateien (18b) braucht die geschriebenen Dateien und bleibt dem
+# echten Build vorbehalten.
+if ($Check) {
+  Write-Host ("Check ok: {0} Anker, {1} Ersetzungen — nichts geschrieben (Ziel waere {2})." -f $script:anker, $script:ersetzt, $Ziel) -ForegroundColor Green
+  return
+}
 
 Write-Lf (Join-Path $Ziel 'index.html') $script:s
 

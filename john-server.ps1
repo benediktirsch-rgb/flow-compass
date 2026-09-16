@@ -140,7 +140,7 @@
 
   Start
     powershell -ExecutionPolicy Bypass -File john-server.ps1          (oder john-server.cmd doppelklicken)
-    dann http://localhost:8787/dashboard.html öffnen. Stop: GET /__stop oder Strg+C.
+    dann http://localhost:8787/dashboard.html öffnen. Stop: /__stop (POST oder GET ohne fremden Origin) oder Strg+C.
 #>
 param(
   [int]$Port = 8787,
@@ -428,6 +428,28 @@ param(
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Net.Http
+
+# ---------- Team-Instanzen im Seiten-Waechter (16.09.2026) ----------
+# Rueckfrage vom 15.09. („die Instanz-Subdomains in Waechter und Deploy-Paare aufnehmen“ → Ja). Liste wie
+# $INSTANZEN in publish-compass.ps1: sub = Subdomain, ordner = instanzen\<name-slug>. Aufgenommen wird nur,
+# wessen lokaler Compass-Build (instanzen\<ordner>\compass\index.html) existiert — eine Instanz ohne Build
+# ist kein Befund, sondern noch nicht angelegt (Martin: Bruecke ohne Compass). Alle stehen hinter der Tuer
+# (gate.php), darum `geschuetzt = $true` wie bei bene. — die richtige Antwort ist die Anmeldeseite.
+# In $DeployPaare kommen sie bewusst NICHT: Get-DeploySoll vergleicht gegen `git HEAD:<datei>`, und
+# instanzen\ ist gitignored; dazu landet der Abruf hinter der Tuer auf der Anmeldeseite. Das Paar waere
+# auf Dauer „unpruefbar“ — genau das schliesst die Pflegeregel bei $DeployPaare aus (nichts hinter Anmeldung).
+$script:TeamInstanzen = @(
+  @{ name = 'Philipp Heitz'; sub = 'philipp'; ordner = 'philipp-heitz' }
+  @{ name = 'Jan';           sub = 'jan';     ordner = 'jan' }
+  @{ name = 'Marwan';        sub = 'marwan';  ordner = 'marwan' }
+  @{ name = 'Florian';       sub = 'florian'; ordner = 'florian' }
+  @{ name = 'Domingo';       sub = 'domingo'; ordner = 'domingo' }
+  @{ name = 'Martin';        sub = 'martin';  ordner = 'martin' }
+)
+foreach ($ti in $script:TeamInstanzen) {
+  if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot "instanzen\$($ti.ordner)\compass\index.html"))) { continue }
+  $WachtSeiten += @{ name = "Flow Compass ($($ti.sub).)"; url = "https://$($ti.sub).vishnuartists.com/"; typ = 'Vishnu'; geschuetzt = $true }
+}
 
 # ---------- Sync C:\dev ↔ Google Drive (neuere Datei gewinnt, nichts wird gelöscht) ----------
 # Beim Start: erst Neueres von H: holen (z. B. Morgen-Update, das noch nach H: schreibt), dann C: → H: spiegeln.
@@ -2650,6 +2672,34 @@ function Read-Liste($in) {
 # Kandidaten liefert der Compass (offene Rückfragen, Board-Zahlen, Trichter); der Server legt dazu, was nur er
 # kennt: Fälligkeiten aus john/bewerbungen/pipeline.md, john/mitglieder/pipeline.md und john/TASKS.md. John sortiert,
 # formuliert den Satz und wählt die Aktion — und darf aus seinem eigenen Wissen (Pipeline, Notizen) Punkte ergänzen.
+# ---------- Zustandsdateien: atomar schreiben, Kaputtes beiseitelegen (16.09.2026) ----------
+# Write-Atomar: erst daneben schreiben, dann drueberkopieren (Muster aus Set-VaPuffer) — ein abgebrochener
+# Schreibvorgang darf den letzten guten Stand nicht zerstoeren; genau so faellt eine Datei sonst auf 0 Byte.
+function Write-Atomar([string]$pfad, [string]$text) {
+  $tmp = "$pfad.neu"
+  [IO.File]::WriteAllText($tmp, $text, (New-Object Text.UTF8Encoding($false)))
+  [IO.File]::Copy($tmp, $pfad, $true)
+  Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
+}
+# Move-KaputteDatei: bisher fielen Read-Stapel, Get-Reaktionen und Read-Antworten bei einem Parse-Fehler still
+# auf einen leeren Stand zurueck — die Datei blieb liegen, scheiterte bei jedem Aufruf erneut, und der naechste
+# Save ueberschrieb sie. Jetzt wandert sie nach <name>_kaputt-<zeit>.json (Move, nicht Copy: der Server baut
+# mit leerem Stand neu auf, die kaputte Datei bleibt zum Nachsehen), eine Logzeile nennt Pfad und Fehler, und
+# der Name steht in $script:KaputteDateien — die GET-Antworten (/api/antworten, /api/reaktionen,
+# /api/john/stapel) tragen ihn als Feld `kaputt`, solange der Server laeuft.
+$script:KaputteDateien = @()
+function Move-KaputteDatei([string]$pfad, [string]$fehler) {
+  $ziel = Join-Path (Split-Path $pfad -Parent) ("{0}_kaputt-{1}.json" -f [IO.Path]::GetFileNameWithoutExtension($pfad), (Get-Date -Format 'yyyyMMdd-HHmmss'))
+  try { Move-Item -LiteralPath $pfad -Destination $ziel -Force }
+  catch { Write-Host ("[{0}] {1} liess sich nicht beiseitelegen: {2}" -f (Get-Date -Format 'HH:mm:ss'), $pfad, $_.Exception.Message) -ForegroundColor Red; $ziel = $pfad }
+  $script:KaputteDateien += [IO.Path]::GetFileName($ziel)
+  Write-Host ("[{0}] Zustandsdatei unlesbar: {1} — {2} → beiseitegelegt als {3}" -f (Get-Date -Format 'HH:mm:ss'), $pfad, $fehler, [IO.Path]::GetFileName($ziel)) -ForegroundColor Red
+}
+function Add-Kaputt($antwort) {
+  if ($script:KaputteDateien.Count) { $antwort.kaputt = @($script:KaputteDateien) }
+  return $antwort
+}
+
 $script:StapelDatei = Join-Path $PSScriptRoot 'john-stapel.json'
 $script:Stapel = $null
 $script:StapelArten = @('entscheiden','karte','mail','termin','john','claude','link','board')
@@ -2666,7 +2716,7 @@ function Read-Stapel {
                                aktion = [string]$p.Value.aktion; titel = [string]$p.Value.titel }
       }
       if ($d.letzte) { $s.letzte = $d.letzte }
-    } catch { }
+    } catch { Move-KaputteDatei $script:StapelDatei $_.Exception.Message; $s = @{ stand = @{}; letzte = $null } }
   }
   $script:Stapel = $s
   $s
@@ -2682,7 +2732,7 @@ function Save-Stapel {
   $o = @{ geschrieben = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
           hinweis = 'Johns Stapel im Flow Compass: Stand je Punkt (ok = abgeraeumt, wieder = Wiedervorlage bis <bis>) und Johns letzte Antwort. Geschrieben von john-server.ps1 (/api/john/stapel).'
           stand = $s.stand; letzte = $s.letzte }
-  [IO.File]::WriteAllText($script:StapelDatei, ($o | ConvertTo-Json -Depth 12), (New-Object Text.UTF8Encoding($false)))
+  Write-Atomar $script:StapelDatei ($o | ConvertTo-Json -Depth 12)
 }
 
 # Ein Datum wie „08.09.2026" oder „2026-09-08" (auch mit „, 12:00" dahinter) → [datetime] oder $null
@@ -2885,7 +2935,8 @@ function Set-StapelStand($in) {
     $notiz += " Auftrag an Claude: $($auftrag.Trim())"
   }
   Save-Stapel
-  try { Invoke-Tool 'notiz_speichern' @{ text = $notiz } | Out-Null } catch { }
+  try { Invoke-Tool 'notiz_speichern' @{ text = $notiz } | Out-Null }
+  catch { Write-Host ("[{0}] Stapel-Notiz nicht gespeichert: {1}" -f (Get-Date -Format 'HH:mm:ss'), $_.Exception.Message) -ForegroundColor Yellow }
   Write-Host ("[{0}] Stapel-Stand: {1} → {2}{3}" -f (Get-Date -Format 'HH:mm:ss'), $key, $status, $(if ($aktion) { " ($aktion)" } else { '' })) -ForegroundColor Green
   return @{ ok = $true; stand = $s.stand; notiz = $notiz }
 }
@@ -2935,11 +2986,11 @@ function Get-Reaktionen {
   try {
     $d = (Get-Content -LiteralPath $script:ReaktionenDatei -Raw -Encoding UTF8) | ConvertFrom-Json
     foreach ($p in @($d.PSObject.Properties)) { if ($p) { $h[$p.Name] = $p.Value } }
-  } catch { Write-Host "  reaktionen.json unlesbar: $($_.Exception.Message)" -ForegroundColor Yellow }
+  } catch { Move-KaputteDatei $script:ReaktionenDatei $_.Exception.Message; $h = @{} }
   $h
 }
 function Save-Reaktionen($h) {
-  [IO.File]::WriteAllText($script:ReaktionenDatei, ($h | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding($false)))
+  Write-Atomar $script:ReaktionenDatei ($h | ConvertTo-Json -Depth 6)
 }
 function Use-Reaktionen([string]$quelle, [object[]]$eintraege, [string]$messung) {
   # Liefert die Eintraege ohne die erledigten und haengt an die uebrigen den gemerkten Zustand.
@@ -4252,8 +4303,7 @@ function Save-Antworten {
   $o = @{ stand = (Get-Date -Format 'yyyy-MM-dd HH:mm'); anzahl = $script:Antw.Count
           hinweis = 'Beantwortete Rueckfragen des Flow Compass. Geschrieben von john-server.ps1 (/api/antworten, /api/checkin).'
           antworten = $script:Antw }
-  $enc = New-Object Text.UTF8Encoding($false)
-  [IO.File]::WriteAllText($script:AntwDatei, ($o | ConvertTo-Json -Depth 6), $enc)
+  Write-Atomar $script:AntwDatei ($o | ConvertTo-Json -Depth 6)
 }
 
 function Read-Antworten {
@@ -4267,9 +4317,10 @@ function Read-Antworten {
         $h[$p.Name] = @{ a = [string]$p.Value.a; ts = [string]$p.Value.ts
                          frage = [string]$p.Value.frage; quelle = [string]$p.Value.quelle }
       }
-    } catch { }
-    $script:Antw = $h
-    return $script:Antw
+      $script:Antw = $h
+      return $script:Antw
+    } catch { Move-KaputteDatei $script:AntwDatei $_.Exception.Message; $h = @{} }
+    # Die Datei war kaputt und liegt beiseite — weiter wie beim allerersten Lesen: aus den Checkins aufbauen.
   }
   # Erstbefuellung: die Checkins wissen laengst Bescheid (Feld `entschieden`).
   # Aeltester zuerst, damit die juengste Antwort je Kennung gewinnt.
@@ -4326,8 +4377,7 @@ function Save-Einstellungen {
   $o = @{ stand = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
           hinweis = 'Vorlieben des Flow Compass (Farbschema, Sprache, Tagesphase, Board-Einrichtung), ursprunguebergreifend. Geschrieben von john-server.ps1 (/api/einstellungen).'
           einstellungen = $script:Einst }
-  $enc = New-Object Text.UTF8Encoding($false)
-  [IO.File]::WriteAllText($script:EinstDatei, ($o | ConvertTo-Json -Depth 6), $enc)
+  Write-Atomar $script:EinstDatei ($o | ConvertTo-Json -Depth 6)
 }
 
 function Read-Einstellungen {
@@ -4412,7 +4462,7 @@ Write-Host ("  Checkins: {0}api/checkin  (Ablage: {1})" -f $prefix, (Join-Path $
 Write-Host ("  Kalender: {0}api/kalender  ({1})" -f $prefix, $(if ((Get-KalenderQuellen).Count) { (((Get-KalenderQuellen) | ForEach-Object { $_.name }) -join ', ') + " ✓" } else { 'keine iCal-Adresse — GCAL_ICS setzen, optional' }))
 Write-Host ("  Postfach: {0}api/postfach  ({1})" -f $prefix, $(if (Test-Path (Join-Path $PSScriptRoot 'postfach.json')) { 'postfach.json gefunden ✓' } else { 'noch keine Daten — geplante Aufgabe „compass-postfach“ läuft nicht' }))
 Write-Host ("  Slack:    {0}api/slack     ({1})" -f $prefix, $(if (Test-Path (Join-Path $PSScriptRoot 'slack.json')) { 'slack.json gefunden ✓' } else { 'noch keine Daten — geplante Aufgabe „compass-slack“ läuft nicht' }))
-Write-Host "  Stop:     ${prefix}__stop"
+Write-Host "  Stop:     ${prefix}__stop  (POST oder GET ohne fremden Origin)"
 if ($OpenBrowser) { try { Start-Process "${prefix}dashboard.html" } catch {} }
 
 function Send-Json($ctx, $obj, [int]$code = 200) {
@@ -4424,6 +4474,35 @@ function Send-Html($ctx, [string]$html, [int]$code = 200) {
   $b = [Text.Encoding]::UTF8.GetBytes($html)
   $ctx.Response.StatusCode = $code; $ctx.Response.ContentType = 'text/html; charset=utf-8'
   $ctx.Response.ContentLength64 = $b.Length; $ctx.Response.OutputStream.Write($b, 0, $b.Length); $ctx.Response.Close()
+}
+# Welche Web-Urspruenge duerfen diesen Server ansprechen (16.09.2026, Rueckfrage compass-localhost-haerten → Ja).
+# Bisher stand hier `Access-Control-Allow-Origin: *` plus Allow-Private-Network — damit konnte jede geoeffnete
+# Webseite Finanzen, Postfach und Git-Stand lesen. Erlaubt sind nur noch der Rechner selbst und die Subdomains
+# von vishnuartists.com (Vorbild: produkt/gate/gate.php, g_cors). Ohne Origin-Kopf (Invoke-WebRequest, curl,
+# geplante Aufgaben, Adresszeile im Browser) gilt die Anfrage als erlaubt — CORS ist ein Browser-Thema.
+function Test-OriginErlaubt([string]$origin) {
+  if (-not $origin) { return $true }
+  if ($origin -match '^https?://(localhost|127\.0\.0\.1)(:\d+)?$') { return $true }
+  if ($origin -match '^https://([a-z0-9-]+\.)?vishnuartists\.com$') { return $true }
+  return $false
+}
+# POST-Body als JSON lesen (16.09.2026). Bisher stand an gut 20 Stellen `$in = $(if ($raw) { $raw | ConvertFrom-Json } …)`,
+# und ein kaputter Body endete als 500 mit der .NET-Meldung. Jetzt: ungueltiges JSON → 400 BAD_JSON, $ok bleibt $false,
+# und der Zweig im Router endet mit `continue`. Leerer Body → $Leer ($null, oder @{} fuer Zweige, die ohne Body
+# weiterarbeiten). Aufruf: `$ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }`
+function Read-JsonBody($ctx, [ref]$ok, $Leer = $null) {
+  $ok.Value = $false
+  $sr = New-Object IO.StreamReader ($ctx.Request.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+  if (-not $raw -or -not $raw.Trim()) { $ok.Value = $true; return $Leer }
+  $in = $null
+  try { $in = $raw | ConvertFrom-Json }
+  catch {
+    Write-Host ("[{0}] {1} {2}: Body ist kein JSON — {3}" -f (Get-Date -Format 'HH:mm:ss'), $ctx.Request.HttpMethod, $ctx.Request.Url.AbsolutePath, $_.Exception.Message) -ForegroundColor Yellow
+    Send-Json $ctx @{ ok = $false; error = 'BAD_JSON'; hint = 'Der Anfragetext ist kein gültiges JSON.' } 400
+    return $null
+  }
+  $ok.Value = $true
+  return $in
 }
 $script:GitCache = $null; $script:GitCacheZeit = [datetime]::MinValue; $script:GitSnapZeit = [datetime]::MinValue
 try {
@@ -4437,18 +4516,41 @@ try {
     try {
     $ctx = $listener.GetContext()
     $req = $ctx.Request; $res = $ctx.Response
-    $res.Headers['Access-Control-Allow-Origin'] = '*'
-    $res.Headers['Access-Control-Allow-Headers'] = 'Content-Type'
-    $res.Headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    # Livegang (19.08.): der Compass auf https://vishnu-artists.de/compass spricht diesen lokalen Server an
-    # (https → http://localhost gilt im Browser als sicher). Chrome verlangt fuer "private network access" zusaetzlich:
-    $res.Headers['Access-Control-Allow-Private-Network'] = 'true'
-    $res.Headers['Access-Control-Max-Age'] = '600'
+    # CORS (16.09.2026): kein Stern mehr. Ein fremder Ursprung bekommt keine CORS-Koepfe und fuer jede Anfrage —
+    # auch GET und den OPTIONS-Preflight — 403 ORIGIN. Ein erlaubter Ursprung wird gespiegelt (Vary: Origin);
+    # ohne Origin-Kopf (kein Browser) gibt es nichts zu erlauben, nur Cache-Control. Regel: Test-OriginErlaubt.
+    $origin = [string]$req.Headers['Origin']
+    if (-not (Test-OriginErlaubt $origin)) {
+      Write-Host ("[{0}] Fremder Origin abgewiesen: {1} {2} von {3}" -f (Get-Date -Format 'HH:mm:ss'), $req.HttpMethod, $req.RawUrl, $origin) -ForegroundColor Yellow
+      Send-Json $ctx @{ error = 'ORIGIN' } 403
+      continue
+    }
+    if ($origin) {
+      $res.Headers['Access-Control-Allow-Origin'] = $origin
+      $res.Headers['Vary'] = 'Origin'
+      $res.Headers['Access-Control-Allow-Headers'] = 'Content-Type'
+      $res.Headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+      # Der Compass auf https://bene.vishnuartists.com spricht diesen lokalen Server an (https → http://localhost
+      # gilt im Browser als sicher). Chrome verlangt fuer "private network access" zusaetzlich:
+      $res.Headers['Access-Control-Allow-Private-Network'] = 'true'
+      $res.Headers['Access-Control-Max-Age'] = '600'
+    }
     $res.Headers['Cache-Control'] = 'no-store'
     $path = [Uri]::UnescapeDataString($req.Url.AbsolutePath)
     try {
       if ($req.HttpMethod -eq 'OPTIONS') { $res.StatusCode = 204; $res.Close(); continue }
-      if ($path -eq '/__stop') { Send-Json $ctx @{ ok = $true; msg = 'bye' }; break }
+      if ($path -eq '/__stop') {
+        # POST oder GET ohne fremden Ursprung (16.09.2026). Ein <img src="http://localhost:8787/__stop"> auf einer
+        # fremden Seite kommt als GET mit `Sec-Fetch-Site: cross-site` — Browser setzen den Kopf immer, aus einer
+        # Seite heraus faelschen laesst er sich nicht. Nicht-Browser-Aufrufer (Invoke-WebRequest, curl, die Adresszeile
+        # → `none`) senden ihn nicht oder harmlos und gehen wie bisher durch; fremde Origins sind oben schon abgewiesen.
+        $sfs = [string]$req.Headers['Sec-Fetch-Site']
+        if ($req.HttpMethod -ne 'POST' -and $sfs -and $sfs -ne 'same-origin' -and $sfs -ne 'none') {
+          Write-Host ("[{0}] /__stop abgewiesen: {1} mit Sec-Fetch-Site={2}" -f (Get-Date -Format 'HH:mm:ss'), $req.HttpMethod, $sfs) -ForegroundColor Yellow
+          Send-Json $ctx @{ error = 'ORIGIN' } 403; continue
+        }
+        Send-Json $ctx @{ ok = $true; msg = 'bye' }; break
+      }
       if ($path -eq '/api/john/status') {
         $sys = Build-System; $be = Get-Backend
         $login = $(if ($be -eq 'cli') { Get-CliLogin -Frisch:($req.QueryString['fresh'] -eq '1') } else { $null })
@@ -4555,8 +4657,7 @@ try {
       }
       # --- Reaktionen auf Postfach/Slack (06.09.): {quelle,id,art[,von,adresse,betreff,kanal,worum,url]} ---
       if ($path -eq '/api/reaktion' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         if (-not $in -or -not [string]$in.id -or -not [string]$in.quelle) { Send-Json $ctx @{ ok = $false; error = 'NO_BODY'; hint = 'Erwartet {quelle, id, art}' } 400; continue }
         try { Send-Json $ctx (Set-Reaktion $in) }
         catch { Write-Host "  Reaktions-Fehler: $($_.Exception.Message)" -ForegroundColor Red; Send-Json $ctx @{ ok = $false; error = $_.Exception.Message } 502 }
@@ -4564,7 +4665,7 @@ try {
       }
       if ($path -eq '/api/reaktionen') {
         $alle = Get-Reaktionen
-        Send-Json $ctx @{ ok = $true; anzahl = $alle.Count; reaktionen = @($alle.Keys | Sort-Object | ForEach-Object { $alle[$_] }) }
+        Send-Json $ctx (Add-Kaputt @{ ok = $true; anzahl = $alle.Count; reaktionen = @($alle.Keys | Sort-Object | ForEach-Object { $alle[$_] }) })
         continue
       }
       if ($path -eq '/api/postfach') {
@@ -4626,8 +4727,7 @@ try {
       }
       # --- Mein Board: Trello schreiben (move / card / done) + Jira (meine / transition / issue) ---
       if ($path -like '/api/trello/*' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { @{} })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok) @{}; if (-not $ok) { continue }
         $board = [string]$in.board; if (-not $board) { $board = 'privat' }
         try {
           switch ($path) {
@@ -4666,8 +4766,7 @@ try {
         continue
       }
       if ($path -eq '/api/board/lesen' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { @{} })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok) @{}; if (-not $ok) { continue }
         Write-Host ("[{0}] Liste lesen ({1})" -f (Get-Date -Format 'HH:mm:ss'), $(if ($in.bild) { 'Foto' } else { 'Text' }))
         try { Send-Json $ctx (Read-Liste $in) }
         catch { $m = $_.Exception.Message
@@ -4688,8 +4787,7 @@ try {
         continue
       }
       if (($path -eq '/api/jira/transition' -or $path -eq '/api/jira/issue') -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { @{} })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok) @{}; if (-not $ok) { continue }
         try {
           if ($path -eq '/api/jira/transition') { Send-Json $ctx (Set-JiraTransition ([string]$in.key) ([string]$in.ziel)) }
           else { Send-Json $ctx (New-JiraIssue ([string]$in.project) ([string]$in.summary) ([string]$in.type) ([string]$in.desc)) }
@@ -4716,8 +4814,7 @@ try {
         continue
       }
       if ($path -eq '/api/john/summary' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { @{} })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok) @{}; if (-not $ok) { continue }
         Write-Host ("[{0}] John-Summary angefragt" -f (Get-Date -Format 'HH:mm:ss'))
         try { Send-Json $ctx (John-Summary $in) }
         catch { $m = $_.Exception.Message
@@ -4728,16 +4825,14 @@ try {
       }
       # Johns Stapel (06.09.2026): das Coach-Feld im Compass — John sortiert, formuliert, wählt die Aktion.
       if ($path -eq '/api/john/stapel/stand' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         try { Send-Json $ctx (Set-StapelStand $in) }
         catch { Send-Json $ctx @{ ok = $false; error = $_.Exception.Message } 500 }
         continue
       }
       if ($path -eq '/api/john/stapel') {
         if ($req.HttpMethod -eq 'POST') {
-          $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-          $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+          $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
           Write-Host ("[{0}] Stapel angefragt ({1} Kandidaten{2})" -f (Get-Date -Format 'HH:mm:ss'), @($in.kandidaten).Count, $(if ($in.fresh) { ', frisch' } else { '' }))
           try { Send-Json $ctx (John-Stapel $in) }
           catch {
@@ -4749,14 +4844,13 @@ try {
           continue
         }
         $st = Read-Stapel
-        Send-Json $ctx @{ ok = $true; stand = $st.stand; letzte = $st.letzte; datei = $script:StapelDatei }
+        Send-Json $ctx (Add-Kaputt @{ ok = $true; stand = $st.stand; letzte = $st.letzte; datei = $script:StapelDatei })
         continue
       }
       # --- Systembild (10.09.2026): das Wirkungsbild, das neben John und Madeleine mitlaeuft ----------
       # Der Compass fragt bei jedem Aufbau nach; gerechnet wird nur, was noch nicht im Cache liegt.
       if ($path -eq '/api/systembild' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         try { Send-Json $ctx (John-Systembild $in) }
         catch {
           $m = $_.Exception.Message
@@ -4771,8 +4865,7 @@ try {
       if ($path -eq '/api/ausgabe') {
         try {
           if ($req.HttpMethod -eq 'POST') {
-            $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-            $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+            $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
             Send-Json $ctx (Build-Ausgabe ([bool]($in -and $in.fresh)))
           } else {
             Send-Json $ctx (Get-Ausgabe ($req.QueryString['fresh'] -eq '1'))
@@ -4789,11 +4882,10 @@ try {
       # --- Serverstimme (15.09.2026): Status + Render eines Satzes zu WAV; der Gesprächsraum fällt sonst auf den Browser zurück ---
       if ($path -eq '/api/tts/status') { Send-Json $ctx (Get-TtsStatus); continue }
       if ($path -eq '/api/tts' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         if (-not $in -or -not $in.text) { Send-Json $ctx @{ ok = $false; error = 'TTS_LEER' } 400; continue }
         try {
-          $t = Get-TtsWav ([string]$in.text) ([string]$in.wer) $(if ($in.lang) { [string]$in.lang } else { 'de-DE' })
+          $t = Get-TtsWav ([string]$in.text) ([string]$in.wer) $(if ($in.lang) { [string]$in.lang } else { 'de-DE' }) $(if ($in.probe) { [string]$in.probe } else { '' })
           $bytes = [IO.File]::ReadAllBytes($t.datei)
           $res.StatusCode = 200; $res.ContentType = 'audio/wav'
           $res.AddHeader('X-Tts-Engine', $t.engine); if ($t.modell) { $res.AddHeader('X-Tts-Modell', $t.modell) }
@@ -4812,8 +4904,7 @@ try {
         continue
       }
       if ($path -eq '/api/madeleine' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $raw | ConvertFrom-Json
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         $msgs = @($in.messages | Where-Object { $_.role -in @('user','assistant') -and [string]$_.content })
         if (-not $msgs.Count) { Send-Json $ctx @{ error = 'keine Nachrichten' } 400; continue }
         Write-Host ("[{0}] Madeleine ← {1}" -f (Get-Date -Format 'HH:mm:ss'), ([string]$msgs[-1].content).Substring(0, [Math]::Min(70, ([string]$msgs[-1].content).Length)))
@@ -4831,8 +4922,7 @@ try {
       # Benes Antwort auf Johns Schlussfrage (09.09.2026) — sie gehoert in dieselbe Datei wie die Runde,
       # sonst steht die Entscheidung nirgends und beide Berater fragen morgen wieder dasselbe.
       if ($path -eq '/api/beraterrunde/antwort' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         try { Send-Json $ctx (BeraterrundeAntwort $in) }
         catch {
           $m = $_.Exception.Message
@@ -4844,8 +4934,7 @@ try {
       }
       if ($path -eq '/api/beraterrunde') {
         if ($req.HttpMethod -eq 'POST') {
-          $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-          $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+          $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
           try { Send-Json $ctx (Beraterrunde $in) }
           catch {
             $m = $_.Exception.Message
@@ -4860,8 +4949,7 @@ try {
         continue
       }
       if ($path -eq '/api/john' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $raw | ConvertFrom-Json
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         $msgs = @($in.messages | Where-Object { $_.role -in @('user','assistant') -and [string]$_.content })
         if (-not $msgs.Count) { Send-Json $ctx @{ error = 'keine Nachrichten' } 400; continue }
         Write-Host ("[{0}] John ← {1}" -f (Get-Date -Format 'HH:mm:ss'), ([string]$msgs[-1].content).Substring(0, [Math]::Min(70, ([string]$msgs[-1].content).Length)))
@@ -4906,11 +4994,16 @@ try {
 
         if ($req.HttpMethod -eq 'POST') {
           # Freigabe genau EINES Pakets. Der Compass fragt vorher; hier wird nur ausgefuehrt.
-          $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-          $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+          $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
           $repo = [string]$in.repo; $paket = [string]$in.paket; $nachricht = [string]$in.nachricht
           if (-not $repo -or -not $paket -or -not $nachricht.Trim()) {
             Send-Json $ctx @{ ok = $false; error = 'UNVOLLSTAENDIG'; hint = 'repo, paket und nachricht sind Pflicht.' } 400; continue }
+          # Beide Werte werden Argumente von git-flow.ps1 (16.09.2026): nur ein Repo-Name unter C:\dev mit .git und
+          # ein Paketname — keine Pfade, keine Sonderzeichen; die Nachricht auf 2000 Zeichen gekappt.
+          if ($repo -notmatch '^[A-Za-z0-9._-]+$' -or $repo -eq '.' -or $repo -eq '..' -or -not (Test-Path -LiteralPath (Join-Path (Join-Path 'C:\dev' $repo) '.git'))) {
+            Send-Json $ctx @{ ok = $false; error = 'BAD_PARAM'; feld = 'repo' } 400; continue }
+          if ($paket -notmatch '^[A-Za-z0-9._-]+$') { Send-Json $ctx @{ ok = $false; error = 'BAD_PARAM'; feld = 'paket' } 400; continue }
+          if ($nachricht.Length -gt 2000) { $nachricht = $nachricht.Substring(0, 2000) }
           $tmp = [IO.Path]::GetTempFileName()
           [IO.File]::WriteAllText($tmp, $nachricht.Replace("`r`n","`n"), (New-Object Text.UTF8Encoding($false)))
           $out = ''
@@ -4964,8 +5057,7 @@ try {
         continue
       }
       if ($path -eq '/api/finanzen/entscheidung' -and $req.HttpMethod -eq 'POST') {
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         if (-not $in) { Send-Json $ctx @{ ok = $false; error = 'NO_BODY' } 400; continue }
         Send-Json $ctx (Send-Finanzstimme $in) 200
         continue
@@ -4987,8 +5079,7 @@ try {
         # Einen Vorgang im Freelancer-Portal weiterschieben (05.09.2026). Erlaubt ist nur
         # bewerbung_weiter — die Grenze steht in Send-PoolSchritt, nicht im Vertrauen.
         if ($req.HttpMethod -ne 'POST') { Send-Json $ctx @{ ok = $false; error = 'NUR_POST' } 405; continue }
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         if (-not $in) { Send-Json $ctx @{ ok = $false; error = 'NO_BODY' } 400; continue }
         $erg = Send-PoolSchritt $in
         Send-Json $ctx $erg $(if ($erg.ok) { 200 } else { 200 })
@@ -5000,8 +5091,7 @@ try {
         # nimmt den Token-Link aus dem frischen Vereins-Stand und ruft ihn auf — derselbe Link wie in
         # der Vorlage-Mail, ohne Passwort und ohne Cookie. Danach ist der Cache leer.
         if ($req.HttpMethod -ne 'POST') { Send-Json $ctx @{ ok = $false; error = 'NUR_POST' } 405; continue }
-        $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-        $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         $uid = 0; try { $uid = [int]$in.uid } catch { }
         $do = [string]$in.do
         if (-not $uid -or ($do -ne 'ja' -and $do -ne 'nein')) {
@@ -5040,8 +5130,7 @@ try {
 
       if ($path -eq '/api/antworten') {
         if ($req.HttpMethod -eq 'POST') {
-          $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-          $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+          $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
           $n = 0
           # a) eine einzelne Antwort, in dem Moment gegeben: {id, antwort, ts, frage}
           if ([string]$in.id) {
@@ -5057,14 +5146,13 @@ try {
           Send-Json $ctx @{ ok = $true; neu = $n; anzahl = (Read-Antworten).Count; antworten = (Read-Antworten) }
           continue
         }
-        Send-Json $ctx @{ ok = $true; anzahl = (Read-Antworten).Count; datei = $script:AntwDatei; antworten = (Read-Antworten) }
+        Send-Json $ctx (Add-Kaputt @{ ok = $true; anzahl = (Read-Antworten).Count; datei = $script:AntwDatei; antworten = (Read-Antworten) })
         continue
       }
 
       if ($path -eq '/api/einstellungen') {
         if ($req.HttpMethod -eq 'POST') {
-          $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-          $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+          $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
           $n = 0
           # a) eine einzelne Vorliebe, in dem Moment umgestellt: {key, wert, ts}
           if ([string]$in.key) {
@@ -5117,8 +5205,7 @@ try {
         # in GET /api/checkin nach art+datum) und schickte sie darum immer wieder neu.
         $arten = @('morgen','abend','wochenstart','wochenreview','fragen','freigaben','trichter')
         if ($req.HttpMethod -eq 'POST') {
-          $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-          $in = $(if ($raw) { $raw | ConvertFrom-Json } else { $null })
+          $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
           $text = ([string]$in.text)
           if (-not $text.Trim()) { Send-Json $ctx @{ ok = $false; error = 'LEER'; hint = 'Feld „text“ fehlt — nichts gespeichert.' } 400; continue }
           $art = ([string]$in.art).ToLowerInvariant()

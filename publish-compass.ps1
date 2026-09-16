@@ -35,6 +35,16 @@ $repo = Split-Path -Parent $MyInvocation.MyCommand.Path
 $log  = Join-Path $repo 'publish-compass.log'
 $task = 'Vishnu Flow Compass publish'
 function Log($m) { $line = "{0:yyyy-MM-dd HH:mm:ss}  {1}" -f (Get-Date), $m; Add-Content -Path $log -Value $line -Encoding UTF8; Write-Host $line }
+# Fehlerzaehler (16.09.2026): Upload-Fehler und nicht ausgerollte Instanzen wurden bisher nur geloggt, der Lauf
+# endete mit Exit-Code 0 — die geplante Aufgabe zeigte „erfolgreich", waehrend Dateien liegen blieben. Schluss
+# schreibt am Ende eines Laufs die Summe und beendet mit 1, sobald etwas fehlgeschlagen ist. Steht an jedem
+# Ausstieg NACH den Uploads ganz zuletzt, damit keine Aufraeumarbeit uebersprungen wird.
+$script:PublishFehler = 0
+function Schluss([string]$meldung = '') {
+  if ($meldung) { Log $meldung }
+  if ($script:PublishFehler -gt 0) { Log ("{0} Fehler in diesem Lauf — Exit-Code 1." -f $script:PublishFehler); exit 1 }
+  Log '0 Fehler in diesem Lauf.'
+}
 
 if ($Register) {
   $act = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$($MyInvocation.MyCommand.Path)`""
@@ -255,7 +265,7 @@ if ($stagingZiele.Count -or $stagingInst.Count) {
   if ($stagingOk.Count) { Log ("Staging gebaut: " + (@($stagingOk.Keys) -join ', ')) }
 }
 
-if ($NurBauen) { Log 'NurBauen: fertig, nichts hochgeladen, nichts committet.'; return }
+if ($NurBauen) { Schluss 'NurBauen: fertig, nichts hochgeladen, nichts committet.'; return }
 
 # ---------- Freigabe-Regel fuer Prod (15.09.2026, stufen.json > prod.freigabe) ----------
 # "sofort" = wie bisher. "commit" = Prod nur aus einer Arbeitskopie ohne uncommittete Aenderungen an
@@ -288,7 +298,7 @@ function Lade-Ordner($zugang, [string]$lokal, [string]$sub, [string]$was, [strin
     # eines Dokumentenverzeichnisses ist er von aussen nicht erreichbar, und beim Anlegen der Subdomain
     # wird er einfach ausgewaehlt — die Tuer (.htaccess + gate.php) liegt dann schon drin.
     $fernBasis = $stagingOrdnerMuster.Replace('{sub}', $sub); $stateName = 'staging-' + $sub
-    try { Sichere-FtpOrdner $zugang $fernBasis } catch { Log ("FEHLER: Staging-Ordner {0} nicht anlegbar: {1}" -f $fernBasis, $_.Exception.Message); return }
+    try { Sichere-FtpOrdner $zugang $fernBasis } catch { $script:PublishFehler++; Log ("FEHLER: Staging-Ordner {0} nicht anlegbar: {1}" -f $fernBasis, $_.Exception.Message); return }
   }
   if (-not (Test-Path (Join-Path $lokal 'index.html'))) { Log ("WARNUNG: {0} — {1}\index.html fehlt, nichts hochzuladen." -f $was, $lokal); return }
   $stateDatei = Join-Path $stateDir "$stateName.json"
@@ -310,7 +320,7 @@ function Lade-Ordner($zugang, [string]$lokal, [string]$sub, [string]$was, [strin
       for ($i = 0; $i -lt $teile.Count - 1; $i++) { $pfad = $pfad + '/' + $teile[$i]; if (-not $ordnerDa.ContainsKey($pfad)) { Sichere-FtpOrdner $zugang $pfad; $ordnerDa[$pfad] = $true } }
       Lade-FtpHoch $zugang $f.FullName ($fernBasis + '/' + $rel)
       $state[$rel] = $h; $hoch++
-    } catch { $fehler++; Log "FEHLER beim Upload von $rel nach $sub : $($_.Exception.Message)" }
+    } catch { $fehler++; $script:PublishFehler++; Log "FEHLER beim Upload von $rel nach $sub : $($_.Exception.Message)" }
   }
   try { [IO.File]::WriteAllText($stateDatei, ($state | ConvertTo-Json), (New-Object Text.UTF8Encoding($false))) } catch { }
   Log ("{0}: {1} Datei(en) hochgeladen, {2} Fehler → https://{3}/" -f $was, $hoch, $fehler, $fernBasis.TrimStart('/'))
@@ -388,22 +398,22 @@ if ($zugang -and $prodFrei) {
       # nur, wenn gar keine Datei da ist.
       Sichere-Htaccess $ordner
       Lade-Ordner $zugang $ordner $inst.sub ('Instanz ' + $inst.name)
-    } catch { Log ("WARNUNG: Instanz {0} nicht ausgerollt: {1}" -f $inst.name, $_.Exception.Message) }
+    } catch { $script:PublishFehler++; Log ("WARNUNG: Instanz {0} nicht ausgerollt: {1}" -f $inst.name, $_.Exception.Message) }
   }
 }
 
 # 4) Demo geändert? committen + pushen (nur die Build-Ausgabe, nie die handgepflegte .htaccess)
-if (-not $prodFrei) { Log 'Prod nicht frei — die Demo wird nicht committet (sie ginge sonst mit dem unfreigegebenen Stand live).'; return }
-if (-not $demoOk) { Log 'Demo nicht gebaut — kein Commit.'; return }
+if (-not $prodFrei) { Schluss 'Prod nicht frei — die Demo wird nicht committet (sie ginge sonst mit dem unfreigegebenen Stand live).'; return }
+if (-not $demoOk) { Schluss 'Demo nicht gebaut — kein Commit.'; return }
 $pfade = @('site/compass-demo', ':(exclude)site/compass-demo/.htaccess')
 $st = (Git status --porcelain -- @pfade).Trim()
-if (-not $st) { Log 'Demo unverändert — nichts zu committen.'; return }
-if ($st -match '(?m)^\s?D ') { Log "ABBRUCH: Löschungen im Demo-Ordner — bitte manuell prüfen:`n$st"; return }
+if (-not $st) { Schluss 'Demo unverändert — nichts zu committen.'; return }
+if ($st -match '(?m)^\s?D ') { Schluss "ABBRUCH: Löschungen im Demo-Ordner — bitte manuell prüfen:`n$st"; return }
 Git add -- @pfade | Out-Null
 $stamp = Get-Date -Format 'dd.MM.yyyy HH:mm'
 $o = Git -c user.email=benedikt.irsch@gmail.com -c user.name='Benedikt Irsch' commit -q -m "compass-demo: automatischer Build $stamp" -m 'publish-compass.ps1 (geplante Aufgabe)'
-if ($gitExit -ne 0) { Log "ABBRUCH: commit fehlgeschlagen (Hook?): $o"; Git reset -q -- @pfade | Out-Null; return }
-if (-not $hatRemote) { Log ('Demo committet (' + (Git log --oneline -1).Trim() + '), kein Remote — Push entfällt.'); return }
+if ($gitExit -ne 0) { Git reset -q -- @pfade | Out-Null; Schluss "ABBRUCH: commit fehlgeschlagen (Hook?): $o"; return }
+if (-not $hatRemote) { Schluss ('Demo committet (' + (Git log --oneline -1).Trim() + '), kein Remote — Push entfällt.'); return }
 $o = Git push origin main
-if ($gitExit -ne 0) { Log "FEHLER: push fehlgeschlagen — Commit bleibt lokal, nächster Lauf versucht es erneut: $o"; return }
-Log ('Demo committet: ' + (Git log --oneline -1).Trim() + ' → deploy.yml zielt auf https://demo.vishnuartists.com/ (läuft nur mit Repo-Secrets)')
+if ($gitExit -ne 0) { Schluss "FEHLER: push fehlgeschlagen — Commit bleibt lokal, nächster Lauf versucht es erneut: $o"; return }
+Schluss ('Demo committet: ' + (Git log --oneline -1).Trim() + ' → deploy.yml zielt auf https://demo.vishnuartists.com/ (läuft nur mit Repo-Secrets)')

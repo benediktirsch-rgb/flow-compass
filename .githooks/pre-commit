@@ -5,9 +5,10 @@
 #   2. Zugangsdaten im Commit (API-Keys, Tokens).
 #   3. CRLF / UTF-8-BOM in Textdateien.
 #   4. Einen Index, der nicht mehr zu HEAD passt.
+#   5. Einen Produkt-Build, dem ein Anker in dashboard.html fehlt (build-compass-produkt.ps1 -Check).
 # Dazu ein Hinweis, wenn eine zweite Session im selben Ordner arbeitet.
 # Bewusstes Uebersteuern je Punkt:
-#   ALLOW_DELETE=1 / ALLOW_SECRET=1 / ALLOW_EOL=1 / ALLOW_FREMD=1 git commit …
+#   ALLOW_DELETE=1 / ALLOW_SECRET=1 / ALLOW_EOL=1 / ALLOW_FREMD=1 / ALLOW_ANKER=1 git commit …
 fail=0
 say() { printf '%s\n' "$*" >&2; }
 CR=$(printf '\r')
@@ -88,5 +89,28 @@ fi
 
 # 4) Index gegen den Arbeitsbaum auffrischen (Drive-Sync / Parallel-Session)
 git update-index --refresh -q >/dev/null 2>&1
+
+# 5) Anker des Produkt-Builds (16.09.2026): liegt dashboard.html oder build-compass-produkt.ps1 im Index,
+#    laeuft der Build im Pruefmodus (-Check: alle Anker und Listenersetzungen, nichts geschrieben).
+#    Ein fehlender Anker fiel sonst erst im naechsten Publish-Lauf auf — und die Demo blieb stumm auf dem
+#    alten Stand. Geprueft wird der ARBEITSBAUM (der Build liest dashboard.html von der Platte), nicht der
+#    Index; wer nur einen Teil seiner Aenderungen staged, prueft also den ganzen Stand.
+#    Bewusst uebersteuern:  ALLOW_ANKER=1 git commit …
+if [ -z "$ALLOW_ANKER" ] && git diff --cached --name-only | grep -q -E '^(dashboard\.html|build-compass-produkt\.ps1)$'; then
+  _root=$(git rev-parse --show-toplevel 2>/dev/null)
+  # Exit-Code VOR dem Aufraeumen der Ausgabe lesen — in einer Pipe zaehlt sonst der von tr, nicht der von powershell.
+  _out=$(cd "$_root" && powershell -NoProfile -ExecutionPolicy Bypass -File build-compass-produkt.ps1 -Check 2>&1)
+  _rc=$?
+  _out=$(printf '%s\n' "$_out" | tr -d '\r')
+  if [ "$_rc" -ne 0 ]; then
+    say "x pre-commit: build-compass-produkt.ps1 -Check schlaegt fehl (Exit $_rc) — meist fehlt ein Anker oder eine Ersetzung trifft nicht mehr:"
+    # Die Meldung des Builds ohne den PowerShell-Fehlerrahmen (In …:Zeile, + throw …, CategoryInfo, FullyQualifiedErrorId).
+    printf '%s\n' "$_out" | grep -v -E '^[[:space:]]*$|^In [A-Za-z]:\\|^\+ |CategoryInfo|FullyQualifiedErrorId|^Quelle :|^Ziel   :' | head -n 40 | sed 's/^/    /' >&2
+    say "  Anker in build-compass-produkt.ps1 nachziehen (nie die Pruefung entschaerfen) — oder bewusst: ALLOW_ANKER=1 git commit …"
+    fail=1
+  else
+    say "i pre-commit: $(printf '%s\n' "$_out" | grep -m1 'Check ok')"
+  fi
+fi
 
 exit $fail

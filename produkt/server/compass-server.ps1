@@ -46,7 +46,7 @@
       Anmeldung ohne Browser dort: auf dem eigenen Rechner `claude setup-token` ausführen und den Wert als
       CLAUDE_CODE_OAUTH_TOKEN in die Umgebung des Servers geben — siehe README, Abschnitt Linux-Server.
     Dann im Compass unter ⚙️ Einrichtung die Server-Adresse http://localhost:8787 eintragen (Standard).
-    Stop: Strg+C oder GET http://localhost:8787/__stop
+    Stop: Strg+C oder http://localhost:8787/__stop (POST oder GET ohne fremden Origin)
 #>
 param(
   [string]$Konfig = '',
@@ -107,6 +107,12 @@ $JiraSiteKonfig = [string](Get-Feld (Get-Feld $K 'jira' $null) 'site' '')
 $JiraProjekt    = [string](Get-Feld (Get-Feld $K 'jira' $null) 'projekt' '')
 $AnbieterUrl    = [string](Get-Feld (Get-Feld $K 'anbieter' $null) 'url' '')
 $AnbieterModell = [string](Get-Feld (Get-Feld $K 'anbieter' $null) 'modell' '')
+# Erlaubte Web-Urspruenge zusaetzlich zu localhost (16.09.2026): "origins" in compass-server.json, ein Wert oder eine
+# Liste, z. B. "https://compass.meine-firma.de" — der Ursprung, unter dem dein Compass im Browser liegt. Die Subdomains
+# von vishnuartists.com sind immer erlaubt; dort liegen die Team-Instanzen, die diesen Server auf dem eigenen Rechner
+# ansprechen. Geprueft wird in Test-OriginErlaubt.
+$Origins = @()
+foreach ($og in @(Get-Feld $K 'origins' $null)) { $v = ([string]$og).Trim().TrimEnd('/'); if ($v) { $Origins += $v.ToLowerInvariant() } }
 
 # Datenordner beim ersten Start anlegen — die Vorlagen kommen aus vorlagen\ (werden nie überschrieben).
 if (-not (Test-Path -LiteralPath $DatenDir)) { New-Item -ItemType Directory -Force $DatenDir | Out-Null }
@@ -582,6 +588,22 @@ $daten
 # Kandidaten liefert der Compass (offene Rückfragen, Board-Zahlen); der Server legt dazu, was nur er kennt:
 # Fälligkeiten aus daten\TASKS.md und daten\pipeline.md. Der Stand liegt in daten\stapel.json — nicht im
 # Browser, damit ein abgeräumter Punkt auf keinem Gerät wieder auftaucht.
+# Kaputte Zustandsdatei beiseitelegen (16.09.2026): bisher fiel Read-Stapel bei einem Parse-Fehler still auf einen
+# leeren Stand zurueck, die Datei blieb liegen und der naechste Save ueberschrieb sie. Jetzt wandert sie nach
+# <name>_kaputt-<zeit>.json (Move: der Server baut mit leerem Stand neu auf, die Datei bleibt zum Nachsehen), eine
+# Logzeile nennt Pfad und Fehler, und GET /api/john/stapel traegt den Namen als Feld `kaputt`, solange der Server laeuft.
+$script:KaputteDateien = @()
+function Move-KaputteDatei([string]$pfad, [string]$fehler) {
+  $ziel = Join-Path (Split-Path $pfad -Parent) ("{0}_kaputt-{1}.json" -f [IO.Path]::GetFileNameWithoutExtension($pfad), (Get-Date -Format 'yyyyMMdd-HHmmss'))
+  try { Move-Item -LiteralPath $pfad -Destination $ziel -Force }
+  catch { Write-Host ("[{0}] {1} liess sich nicht beiseitelegen: {2}" -f (Get-Date -Format 'HH:mm:ss'), $pfad, $_.Exception.Message) -ForegroundColor Red; $ziel = $pfad }
+  $script:KaputteDateien += [IO.Path]::GetFileName($ziel)
+  Write-Host ("[{0}] Zustandsdatei unlesbar: {1} — {2} → beiseitegelegt als {3}" -f (Get-Date -Format 'HH:mm:ss'), $pfad, $fehler, [IO.Path]::GetFileName($ziel)) -ForegroundColor Red
+}
+function Add-Kaputt($antwort) {
+  if ($script:KaputteDateien.Count) { $antwort.kaputt = @($script:KaputteDateien) }
+  return $antwort
+}
 $script:StapelDatei = Join-Path $DatenDir 'stapel.json'
 $script:Stapel = $null
 $script:StapelArten = @('entscheiden','karte','mail','termin','john','claude','link','board')
@@ -598,7 +620,7 @@ function Read-Stapel {
                                aktion = [string]$p.Value.aktion; titel = [string]$p.Value.titel }
       }
       if ($d.letzte) { $s.letzte = $d.letzte }
-    } catch { }
+    } catch { Move-KaputteDatei $script:StapelDatei $_.Exception.Message; $s = @{ stand = @{}; letzte = $null } }
   }
   $script:Stapel = $s
   $s
@@ -1029,10 +1051,33 @@ function Send-Html($ctx, [string]$html, [int]$code = 200) {
   $ctx.Response.StatusCode = $code; $ctx.Response.ContentType = 'text/html; charset=utf-8'
   $ctx.Response.ContentLength64 = $b.Length; $ctx.Response.OutputStream.Write($b, 0, $b.Length); $ctx.Response.Close()
 }
-function Read-Body($req) {
-  $sr = New-Object IO.StreamReader ($req.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
-  if ($raw) { return ($raw | ConvertFrom-Json) }
-  return $null
+# Welche Web-Urspruenge duerfen diesen Server ansprechen (16.09.2026). Bisher stand hier `Access-Control-Allow-Origin: *`
+# plus Allow-Private-Network — damit konnte jede geoeffnete Webseite den Stapel, Trello und Jira ueber diesen Server
+# lesen. Erlaubt: der Rechner selbst, die Subdomains von vishnuartists.com und was unter "origins" in
+# compass-server.json steht. Ohne Origin-Kopf (curl, Invoke-WebRequest, Adresszeile) gilt die Anfrage als erlaubt —
+# CORS ist ein Browser-Thema.
+function Test-OriginErlaubt([string]$origin) {
+  if (-not $origin) { return $true }
+  if ($origin -match '^https?://(localhost|127\.0\.0\.1)(:\d+)?$') { return $true }
+  if ($origin -match '^https://([a-z0-9-]+\.)?vishnuartists\.com$') { return $true }
+  if ($Origins -contains $origin.ToLowerInvariant().TrimEnd('/')) { return $true }
+  return $false
+}
+# POST-Body als JSON lesen (16.09.2026). Ungueltiges JSON → 400 BAD_JSON, $ok bleibt $false, und der Zweig im Router
+# endet mit `continue`. Leerer Body → $Leer ($null, oder @{} fuer Zweige, die ohne Body weiterarbeiten).
+function Read-JsonBody($ctx, [ref]$ok, $Leer = $null) {
+  $ok.Value = $false
+  $sr = New-Object IO.StreamReader ($ctx.Request.InputStream, [Text.Encoding]::UTF8); $raw = $sr.ReadToEnd(); $sr.Close()
+  if (-not $raw -or -not $raw.Trim()) { $ok.Value = $true; return $Leer }
+  $in = $null
+  try { $in = $raw | ConvertFrom-Json }
+  catch {
+    Write-Host ("[{0}] {1} {2}: Body ist kein JSON — {3}" -f (Get-Date -Format 'HH:mm:ss'), $ctx.Request.HttpMethod, $ctx.Request.Url.AbsolutePath, $_.Exception.Message) -ForegroundColor Yellow
+    Send-Json $ctx @{ ok = $false; error = 'BAD_JSON'; hint = 'Der Anfragetext ist kein gültiges JSON.' } 400
+    return $null
+  }
+  $ok.Value = $true
+  return $in
 }
 function Esc-Html([string]$s) { return [System.Net.WebUtility]::HtmlEncode($s) }
 function Get-StatusObjekt([bool]$frisch) {
@@ -1067,7 +1112,7 @@ function Get-StatusSeite {
 <p>Trello: $(if ($s.trello.Count) { (Esc-Html ($s.trello -join ', ')) } else { 'nicht angebunden' }) · Jira: $(if ($s.jira) { 'angebunden' } else { 'nicht angebunden' })</p>
 <p>Der Coach kennt ($($s.geladen.Count) Dateien aus <code>$(Esc-Html $s.datenDir)</code>):</p><ul>$liste</ul>
 <p>Im Compass: ⚙️ Einrichtung → Server-Adresse <code>http://localhost:$Port</code>. Status als JSON: <a href="/api/john/status">/api/john/status</a>.</p>
-<p><small>Stoppen: Strg+C im Serverfenster oder <a href="/__stop">/__stop</a>.</small></p></body></html>
+<p><small>Stoppen: Strg+C im Serverfenster oder <a href="/__stop">/__stop</a> (POST oder GET ohne fremden Origin).</small></p></body></html>
 "@
 }
 
@@ -1091,7 +1136,7 @@ if ($be0 -ne 'anbieter') { Write-Host "  Modell:   $Model · Effort $Effort" }
 Write-Host ("  Trello:   " + $(if ($TrelloBoards.Count) { (($TrelloBoards.Keys | Sort-Object | ForEach-Object { "$_=$($TrelloBoards[$_]) " + $(if (Get-TrelloAuth $_) { '✓' } else { '(kein Schlüssel)' }) }) -join ' · ') } else { 'kein Board in compass-server.json' }))
 Write-Host ("  Jira:     " + $(try { if (Get-JiraAuth) { 'JIRA_EMAIL/JIRA_TOKEN ✓' } else { 'kein Token — optional' } } catch { 'JIRA_SITE fehlt (Umgebungsvariable oder jira.site in compass-server.json)' }))
 if ($RootFull) { Write-Host "  Dateien:  $RootFull wird unter / ausgeliefert" }
-Write-Host "  Stop:     ${prefix}__stop"
+Write-Host "  Stop:     ${prefix}__stop  (POST oder GET ohne fremden Origin)"
 if ($OpenBrowser) { try { Start-Process $prefix } catch {} }
 
 try {
@@ -1100,17 +1145,39 @@ try {
     try {
     $ctx = $listener.GetContext()
     $req = $ctx.Request; $res = $ctx.Response
-    $res.Headers['Access-Control-Allow-Origin'] = '*'
-    $res.Headers['Access-Control-Allow-Headers'] = 'Content-Type'
-    $res.Headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    # Der Compass liegt auf https://…, dieser Server auf http://localhost — Chrome verlangt dafür:
-    $res.Headers['Access-Control-Allow-Private-Network'] = 'true'
-    $res.Headers['Access-Control-Max-Age'] = '600'
+    # CORS (16.09.2026): kein Stern mehr. Ein fremder Ursprung bekommt keine CORS-Koepfe und fuer jede Anfrage —
+    # auch GET und den OPTIONS-Preflight — 403 ORIGIN. Ein erlaubter Ursprung wird gespiegelt (Vary: Origin);
+    # ohne Origin-Kopf (kein Browser) gibt es nichts zu erlauben, nur Cache-Control. Regel: Test-OriginErlaubt.
+    $origin = [string]$req.Headers['Origin']
+    if (-not (Test-OriginErlaubt $origin)) {
+      Write-Host ("[{0}] Fremder Origin abgewiesen: {1} {2} von {3}" -f (Get-Date -Format 'HH:mm:ss'), $req.HttpMethod, $req.RawUrl, $origin) -ForegroundColor Yellow
+      Send-Json $ctx @{ error = 'ORIGIN' } 403
+      continue
+    }
+    if ($origin) {
+      $res.Headers['Access-Control-Allow-Origin'] = $origin
+      $res.Headers['Vary'] = 'Origin'
+      $res.Headers['Access-Control-Allow-Headers'] = 'Content-Type'
+      $res.Headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+      # Der Compass liegt auf https://…, dieser Server auf http://localhost — Chrome verlangt dafür:
+      $res.Headers['Access-Control-Allow-Private-Network'] = 'true'
+      $res.Headers['Access-Control-Max-Age'] = '600'
+    }
     $res.Headers['Cache-Control'] = 'no-store'
     $path = [Uri]::UnescapeDataString($req.Url.AbsolutePath)
     try {
       if ($req.HttpMethod -eq 'OPTIONS') { $res.StatusCode = 204; $res.Close(); continue }
-      if ($path -eq '/__stop') { Send-Json $ctx @{ ok = $true; msg = 'bye' }; break }
+      if ($path -eq '/__stop') {
+        # POST oder GET ohne fremden Ursprung (16.09.2026). Ein <img src="http://localhost:8787/__stop"> auf einer
+        # fremden Seite kommt als GET mit `Sec-Fetch-Site: cross-site` — Browser setzen den Kopf immer. Ohne den Kopf
+        # (curl, Invoke-WebRequest) oder aus der Adresszeile (`none`) geht es wie bisher; fremde Origins sind oben abgewiesen.
+        $sfs = [string]$req.Headers['Sec-Fetch-Site']
+        if ($req.HttpMethod -ne 'POST' -and $sfs -and $sfs -ne 'same-origin' -and $sfs -ne 'none') {
+          Write-Host ("[{0}] /__stop abgewiesen: {1} mit Sec-Fetch-Site={2}" -f (Get-Date -Format 'HH:mm:ss'), $req.HttpMethod, $sfs) -ForegroundColor Yellow
+          Send-Json $ctx @{ error = 'ORIGIN' } 403; continue
+        }
+        Send-Json $ctx @{ ok = $true; msg = 'bye' }; break
+      }
       if ($path -eq '/api/john/status') { Send-Json $ctx (Get-StatusObjekt ($req.QueryString['fresh'] -eq '1')); continue }
       # Der Compass stoesst die Anmeldung an, statt nur den Befehl anzuzeigen. Der Endpunkt kommt sofort
       # zurueck (das Fenster lebt weiter); den Erfolg holt der Compass ueber /api/john/status?fresh=1.
@@ -1122,7 +1189,7 @@ try {
         continue
       }
       if ($path -eq '/api/john' -and $req.HttpMethod -eq 'POST') {
-        $in = Read-Body $req
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         $msgs = @($in.messages | Where-Object { $_.role -in @('user','assistant') -and [string]$_.content })
         if (-not $msgs.Count) { Send-Json $ctx @{ error = 'keine Nachrichten' } 400; continue }
         Write-Host ("[{0}] Chat ← {1}" -f (Get-Date -Format 'HH:mm:ss'), ([string]$msgs[-1].content).Substring(0, [Math]::Min(70, ([string]$msgs[-1].content).Length)))
@@ -1135,7 +1202,7 @@ try {
         continue
       }
       if ($path -eq '/api/john/summary' -and $req.HttpMethod -eq 'POST') {
-        $in = Read-Body $req; if (-not $in) { $in = @{} }
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok) @{}; if (-not $ok) { continue }
         Write-Host ("[{0}] Summary angefragt" -f (Get-Date -Format 'HH:mm:ss'))
         try { Send-Json $ctx (Coach-Summary $in) }
         catch {
@@ -1146,14 +1213,14 @@ try {
         continue
       }
       if ($path -eq '/api/john/stapel/stand' -and $req.HttpMethod -eq 'POST') {
-        $in = Read-Body $req
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok); if (-not $ok) { continue }
         try { Send-Json $ctx (Set-StapelStand $in) }
         catch { Send-Json $ctx @{ ok = $false; error = $_.Exception.Message } 500 }
         continue
       }
       if ($path -eq '/api/john/stapel') {
         if ($req.HttpMethod -eq 'POST') {
-          $in = Read-Body $req; if (-not $in) { $in = @{} }
+          $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok) @{}; if (-not $ok) { continue }
           Write-Host ("[{0}] Stapel angefragt ({1} Kandidaten{2})" -f (Get-Date -Format 'HH:mm:ss'), @($in.kandidaten).Count, $(if ($in.fresh) { ', frisch' } else { '' }))
           try { Send-Json $ctx (Coach-Stapel $in) }
           catch {
@@ -1164,7 +1231,7 @@ try {
           continue
         }
         $st = Read-Stapel
-        Send-Json $ctx @{ ok = $true; stand = $st.stand; letzte = $st.letzte; datei = $script:StapelDatei }
+        Send-Json $ctx (Add-Kaputt @{ ok = $true; stand = $st.stand; letzte = $st.letzte; datei = $script:StapelDatei })
         continue
       }
       # --- Trello ---
@@ -1187,7 +1254,7 @@ try {
         continue
       }
       if ($path -like '/api/trello/*' -and $req.HttpMethod -eq 'POST') {
-        $in = Read-Body $req; if (-not $in) { $in = @{} }
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok) @{}; if (-not $ok) { continue }
         $board = [string]$in.board; if (-not $board) { $board = 'privat' }
         try {
           switch ($path) {
@@ -1227,7 +1294,7 @@ try {
         continue
       }
       if (($path -eq '/api/jira/transition' -or $path -eq '/api/jira/issue') -and $req.HttpMethod -eq 'POST') {
-        $in = Read-Body $req; if (-not $in) { $in = @{} }
+        $ok = $false; $in = Read-JsonBody $ctx ([ref]$ok) @{}; if (-not $ok) { continue }
         try {
           if ($path -eq '/api/jira/transition') { Send-Json $ctx (Set-JiraTransition ([string]$in.key) ([string]$in.ziel)) }
           else { Send-Json $ctx (New-JiraIssue ([string]$in.project) ([string]$in.summary) ([string]$in.type) ([string]$in.desc)) }

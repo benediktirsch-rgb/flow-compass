@@ -1358,7 +1358,10 @@ const VAF=Object.assign({ projekt:'', person:'', blocker:false, alter:0, typ:'',
    fehlt die Datei, bleibt der Compass auf Deutsch statt auszufallen. */
 const LOC = window.LOC || (()=>'de-DE');
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-const heute=()=>new Date().toISOString().slice(0,10);
+/* Ortszeit, nicht toISOString(): UTC liegt nachts (bis 1 bzw. 2 Uhr) noch im Vortag — der Morgencheck,
+   die Streak und jeder Tagesschlüssel hätten dann das falsche Datum (16.09.2026). */
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const heute=()=>ymd(new Date());
 
 /* ---------- Tageslicht + Theme (19.08.) ----------
    Fünf Tagesphasen färben den Compass (data-phase am <html>): Sonnenaufgang 5–8, Morgen 8–12, Tag 12–17,
@@ -1488,7 +1491,7 @@ function streakFort(){
   const d=new Date(); let vor=new Date(d); vor.setDate(d.getDate()-1);
   if(d.getDay()===1) vor.setDate(d.getDate()-3);
   else if(d.getDay()===0) vor.setDate(d.getDate()-2);
-  S.streak = (l===vor.toISOString().slice(0,10)) ? S.streak+1 : 1;
+  S.streak = (l===ymd(vor)) ? S.streak+1 : 1;
   S.lastMorgen=heute();
 }
 
@@ -1910,7 +1913,7 @@ function koerper(s){
      Ein Tipp übernimmt den Text ins Feld, dort lässt er sich noch umschreiben. */
   if(s.id==='fokus' && FLOW.art==='morgen'){
     const fm=S.fokusMorgen||{};
-    const gestern=new Date(Date.now()-864e5).toISOString().slice(0,10);
+    const gestern=ymd(new Date(Date.now()-864e5));
     const hg=S.hist[gestern]||{};
     const vs=[];
     if(fm.text && fm.datum===gestern) vs.push(['🌙','Gestern Abend vorgenommen',fm.text]);
@@ -2215,7 +2218,7 @@ function boardCta(){
   else if((b=find('morgen',h)))      text='🌅 Morgenboard · heute';
   else if((b=find('abend',g)))       text='🌙 Abendboard · gestern Abend';
   else {
-    const grenze=new Date(Date.now()-4*864e5).toISOString().slice(0,10);
+    const grenze=ymd(new Date(Date.now()-4*864e5));
     b=liste.filter(x=>x.datum<h&&x.datum>=grenze).sort((x,y)=>x.datum<y.datum?1:-1)[0]||null;
     /* 06.09.: ein Sonntag zeigte hier „Morgenboard · 04.09.“ — das las sich wie heute. Der Wochentag
        davor macht klar, dass es ein älteres Board ist; das von heute entsteht erst mit dem Morgencheck. */
@@ -3335,7 +3338,7 @@ function pkQuellen(){
     const jk=(/^(?:va|jira):([A-Z][A-Z0-9]+-\d+)$/.exec(id)||[])[1]||null;
     out.push({id,name:e.name,url:e.url||null,src:e.src||'eigen',jiraKey:jk,projekt:jk?jk.split('-')[0]:undefined,col:e.col||'bereit',seit:e.seit||null,liste:e.liste||'',extra:e.extra||e.notiz||'',due:e.due||''}); });
   /* Compass-lokale Zuordnung darüberlegen */
-  const seit7=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  const seit7=ymd(new Date(Date.now()-7*864e5));
   const map={};
   out.forEach(c=>{
     if(S.kan.done[c.id]){ if(S.kan.done[c.id].am>=seit7){ c.col='done'; c.am=S.kan.done[c.id].am; c.gezogen=true; c.synced=!!S.kan.done[c.id].synced; } else return; }
@@ -4042,13 +4045,13 @@ function vaPasst(x){
   if(VAF.init && x.init!==VAF.init) return false;
   if(VAF.thema && vaThemaVon(x.init)!==VAF.thema) return false;
   if(VAF.faellig==='over'){ if(!(x.due && x.due<vaHeute() && !x.erledigt)) return false; }
-  else if(VAF.faellig==='week'){ const g=new Date(Date.now()+7*864e5).toISOString().slice(0,10); if(!(x.due && x.due<=g && !x.erledigt)) return false; }
+  else if(VAF.faellig==='week'){ const g=ymd(new Date(Date.now()+7*864e5)); if(!(x.due && x.due<=g && !x.erledigt)) return false; }
   else if(VAF.faellig==='none'){ if(x.due) return false; }
   if(VAF.q){ const q=VAF.q.toLowerCase(); if(!(x.key.toLowerCase().includes(q)||x.titel.toLowerCase().includes(q)||x.person.toLowerCase().includes(q))) return false; }
   return true;
 }
 function vaAuswahl(){
-  const grenze=new Date(Date.now()-(VAF.doneTage||14)*864e5).toISOString().slice(0,10);
+  const grenze=ymd(new Date(Date.now()-(VAF.doneTage||14)*864e5));
   return VA.tickets.filter(x=>{
     if(x.erledigt && !(x.resolved && x.resolved>=grenze)) return false;   /* Done-Fenster */
     return vaPasst(x);
@@ -4080,7 +4083,7 @@ function vaMetrik(){
   const blk=off.filter(x=>x.blocker);
   const over=off.filter(x=>x.due&&x.due<t);
   const aeltest=wip.slice().sort((a,b)=>b.alter-a.alter)[0]||off.slice().sort((a,b)=>b.alter-a.alter)[0]||null;
-  const seit=n=>new Date(Date.now()-n*864e5).toISOString().slice(0,10);
+  const seit=n=>ymd(new Date(Date.now()-n*864e5));
   const d7=VA.tickets.filter(x=>x.resolved&&x.resolved>=seit(7)).length;
   const d28=VA.tickets.filter(x=>x.resolved&&x.resolved>=seit(28)).length;
   const lead=VA.tickets.filter(x=>x.resolved&&x.resolved>=seit(28)).map(x=>vaTage(x.created,x.resolved)).sort((a,b)=>a-b);
@@ -4691,7 +4694,7 @@ function postfZeile(w){
   const seit=w.tage==null?'':(w.tage===0?'heute':(w.tage===1?'seit gestern':`seit ${w.tage} Tagen`));
   /* class="link" bringt Zeiger, Hover und das ↗ schon aus dem Stylesheet mit; die
      Klick-Delegation am #grid greift nur bei [data-q] und kommt uns hier nicht dazwischen. */
-  return `<div class="item${w.url?' link':''}"${w.url?` onclick="window.open('${w.url}','_blank')"`:''}>
+  return `<div class="item${w.url?' link':''}"${w.url?` data-url="${esc(w.url).replace(/"/g,'&quot;')}"`:''}>
     <div class="ic">${ic}</div><div class="body">
     <div class="t">${esc(w.von||w.adresse||'?')} <span class="tag ${w.art==='antwort'?(alt?'gry':'grn'):'gry'}">${esc(seit)}</span></div>
     <div class="m">${esc(w.betreff||'')}</div>
@@ -4753,7 +4756,7 @@ function slrZeile(w){
   const alt=w.tage!=null&&w.tage>=14;
   const ic=w.art==='antwort'?(alt?'⏳':'💬'):'👀';
   const seit=w.tage==null?'':(w.tage===0?'heute':(w.tage===1?'seit gestern':`seit ${w.tage} Tagen`));
-  return `<div class="item${w.url?' link':''}"${w.url?` onclick="window.open('${w.url}','_blank')"`:''}>
+  return `<div class="item${w.url?' link':''}"${w.url?` data-url="${esc(w.url).replace(/"/g,'&quot;')}"`:''}>
     <div class="ic">${ic}</div><div class="body">
     <div class="t">${esc(w.von||'?')} <span class="tag ${w.art==='antwort'?(alt?'gry':'grn'):'gry'}">${esc(seit)}</span></div>
     <div class="m">${esc(w.kanal||'')}</div>
@@ -5995,7 +5998,7 @@ function meldeRefresh(){
   if(g2) g2.insertBefore(t.firstElementChild,g2.firstChild);
 }
 const fmtMin=m=>m==null?'–':(m>=60?`${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')}`:`${m} min`);
-function gesternKey(){ const d=new Date(); const wd=d.getDay(); d.setDate(d.getDate()-(wd===1?3:wd===0?2:1)); return d.toISOString().slice(0,10); }
+function gesternKey(){ const d=new Date(); const wd=d.getDay(); d.setDate(d.getDate()-(wd===1?3:wd===0?2:1)); return ymd(d); }
 function histWert(key){ /* letzter gespeicherter Wert vor heute */
   const tage=Object.keys(S.kpiHist).filter(t=>t<heute()).sort();
   for(let i=tage.length-1;i>=0;i--){ const v=S.kpiHist[tage[i]][key]; if(typeof v==='number') return v; }
@@ -6501,25 +6504,34 @@ async function lotusLaden(){
        Ledger heißt „der Scan schreibt nicht mehr“, nicht „es liegt nichts an“. */
     (async()=>{ try{ const r=await fetch(JOHN_API+'/api/ausschreibungen',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
   ]);
-  KAL.data=(kal&&kal.ok)?kal:null; KAL.fehler=(kal&&kal.ok===false)?kal:null; KAL.geladen=true;
-  GIT.data=(git&&git.ok)?git:null; GIT.fehler=(git&&git.ok===false)?git:null; GIT.geladen=true; gitRefresh();
-  WACHT.data=(wacht&&wacht.ok)?wacht:null; WACHT.fehler=(wacht&&wacht.ok===false)?wacht:null; WACHT.geladen=true;
-  DEP.data=(dep&&dep.ok)?dep:null; DEP.fehler=(dep&&dep.ok===false)?dep:null; DEP.geladen=true;
-  POSTF.data=(postf&&postf.ok)?postf:null; POSTF.fehler=(postf&&postf.ok===false)?postf:null; POSTF.geladen=true;
-  SLACK.data=(slack&&slack.ok)?slack:null; SLACK.fehler=(slack&&slack.ok===false)?slack:null; SLACK.geladen=true;
-  SICH.data=(sich&&sich.ok)?sich:null; SICH.fehler=(sich&&sich.ok===false)?sich:null; SICH.geladen=true;
-  WETTER.data=(wetter&&wetter.ok)?wetter:null; WETTER.fehler=(wetter&&wetter.ok===false)?wetter:null; WETTER.geladen=true;
-  ROUT.data=(rout&&rout.ok)?rout:null; ROUT.fehler=(rout&&rout.ok===false)?rout:null; ROUT.geladen=true;
-  VEREIN.data=(verein&&verein.ok)?verein:null; VEREIN.fehler=(verein&&verein.ok===false)?verein:null; VEREIN.geladen=true;
+  /* Netzfehler (16.09.2026): kommt ein Abruf gar nicht durch (null), bleibt der zuletzt bekannte Stand der
+     Quelle stehen und wird als veraltet markiert — wie compass-live.js beim Nachladen („offline: die Karte
+     zeigt weiter den letzten Stand“). Vorher setzte jeder Aussetzer alle Quellen auf null, und die Karten
+     zeigten „Server aus“, obwohl sie den Stand von vor drei Minuten hatten. Eine echte Antwort — auch
+     {ok:false} — ersetzt Daten und Fehler wie bisher; die Verbindungswacht unten liest weiter die Rohwerte. */
+  const standUebernehmen=(ST,j)=>{
+    if(j==null&&(ST.data||ST.fehler)){ ST.veraltet=true; ST.veraltetSeit=ST.veraltetSeit||Date.now(); return; }
+    ST.data=(j&&j.ok)?j:null; ST.fehler=(j&&j.ok===false)?j:null; ST.geladen=true; ST.veraltet=false; ST.veraltetSeit=null;
+  };
+  standUebernehmen(KAL,kal);
+  standUebernehmen(GIT,git); gitRefresh();
+  standUebernehmen(WACHT,wacht);
+  standUebernehmen(DEP,dep);
+  standUebernehmen(POSTF,postf);
+  standUebernehmen(SLACK,slack);
+  standUebernehmen(SICH,sich);
+  standUebernehmen(WETTER,wetter);
+  standUebernehmen(ROUT,rout);
+  standUebernehmen(VEREIN,verein);
   vereinUebernehmen();                      /* Live-Zahlen über den Snapshot legen, BEVOR gerendert wird */
-  VTRAF.data=(vtraf&&vtraf.ok)?vtraf:null; VTRAF.fehler=(vtraf&&vtraf.ok===false)?vtraf:null; VTRAF.geladen=true;
+  standUebernehmen(VTRAF,vtraf);
   vishnuUebernehmen();                      /* dasselbe für den Vishnu-Zähler (09.09.) */
   rhythmMalen();                            /* Website-Zugänge: die Zeile „🔐“ hängt am Vereins-Stand (03.09.) */
-  FIN.data=(finanz&&finanz.ok)?finanz:null; FIN.fehler=(finanz&&finanz.ok===false)?finanz:null; FIN.geladen=true;
+  standUebernehmen(FIN,finanz);
   finUebernehmen();
-  NUTZ.data=(nutzer&&nutzer.ok)?nutzer:null; NUTZ.fehler=(nutzer&&nutzer.ok===false)?nutzer:null; NUTZ.geladen=true;
-  TRI.data=(trichter&&trichter.ok)?trichter:null; TRI.fehler=(trichter&&trichter.ok===false)?trichter:null; TRI.geladen=true;
-  AUS.data=(ausschr&&ausschr.ok)?ausschr:null; AUS.fehler=(ausschr&&ausschr.ok===false)?ausschr:null; AUS.geladen=true;
+  standUebernehmen(NUTZ,nutzer);
+  standUebernehmen(TRI,trichter);
+  standUebernehmen(AUS,ausschr);
   ausUebernehmen();                         /* gemessene Zahlen über die Neukunden-Karte legen, BEVOR gerendert wird */
   rhythmMalen();                            /* die Zeile „🫂 Menschen im Trichter“ hängt am Trichter-Stand */
   LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,vtraf:VTRAF.data,finanz:FIN.data,nutzer:NUTZ.data,trichter:TRI.data,ausschr:AUS.data}; LOT.geladen=true;
@@ -7477,6 +7489,14 @@ document.querySelectorAll('#kanbanSeg button').forEach(b=>{
 document.addEventListener('click',e=>{
   const a=e.target.closest('a[href^="kennzahlen.html"]'); if(!a) return;
   S.z.kennzahlen++; S.xp+=(R.xp.kennzahlen||0); badgesPruefen(); speichern();
+});
+/* Postfach- und Slack-Zeilen (16.09.2026): der Link steht als data-url am Element statt als Inline-onclick —
+   die Adressen stammen aus fremden Inhalten (Mail, Slack) und lagen dort unescaped in JavaScript. Geöffnet
+   wird nur http(s), nie javascript: o. ä.; die Reaktionsknöpfe aus compass-live.js stoppen ihr Ereignis selbst. */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-url]'); if(!el) return;
+  const u=String(el.dataset.url||''); if(!/^https?:\/\//i.test(u)) return;
+  window.open(u,'_blank','noopener');
 });
 
 /* Tastatur */

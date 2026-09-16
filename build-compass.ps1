@@ -96,7 +96,11 @@ $geschuetzt  = $imBaum -and $imHead
 $unterseiten = @('kennzahlen.html')
 if ($geschuetzt) { $unterseiten += 'kundenlage.html' }
 else {
-  $html = $html -replace '(?m)^[ \t]*<a class="btn g" href="kundenlage\.html".*?</a>[ \t]*\r?\n', ''
+  # Anker pruefen wie die uebrigen (16.09.2026): trifft das Muster nicht mehr, bliebe der Knopf still stehen
+  # und zeigte in einer ungeschuetzten Instanz auf eine Seite, die es dort nicht gibt (404).
+  $kundenlageKnopf = '(?m)^[ \t]*<a class="btn g" href="kundenlage\.html".*?</a>[ \t]*\r?\n'
+  if (-not [regex]::IsMatch($html, $kundenlageKnopf)) { throw 'ANKER FEHLT: Kundenlage-Knopf in dashboard.html' }
+  $html = $html -replace $kundenlageKnopf, ''
   # Reste eines früheren, noch ungeschützten Laufs wegräumen: sonst bleiben sie liegen
   # und `git add site/compass` in publish-compass.ps1 nimmt sie beim nächsten Mal mit.
   foreach ($rest in 'kundenlage.html','kundenlage-data.js') {
