@@ -219,8 +219,18 @@
       "mood": "business",
       "moodLabel": "Weitblick und klare Entscheidungen",
       "virtue": "Verantwortung",
-      "platz": "bruecke|Auf die Brücke|Weitblick und klare Entscheidungen|enterprise",
+      "platz": "bruecke|Auf die Brücke|Weitblick und klare Entscheidungen|bruecke",
       "cameraDe": "28 mm · leicht erhöhte Totale von hinten links, der Sternenschirm füllt das obere Drittel.",
+      "vorlagen": {
+        "ordner": "brücke",
+        "dateien": [
+          "183546-436428-436425.png",
+          "GalaxyBr%3Fcke.webp",
+          "Deckenfenster_auf_der_Br%3Fcke_der_Enterprise-D.webp",
+          "star-trek-raumschiff-enterprise-bridge-replica.jpg"
+        ],
+        "uebernehmen": "Halbrunde Kommandoebene mit geschwungenem Holzgeländer, drei Sessel in der Mitte, beige Polster, helles Oberlicht als Kuppel, Wand aus Konsolen mit warmem Bernsteinlicht und einem kühlen blauen Lichtband."
+      },
       "referenceFrame": "kein Still — Stilreferenz holodeck-assets/enterprise-lounge.png, Figurenreferenz bene-wardrobe-v2.png · madeleine-portrait.png · john-wardrobe-v2.png",
       "target": "holodeck-assets/enterprise-bruecke.png (Standbild 1672×941 oder 1920×1080), danach holodeck-assets/motion/enterprise-bruecke.mp4",
       "filmDurationSeconds": 24,
@@ -249,8 +259,15 @@
       "mood": "ruhe",
       "moodLabel": "Durchatmen mit Blick auf den Nebel",
       "virtue": "Gelassenheit",
-      "platz": "aussicht|In die Aussichtslounge|Durchatmen mit Blick auf den Nebel|enterprise",
+      "platz": "aussicht|In die Aussichtslounge|Durchatmen mit Blick auf den Nebel|aussicht",
       "cameraDe": "35 mm · Halbtotale, die Fenster als Lichtquelle im Rücken, Gläser im Vordergrund.",
+      "vorlagen": {
+        "ordner": "enterprise",
+        "dateien": [
+          "skc3a4rmbild-212.jpg"
+        ],
+        "uebernehmen": "Gebogene Portale in Blauviolett, weiße Lichtbänder in Boden- und Deckenhöhe, Teppich in Graublau, eine freistehende Konsole als Blickpunkt — ins Warme gedreht und mit Panoramafenster statt Wandanzeigen."
+      },
       "referenceFrame": "kein Still — Stilreferenz holodeck-assets/enterprise-lounge.png, Figurenreferenz bene-wardrobe-v2.png · madeleine-portrait.png · john-wardrobe-v2.png",
       "target": "holodeck-assets/enterprise-aussicht.png (Standbild 1672×941 oder 1920×1080), danach holodeck-assets/motion/enterprise-aussicht.mp4",
       "filmDurationSeconds": 24,
@@ -279,8 +296,17 @@
       "mood": "konflikt",
       "moodLabel": "Unter Druck, aber am Werk",
       "virtue": "Klarheit",
-      "platz": "maschinenraum|In den Maschinenraum|Unter Druck, aber am Werk|enterprise",
+      "platz": "maschinenraum|In den Maschinenraum|Unter Druck, aber am Werk|maschinenraum",
       "cameraDe": "24 mm · Untersicht am Geländer, die Reaktorsäule als Lichtachse.",
+      "vorlagen": {
+        "ordner": "maschinenraum",
+        "dateien": [
+          "Warpkern_der_Galaxy-Klasse.webp",
+          "Voyager_Maschinenraum.webp",
+          "NXMaschinen.webp"
+        ],
+        "uebernehmen": "Senkrechte, gerippte Lichtsäule in Blauweiß über zwei Ebenen, Galerie mit Geländer, Wände in Rotorange, ringförmige Plattform am Fuß der Säule."
+      },
       "referenceFrame": "kein Still — Stilreferenz holodeck-assets/enterprise-lounge.png, Figurenreferenz bene-wardrobe-v2.png · madeleine-portrait.png · john-wardrobe-v2.png",
       "target": "holodeck-assets/enterprise-maschinenraum.png (Standbild 1672×941 oder 1920×1080), danach holodeck-assets/motion/enterprise-maschinenraum.mp4",
       "filmDurationSeconds": 24,

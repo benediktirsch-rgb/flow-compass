@@ -92,7 +92,18 @@ export function mountHolodeck(host, options = {}) {
     portrait.insertBefore(clip,caption); clip.src = url; clip.load();
     portraitTimer = setTimeout(fallback,6000);
   }
+  // Das Programm startet: ein leuchtendes Gitter baut sich auf und blendet in den Raum über (16.09.2026).
+  // Eigene Gestaltung aus zwei Verläufen, kein Bild. Ohne Bewegung (reduced motion) entfällt es ganz.
+  function gridIn() {
+    if (reduced) return;
+    root.querySelector('.holo-grid')?.remove();
+    const grid = make('div', 'holo-grid'); grid.setAttribute('aria-hidden', 'true');
+    grid.append(make('div', 'holo-grid-floor'), make('div', 'holo-grid-wall'));
+    root.append(grid); audio.chirp?.();
+    setTimeout(() => grid.remove(), 2400);
+  }
   function enter() {
+    gridIn();
     const url = safeMediaURL(base,motion.reception?.video);
     if (!url || reduced || paused) { seating(); return; }
     clearMotion(); clearVideo(); setPhase('entrance');

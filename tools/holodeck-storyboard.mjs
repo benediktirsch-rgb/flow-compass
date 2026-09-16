@@ -92,15 +92,27 @@ const extra = [
 // Drei weitere Enterprise-Sets (16.09.2026, Bene: „mache es"). Eigene Entwürfe im Stil der Serie — keine Abzeichen, keine
 // Schriftzüge, keine Gesichter echter Schauspieler. Erst als Standbild (Imagegen über Astra, Referenz enterprise-lounge.png
 // + Avatar-Referenzen), dann optional als Loop. Einbau: tools/holodeck-clip-einbauen.ps1 -Standbild … -Platz "…".
+// Benes Vorlagen (16.09.2026, OneDriveDesktopholodeck): Standbilder und Fan-Renderings der Serie. Sie gehen an
+// Astra NUR als Stimmungsvorlage — übernommen werden Raumform, Licht und Materialien, nie Emblem, LCARS-Schrift, Banner oder Personen.
+const VORLAGEN = {
+  bruecke: {ordner:'brücke', dateien:['183546-436428-436425.png','GalaxyBr%3Fcke.webp','Deckenfenster_auf_der_Br%3Fcke_der_Enterprise-D.webp','star-trek-raumschiff-enterprise-bridge-replica.jpg'],
+    uebernehmen:'Halbrunde Kommandoebene mit geschwungenem Holzgeländer, drei Sessel in der Mitte, beige Polster, helles Oberlicht als Kuppel, Wand aus Konsolen mit warmem Bernsteinlicht und einem kühlen blauen Lichtband.'},
+  aussicht: {ordner:'enterprise', dateien:['skc3a4rmbild-212.jpg'],
+    uebernehmen:'Gebogene Portale in Blauviolett, weiße Lichtbänder in Boden- und Deckenhöhe, Teppich in Graublau, eine freistehende Konsole als Blickpunkt — ins Warme gedreht und mit Panoramafenster statt Wandanzeigen.'},
+  maschinenraum: {ordner:'maschinenraum', dateien:['Warpkern_der_Galaxy-Klasse.webp','Voyager_Maschinenraum.webp','NXMaschinen.webp'],
+    uebernehmen:'Senkrechte, gerippte Lichtsäule in Blauweiß über zwei Ebenen, Galerie mit Geländer, Wände in Rotorange, ringförmige Plattform am Fuß der Säule.'},
+  gitter: {ordner:'holodeck', dateien:['Holodeck_empty.webp'],
+    uebernehmen:'Schwarzer Raum mit gelbem Gitter auf Boden und Wänden, eine Tür in der Rückwand — umgesetzt als eigene Animation beim Eintreten, kein Bild.'}
+};
 const castStill = 'the host (slim, athletic build), Madeleine (dark hair, warm) and John (relaxed, charming) exactly as on the reference images, seated or standing naturally in the set, mid-conversation, nobody looks into the camera';
 const enterpriseSets = [
   {asset:'enterprise-bruecke', id:'E2', title:'Auf der Brücke', place:'bruecke', placeLabel:'Auf der Brücke', mood:'business', moodLabel:'Weitblick und klare Entscheidungen', virtue:'Verantwortung',
-   platz:'bruecke|Auf die Brücke|Weitblick und klare Entscheidungen|enterprise', cameraDe:'28 mm · leicht erhöhte Totale von hinten links, der Sternenschirm füllt das obere Drittel.'},
+   platz:'bruecke|Auf die Brücke|Weitblick und klare Entscheidungen|bruecke', cameraDe:'28 mm · leicht erhöhte Totale von hinten links, der Sternenschirm füllt das obere Drittel.'},
   {asset:'enterprise-aussicht', id:'E3', title:'In der Aussichtslounge', place:'aussicht', placeLabel:'In der Aussichtslounge', mood:'ruhe', moodLabel:'Durchatmen mit Blick auf den Nebel', virtue:'Gelassenheit',
-   platz:'aussicht|In die Aussichtslounge|Durchatmen mit Blick auf den Nebel|enterprise', cameraDe:'35 mm · Halbtotale, die Fenster als Lichtquelle im Rücken, Gläser im Vordergrund.'},
+   platz:'aussicht|In die Aussichtslounge|Durchatmen mit Blick auf den Nebel|aussicht', cameraDe:'35 mm · Halbtotale, die Fenster als Lichtquelle im Rücken, Gläser im Vordergrund.'},
   {asset:'enterprise-maschinenraum', id:'E4', title:'Im Maschinenraum', place:'maschinenraum', placeLabel:'Im Maschinenraum', mood:'konflikt', moodLabel:'Unter Druck, aber am Werk', virtue:'Klarheit',
-   platz:'maschinenraum|In den Maschinenraum|Unter Druck, aber am Werk|enterprise', cameraDe:'24 mm · Untersicht am Geländer, die Reaktorsäule als Lichtachse.'}
-].map(s => ({...s,
+   platz:'maschinenraum|In den Maschinenraum|Unter Druck, aber am Werk|maschinenraum', cameraDe:'24 mm · Untersicht am Geländer, die Reaktorsäule als Lichtachse.'}
+].map(s => ({...s, vorlagen:VORLAGEN[s.place],
   referenceFrame:'kein Still — Stilreferenz holodeck-assets/enterprise-lounge.png, Figurenreferenz bene-wardrobe-v2.png · madeleine-portrait.png · john-wardrobe-v2.png',
   target:`holodeck-assets/${s.asset}.png (Standbild 1672×941 oder 1920×1080), danach holodeck-assets/motion/${s.asset}.mp4`,
   filmDurationSeconds:24, loopDurationSeconds:LOOP,
@@ -173,7 +185,11 @@ for (const b of briefs) {
 md.push('## 8 · Auftrag an Astra: drei Enterprise-Sets als Standbilder', '',
   'Bene (16.09.2026): eigene Sets im Stil der Serie, keine echten Serienszenen. Regeln: **keine Abzeichen, keine Schriftzüge, keine Gesichter echter Schauspieler**; die drei Avatare exakt wie auf den Referenzbildern; Licht und Palette wie `enterprise-lounge.png`; 16:9, mindestens 1672 × 941. Ein Bild je Set, kein Text im Bild.', '',
   ...enterpriseSets.flatMap(s => [`**${s.asset}** — ${s.title}`, '', `Prompt: ${s.visualPrompt}`, '', `Kamera: ${s.cameraDe}`, '',
-    'Einbau, sobald das PNG da ist:', '', '```', `powershell -NoProfile -File tools/holodeck-clip-einbauen.ps1 -Szene ${s.asset} -Standbild "<pfad>.png" -Platz "${s.platz}"`, '```', '']),
-  'Das Skript legt PNG + WebP in beide Asset-Ordner, trägt das Bild und den Platz im Manifest ein; der Erlebnisraum zeigt den neuen Knopf bei der Platzwahl von selbst (Klang: Enterprise-Palette). Ein Loop kommt später über `-Clip`, wie bei jeder anderen Szene.', '');
+    'Vorlagen aus Benes Ordner `OneDrive/Desktop/holodeck/' + s.vorlagen.ordner + '`: ' + s.vorlagen.dateien.map(d => '`' + d + '`').join(', '), '', 'Übernehmen: ' + s.vorlagen.uebernehmen, '', '**Nicht übernehmen:** Föderationsemblem, LCARS-Schrift und -Anzeigen, Werbebanner, Uniformen, Personen aus der Serie.', '',
+    'Einbau, sobald das PNG als `Downloads/' + s.asset + '.png` liegt (aus jedem Ordner):', '', '```',
+    'powershell -NoProfile -ExecutionPolicy Bypass -File C:/dev/persoenliches-dashboard/tools/holodeck-clip-einbauen.ps1 -Szene ' + s.asset + ' -Standbild "$env:USERPROFILE/Downloads/' + s.asset + '.png" -Platz "' + s.platz + '"', '```', '']),
+  'Das Skript legt PNG + WebP in beide Asset-Ordner, trägt das Bild und den Platz im Manifest ein; der Erlebnisraum zeigt den neuen Knopf bei der Platzwahl von selbst. Jeder Platz hat seinen eigenen Raumklang (Brücke: Konsolen-Zirpen, Maschinenraum: pochender Kern, Aussichtslounge: weite Flächen). Ein Loop kommt später über `-Clip`, wie bei jeder anderen Szene.', '',
+  'Das Holodeck-Gitter aus `' + VORLAGEN.gitter.ordner + '/' + VORLAGEN.gitter.dateien[0] + '` ist kein Bildauftrag: ' + VORLAGEN.gitter.uebernehmen, '',
+  '**Ton:** Die Sets klingen nach eigenen, im Browser erzeugten Klängen (`holodeck-engine/studio-audio.js`). Aufnahmen aus Videos der Serie oder Fan-Touren werden nicht übernommen.', '');
 writeFileSync(join(root, 'docs/holodeck-calliope.md'), md.join('\n') + '\n');
 console.log(`${briefs.length} Szenen → docs/holodeck-storyboard.json + docs/holodeck-calliope.md`);

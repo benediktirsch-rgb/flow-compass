@@ -635,10 +635,16 @@ Prompt: Still image, text-to-image with reference images. Setting: the bridge of
 
 Kamera: 28 mm · leicht erhöhte Totale von hinten links, der Sternenschirm füllt das obere Drittel.
 
-Einbau, sobald das PNG da ist:
+Vorlagen aus Benes Ordner `OneDrive/Desktop/holodeck/brücke`: `183546-436428-436425.png`, `GalaxyBr%3Fcke.webp`, `Deckenfenster_auf_der_Br%3Fcke_der_Enterprise-D.webp`, `star-trek-raumschiff-enterprise-bridge-replica.jpg`
+
+Übernehmen: Halbrunde Kommandoebene mit geschwungenem Holzgeländer, drei Sessel in der Mitte, beige Polster, helles Oberlicht als Kuppel, Wand aus Konsolen mit warmem Bernsteinlicht und einem kühlen blauen Lichtband.
+
+**Nicht übernehmen:** Föderationsemblem, LCARS-Schrift und -Anzeigen, Werbebanner, Uniformen, Personen aus der Serie.
+
+Einbau, sobald das PNG als `Downloads/enterprise-bruecke.png` liegt (aus jedem Ordner):
 
 ```
-powershell -NoProfile -File tools/holodeck-clip-einbauen.ps1 -Szene enterprise-bruecke -Standbild "<pfad>.png" -Platz "bruecke|Auf die Brücke|Weitblick und klare Entscheidungen|enterprise"
+powershell -NoProfile -ExecutionPolicy Bypass -File C:/dev/persoenliches-dashboard/tools/holodeck-clip-einbauen.ps1 -Szene enterprise-bruecke -Standbild "$env:USERPROFILE/Downloads/enterprise-bruecke.png" -Platz "bruecke|Auf die Brücke|Weitblick und klare Entscheidungen|bruecke"
 ```
 
 **enterprise-aussicht** — In der Aussichtslounge
@@ -647,10 +653,16 @@ Prompt: Still image, text-to-image with reference images. Setting: an observatio
 
 Kamera: 35 mm · Halbtotale, die Fenster als Lichtquelle im Rücken, Gläser im Vordergrund.
 
-Einbau, sobald das PNG da ist:
+Vorlagen aus Benes Ordner `OneDrive/Desktop/holodeck/enterprise`: `skc3a4rmbild-212.jpg`
+
+Übernehmen: Gebogene Portale in Blauviolett, weiße Lichtbänder in Boden- und Deckenhöhe, Teppich in Graublau, eine freistehende Konsole als Blickpunkt — ins Warme gedreht und mit Panoramafenster statt Wandanzeigen.
+
+**Nicht übernehmen:** Föderationsemblem, LCARS-Schrift und -Anzeigen, Werbebanner, Uniformen, Personen aus der Serie.
+
+Einbau, sobald das PNG als `Downloads/enterprise-aussicht.png` liegt (aus jedem Ordner):
 
 ```
-powershell -NoProfile -File tools/holodeck-clip-einbauen.ps1 -Szene enterprise-aussicht -Standbild "<pfad>.png" -Platz "aussicht|In die Aussichtslounge|Durchatmen mit Blick auf den Nebel|enterprise"
+powershell -NoProfile -ExecutionPolicy Bypass -File C:/dev/persoenliches-dashboard/tools/holodeck-clip-einbauen.ps1 -Szene enterprise-aussicht -Standbild "$env:USERPROFILE/Downloads/enterprise-aussicht.png" -Platz "aussicht|In die Aussichtslounge|Durchatmen mit Blick auf den Nebel|aussicht"
 ```
 
 **enterprise-maschinenraum** — Im Maschinenraum
@@ -659,11 +671,21 @@ Prompt: Still image, text-to-image with reference images. Setting: the engine ro
 
 Kamera: 24 mm · Untersicht am Geländer, die Reaktorsäule als Lichtachse.
 
-Einbau, sobald das PNG da ist:
+Vorlagen aus Benes Ordner `OneDrive/Desktop/holodeck/maschinenraum`: `Warpkern_der_Galaxy-Klasse.webp`, `Voyager_Maschinenraum.webp`, `NXMaschinen.webp`
+
+Übernehmen: Senkrechte, gerippte Lichtsäule in Blauweiß über zwei Ebenen, Galerie mit Geländer, Wände in Rotorange, ringförmige Plattform am Fuß der Säule.
+
+**Nicht übernehmen:** Föderationsemblem, LCARS-Schrift und -Anzeigen, Werbebanner, Uniformen, Personen aus der Serie.
+
+Einbau, sobald das PNG als `Downloads/enterprise-maschinenraum.png` liegt (aus jedem Ordner):
 
 ```
-powershell -NoProfile -File tools/holodeck-clip-einbauen.ps1 -Szene enterprise-maschinenraum -Standbild "<pfad>.png" -Platz "maschinenraum|In den Maschinenraum|Unter Druck, aber am Werk|enterprise"
+powershell -NoProfile -ExecutionPolicy Bypass -File C:/dev/persoenliches-dashboard/tools/holodeck-clip-einbauen.ps1 -Szene enterprise-maschinenraum -Standbild "$env:USERPROFILE/Downloads/enterprise-maschinenraum.png" -Platz "maschinenraum|In den Maschinenraum|Unter Druck, aber am Werk|maschinenraum"
 ```
 
-Das Skript legt PNG + WebP in beide Asset-Ordner, trägt das Bild und den Platz im Manifest ein; der Erlebnisraum zeigt den neuen Knopf bei der Platzwahl von selbst (Klang: Enterprise-Palette). Ein Loop kommt später über `-Clip`, wie bei jeder anderen Szene.
+Das Skript legt PNG + WebP in beide Asset-Ordner, trägt das Bild und den Platz im Manifest ein; der Erlebnisraum zeigt den neuen Knopf bei der Platzwahl von selbst. Jeder Platz hat seinen eigenen Raumklang (Brücke: Konsolen-Zirpen, Maschinenraum: pochender Kern, Aussichtslounge: weite Flächen). Ein Loop kommt später über `-Clip`, wie bei jeder anderen Szene.
+
+Das Holodeck-Gitter aus `holodeck/Holodeck_empty.webp` ist kein Bildauftrag: Schwarzer Raum mit gelbem Gitter auf Boden und Wänden, eine Tür in der Rückwand — umgesetzt als eigene Animation beim Eintreten, kein Bild.
+
+**Ton:** Die Sets klingen nach eigenen, im Browser erzeugten Klängen (`holodeck-engine/studio-audio.js`). Aufnahmen aus Videos der Serie oder Fan-Touren werden nicht übernommen.
 

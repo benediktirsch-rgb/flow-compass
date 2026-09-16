@@ -6,7 +6,12 @@ const palettes={
  huette:{root:130.81,notes:[0,7,12,16,19],beat:1.07,noise:280,air:.04},
  goa:{root:110,notes:[0,7,10,14,17],beat:.64,noise:760,air:.06},
  anden:{root:146.83,notes:[0,7,12,14,19],beat:1.2,noise:560,air:.052},
- rom:{root:164.81,notes:[0,4,7,11,14],beat:.92,noise:630,air:.035}
+ rom:{root:164.81,notes:[0,4,7,11,14],beat:.92,noise:630,air:.035},
+ // Schiffsräume (16.09.2026): eigene Klangbilder, nachgebaut statt aufgenommen. `fx` legt eine zweite Schicht über die
+ // Harmonik: Brücke = leises Summen der Konsolen und seltene Rechner-Zirpen, Maschinenraum = pochender Kern.
+ bruecke:{root:73.42,notes:[0,7,12,19],beat:1.4,noise:220,air:.03,fx:'konsole',dichte:6},
+ maschinenraum:{root:55,notes:[0,7,12],beat:.72,noise:140,air:.05,fx:'kern',dichte:8},
+ aussicht:{root:87.31,notes:[0,7,12,16,19],beat:1.5,noise:160,air:.022,dichte:4}
 };
 export function createStudioAudio(onState=()=>{}) {
  let ctx,master,room,music,noiseSource,filter,airLfo,airDepth,timer,enabled=false,starting=false,disposed=false;
@@ -23,7 +28,15 @@ export function createStudioAudio(onState=()=>{}) {
  function step(){
   if(!enabled||disposed||ctx.state!=='running')return;
   const p=palettes[place],t=ctx.currentTime+.035;
-  const density=mood==='feier'?1:mood==='business'?2:4;
+  const density=p.dichte||(mood==='feier'?1:mood==='business'?2:4);
+  if(p.fx==='kern'){ // Warpkern-Puls: tiefer Doppelschlag, darüber ein leiser Oberton
+   tone(p.root,t,p.beat*.85,.11);if(tick%2===0)tone(p.root*2,t+.09,p.beat*.5,.035);
+   if(tick%16===8)tone(p.root*6,t,1.8,.012,'triangle');
+  }
+  if(p.fx==='konsole'&&Math.random()<.22){ // kurze Konsolen-Zirpen, nie mehr als drei Töne
+   const n=1+Math.floor(Math.random()*3),basis=1100+Math.random()*900;
+   for(let i=0;i<n;i++)tone(basis*(1+i*.12),t+i*.07,.06,.012,'square');
+  }
   if(tick%density===0&&musicLevel>0){
    const progression=[0,0,-5,-5,-3,-3,0,0],bar=Math.floor(tick/16),degree=p.notes[Math.floor(tick/density)%p.notes.length];
    tone(p.root*Math.pow(2,(degree+progression[bar%8])/12),t,mood==='konflikt'?1.2:3.5,.075,place==='rom'?'triangle':'sine');
@@ -50,5 +63,12 @@ export function createStudioAudio(onState=()=>{}) {
   }catch{enabled=false;onState(false,'Raumklang konnte nicht starten.');return false;}finally{starting=false;}
  }
  function stop(){generation++;enabled=false;clearTimeout(timer);if(ctx&&ctx.state!=='closed'){master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setValueAtTime(0,ctx.currentTime);for(const osc of playing){try{osc.stop();}catch{}}playing.clear();void ctx.suspend().catch(()=>{});}onState(false);}
- return {start,stop,setScene(next,nextMood='ruhe'){if(!palettes[next])return;place=next;mood=nextMood;tick=0;if(ctx){ramp(filter.frequency,palettes[place].noise,1.2);levels();}},setVoice(active){ducked=Boolean(active);levels();},setVolume(value){volume=Math.max(0,Math.min(.8,Number(value)||0));levels();},setMusic(value){musicLevel=Math.max(0,Math.min(.7,Number(value)||0));levels();},getState(){return {enabled,ducked,place,mood,contextState:ctx?.state||'uncreated'};},dispose(){disposed=true;stop();if(ctx&&ctx.state!=='closed')void ctx.close();}};
+ // Das Holodeck-Gitter schaltet sich ein: aufsteigende Tonkette, danach ein weicher Akkord. Nur bei laufendem Klang.
+ function chirp(){
+  if(!enabled||!ctx||ctx.state!=='running')return;
+  const t=ctx.currentTime+.03,reihe=[523.25,659.25,783.99,1046.5,1318.5,1567.98];
+  reihe.forEach((f,i)=>tone(f,t+i*.075,.14,.03,'triangle'));
+  [261.63,392,523.25].forEach(f=>tone(f,t+.5,2.2,.035));
+ }
+ return {start,stop,chirp,setScene(next,nextMood='ruhe'){if(!palettes[next])return;place=next;mood=nextMood;tick=0;if(ctx){ramp(filter.frequency,palettes[place].noise,1.2);levels();}},setVoice(active){ducked=Boolean(active);levels();},setVolume(value){volume=Math.max(0,Math.min(.8,Number(value)||0));levels();},setMusic(value){musicLevel=Math.max(0,Math.min(.7,Number(value)||0));levels();},getState(){return {enabled,ducked,place,mood,contextState:ctx?.state||'uncreated'};},dispose(){disposed=true;stop();if(ctx&&ctx.state!=='closed')void ctx.close();}};
 }
