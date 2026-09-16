@@ -95,10 +95,13 @@ function g_rollen_sauber( $rollen ) {
 	}
 	return $aus;
 }
-function g_cookie_bauen( $person, $mail, $name = '', $rollen = array() ) {
+/* 'b' (16.09.2026): ist die Person die Besitzerin dieser Instanz? Beim Einlösen des Tickets gegen
+   ALLE ihre CRM-Adressen geprüft — das Cookie trägt nur die Hauptadresse, der Vergleich später
+   gegen 'm' allein würde Jan (jan@ ≠ jan.edinger@) aus dem eigenen Briefkasten sperren. */
+function g_cookie_bauen( $person, $mail, $name = '', $rollen = array(), $besitzer = false ) {
 	global $GEHEIM, $STUNDEN;
 	$d = g_b64( json_encode( array( 'p' => (int) $person, 'm' => (string) $mail, 'n' => (string) $name,
-		'r' => g_rollen_sauber( $rollen ), 'exp' => time() + $STUNDEN * 3600 ) ) );
+		'r' => g_rollen_sauber( $rollen ), 'b' => (bool) $besitzer, 'exp' => time() + $STUNDEN * 3600 ) ) );
 	return $d . '.' . hash_hmac( 'sha256', $d, $GEHEIM );
 }
 function g_cookie_lesen() {
@@ -133,18 +136,36 @@ function g_schluessel_ok() {
 /* ————— Darf die Person hier herein? —————
    $mails: alle Adressen der angemeldeten Person (weiter.php › mails, Rückfall: die eine Hauptadresse).
    $GATE_MAIL: String oder Liste. Trifft irgendeine Adresse irgendeine andere, ist es ihre Tür. */
-function g_darf( $mails, $rollen ) {
-	global $GATE_MAIL, $GATE_ROLLEN;
+function g_ist_besitzer( $mails ) {
+	global $GATE_MAIL;
 	$eigene = array();
 	foreach ( (array) $GATE_MAIL as $m ) { $m = strtolower( trim( (string) $m ) ); if ( $m !== '' ) { $eigene[] = $m; } }
 	foreach ( (array) $mails as $m ) {
 		$m = strtolower( trim( (string) $m ) );
 		if ( $m !== '' && in_array( $m, $eigene, true ) ) { return true; }
 	}
+	return false;
+}
+function g_darf( $mails, $rollen ) {
+	global $GATE_ROLLEN;
+	if ( g_ist_besitzer( $mails ) ) { return true; }
 	foreach ( (array) $GATE_ROLLEN as $r ) {
 		if ( in_array( $r, (array) $rollen, true ) ) { return true; }
 	}
 	return false;
+}
+
+/* ————— Gehört diese Instanz der Person im Cookie? (16.09.2026) —————
+   Hereinlassen und Besitzen sind zweierlei: über $GATE_ROLLEN kommt auch die Gründung herein,
+   aber Benes Übergaben und Madeleine-Briefe gehören nur Bene. Cookies von vor dem 16.09. tragen
+   kein 'b' — dann zählt die Hauptadresse (höchstens $STUNDEN Stunden lang). Ohne $GATE_MAIL
+   (gemeinsame Werkzeuge) gibt es keine Besitzerin. */
+function g_besitzer( $ich ) {
+	global $GATE_MAIL;
+	if ( ! is_array( $ich ) ) { return false; }
+	/* 'b' gilt nur, solange die Instanz überhaupt noch eine Besitzerin hat. */
+	if ( array_key_exists( 'b', $ich ) ) { return (bool) $ich['b'] && g_ist_besitzer( $GATE_MAIL ); }
+	return g_ist_besitzer( array( (string) ( $ich['m'] ?? '' ) ) );
 }
 
 /* ————— Die eigene Adresse, so wie der Browser sie sieht ————— */
@@ -181,7 +202,7 @@ if ( isset( $_GET['vf_t'] ) ) {
 			. 'Persönliche Instanzen öffnen nur die Person selbst und die Geschäftsführung. Wenn das ein Irrtum ist: kurz melden, wir tragen es ein.',
 			'<a class="b" href="https://vishnuartists.com/mein-vishnu.html">Zu Mein Vishnu</a>' );
 	}
-	$wert = g_cookie_bauen( (int) $d['person'], (string) $d['mail'], (string) ( $d['name'] ?? '' ), $d['rollen'] ?? array() );
+	$wert = g_cookie_bauen( (int) $d['person'], (string) $d['mail'], (string) ( $d['name'] ?? '' ), $d['rollen'] ?? array(), g_ist_besitzer( $mails ) );
 	setcookie( 'vf_gate', $wert, array( 'expires' => time() + $STUNDEN * 3600, 'path' => '/',
 		'secure' => true, 'httponly' => true, 'samesite' => 'Lax' ) );
 	header( 'Cache-Control: no-store' );
@@ -202,7 +223,7 @@ if ( isset( $_GET['wer'] ) ) {
 	/* rollen: null = Cookie von vor dem 11.09.2026 (ohne Rollen) — das Portal nimmt dann die Rollen
 	   aus portal.js, bis das Cookie spätestens nach $STUNDEN Stunden neu ausgestellt ist. */
 	echo json_encode( array( 'ok' => true, 'person' => (int) $ich['p'], 'mail' => (string) $ich['m'], 'name' => (string) ( $ich['n'] ?? '' ),
-		'rollen' => isset( $ich['r'] ) ? g_rollen_sauber( $ich['r'] ) : null ), JSON_UNESCAPED_UNICODE );
+		'rollen' => isset( $ich['r'] ) ? g_rollen_sauber( $ich['r'] ) : null, 'besitzer' => g_besitzer( $ich ) ), JSON_UNESCAPED_UNICODE );
 	exit;
 }
 
@@ -244,13 +265,25 @@ if ( ! file_exists( $KONFIG ) ) {
    darum nicht beim Abholen gelöscht, sondern bekommt die Antwort hineingeschrieben; weg ist er,
    wenn der Compass sie übernommen hat, spätestens nach $MD_TAGE Tagen.
        GET  ?briefkasten=meine                → die eigenen Madeleine-Briefe samt Antwort
-       POST ?briefkasten=antwort&brief=…      → Antwort bzw. gescheiterter Versuch (nur Maschine) */
+       POST ?briefkasten=antwort&brief=…      → Antwort bzw. gescheiterter Versuch (nur Maschine)
+
+   ————— Nur für die Besitzerin (16.09.2026, Sicherheitsbefund) —————
+   Die Tür lässt über $GATE_ROLLEN auch die Gründung herein. Bis heute durfte damit jede Person
+   mit Türcookie Benes Übergaben auflisten, lesen und löschen (liste/hol/weg), fremde Checkins
+   einwerfen, die der john-server als Benes eigene verbucht, und Madeleine Fragen stellen, die
+   sie mit Benes privatem Finanzkontext beantwortet. Jetzt gilt für den ganzen Briefkasten:
+   Besitzerin der Instanz ($GATE_MAIL, siehe g_besitzer) oder Maschinenschlüssel — sonst 403.
+   Ob die Gründung fremde Brücken überhaupt sehen darf, ist eine eigene Entscheidung (E2) und
+   hier bewusst nicht mitentschieden. Kein CORS: der Compass ruft den Kasten nur same-origin,
+   die Abholer schicken den Schlüssel — eine Schwester-Subdomain hat hier nichts zu lesen. */
 $MD_TAGE     = 7;   /* so lange darf eine beantwortete Frage auf ihre Abholung warten */
 $MD_VERSUCHE = 3;   /* danach gibt der Brief auf, statt für immer „wartet" zu zeigen */
 if ( isset( $_GET['briefkasten'] ) ) {
-	g_cors();
 	header( 'Content-Type: application/json; charset=utf-8' );
 	header( 'Cache-Control: no-store' );
+	if ( ! g_schluessel_ok() && ! g_besitzer( $ich ) ) {
+		http_response_code( 403 ); echo json_encode( array( 'ok' => false, 'error' => 'NUR_BESITZER' ) ); exit;
+	}
 	$tun = (string) $_GET['briefkasten'];
 
 	/* Der Name kommt von außen: nur das selbst vergebene Muster zählt, nie ein Pfad. */
