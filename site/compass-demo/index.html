@@ -1355,7 +1355,9 @@ const VAF=Object.assign({ projekt:'', person:'', blocker:false, alter:0, typ:'',
    fehlt die Datei, bleibt der Compass auf Deutsch statt auszufallen. */
 const LOC = window.LOC || (()=>'de-DE');
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-const heute=()=>new Date().toISOString().slice(0,10);
+/* Ortszeit, nicht toISOString(): UTC liegt nachts (bis 1 bzw. 2 Uhr) noch im Vortag — der Morgencheck,
+   die Streak und jeder Tagesschlüssel hätten dann das falsche Datum (16.09.2026). */
+const heute=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
 
 /* ---------- Tageslicht + Theme (19.08.) ----------
    Fünf Tagesphasen färben den Compass (data-phase am <html>): Sonnenaufgang 5–8, Morgen 8–12, Tag 12–17,
@@ -4223,7 +4225,7 @@ function kanbanCard(){
         <div class="chipbar"><button class="btn w" onclick="pkNeu('bereit')">＋ Neue Karte</button>
           <button class="btn" onclick="liDialog()" title="Getippte Liste, eingefügter Text oder Foto eines Zettels — jede Zeile wird eine Karte">📝 Liste aufs Board</button>
           ${TRELLO.privat.url?`<a class="btn" href="${TRELLO.privat.url}" target="_blank" rel="noopener">🏠 Trello privat ↗</a>`:''}${TRELLO.arbeit.url?`<a class="btn" href="${TRELLO.arbeit.url}" target="_blank" rel="noopener">🏢 Trello Arbeit ↗</a>`:''}
-          ${COMPASS.cockpit.jira?`<a class="btn" href="${COMPASS.cockpit.jira}" target="_blank" rel="noopener">🎫 Jira Board VA ↗</a>`:''}
+          ${COMPASS.cockpit.jira?`<a class="btn" href="${COMPASS.cockpit.jira}" target="_blank" rel="noopener">🎫 Board öffnen ↗</a>`:''}
           <button class="btn" onclick="pkLaden(true)">↻ Neu laden</button>
           <button class="btn" onclick="bkDialog()" title="Quellen, Jira-Projekte und Rollen, Status → Spalte, Farben">⚙ Einrichten</button>
           <button class="btn p" onclick="kanbanSet('vishnu')">→ Team-Board</button></div>
@@ -4624,7 +4626,7 @@ function postfZeile(w){
   const seit=w.tage==null?'':(w.tage===0?'heute':(w.tage===1?'seit gestern':`seit ${w.tage} Tagen`));
   /* class="link" bringt Zeiger, Hover und das ↗ schon aus dem Stylesheet mit; die
      Klick-Delegation am #grid greift nur bei [data-q] und kommt uns hier nicht dazwischen. */
-  return `<div class="item${w.url?' link':''}"${w.url?` onclick="window.open('${w.url}','_blank')"`:''}>
+  return `<div class="item${w.url?' link':''}"${w.url?` data-url="${esc(w.url).replace(/"/g,'&quot;')}"`:''}>
     <div class="ic">${ic}</div><div class="body">
     <div class="t">${esc(w.von||w.adresse||'?')} <span class="tag ${w.art==='antwort'?(alt?'gry':'grn'):'gry'}">${esc(seit)}</span></div>
     <div class="m">${esc(w.betreff||'')}</div>
@@ -4686,7 +4688,7 @@ function slrZeile(w){
   const alt=w.tage!=null&&w.tage>=14;
   const ic=w.art==='antwort'?(alt?'⏳':'💬'):'👀';
   const seit=w.tage==null?'':(w.tage===0?'heute':(w.tage===1?'seit gestern':`seit ${w.tage} Tagen`));
-  return `<div class="item${w.url?' link':''}"${w.url?` onclick="window.open('${w.url}','_blank')"`:''}>
+  return `<div class="item${w.url?' link':''}"${w.url?` data-url="${esc(w.url).replace(/"/g,'&quot;')}"`:''}>
     <div class="ic">${ic}</div><div class="body">
     <div class="t">${esc(w.von||'?')} <span class="tag ${w.art==='antwort'?(alt?'gry':'grn'):'gry'}">${esc(seit)}</span></div>
     <div class="m">${esc(w.kanal||'')}</div>
@@ -6434,25 +6436,34 @@ async function lotusLaden(){
        Ledger heißt „der Scan schreibt nicht mehr“, nicht „es liegt nichts an“. */
     (async()=>{ try{ const r=await fetch(JOHN_API+'/api/ausschreibungen',{cache:'no-store'}); return await r.json(); }catch(e){ return null; } })()
   ]);
-  KAL.data=(kal&&kal.ok)?kal:null; KAL.fehler=(kal&&kal.ok===false)?kal:null; KAL.geladen=true;
-  GIT.data=(git&&git.ok)?git:null; GIT.fehler=(git&&git.ok===false)?git:null; GIT.geladen=true; gitRefresh();
-  WACHT.data=(wacht&&wacht.ok)?wacht:null; WACHT.fehler=(wacht&&wacht.ok===false)?wacht:null; WACHT.geladen=true;
-  DEP.data=(dep&&dep.ok)?dep:null; DEP.fehler=(dep&&dep.ok===false)?dep:null; DEP.geladen=true;
-  POSTF.data=(postf&&postf.ok)?postf:null; POSTF.fehler=(postf&&postf.ok===false)?postf:null; POSTF.geladen=true;
-  SLACK.data=(slack&&slack.ok)?slack:null; SLACK.fehler=(slack&&slack.ok===false)?slack:null; SLACK.geladen=true;
-  SICH.data=(sich&&sich.ok)?sich:null; SICH.fehler=(sich&&sich.ok===false)?sich:null; SICH.geladen=true;
-  WETTER.data=(wetter&&wetter.ok)?wetter:null; WETTER.fehler=(wetter&&wetter.ok===false)?wetter:null; WETTER.geladen=true;
-  ROUT.data=(rout&&rout.ok)?rout:null; ROUT.fehler=(rout&&rout.ok===false)?rout:null; ROUT.geladen=true;
-  VEREIN.data=(verein&&verein.ok)?verein:null; VEREIN.fehler=(verein&&verein.ok===false)?verein:null; VEREIN.geladen=true;
+  /* Netzfehler (16.09.2026): kommt ein Abruf gar nicht durch (null), bleibt der zuletzt bekannte Stand der
+     Quelle stehen und wird als veraltet markiert — wie compass-live.js beim Nachladen („offline: die Karte
+     zeigt weiter den letzten Stand“). Vorher setzte jeder Aussetzer alle Quellen auf null, und die Karten
+     zeigten „Server aus“, obwohl sie den Stand von vor drei Minuten hatten. Eine echte Antwort — auch
+     {ok:false} — ersetzt Daten und Fehler wie bisher; die Verbindungswacht unten liest weiter die Rohwerte. */
+  const standUebernehmen=(ST,j)=>{
+    if(j==null&&(ST.data||ST.fehler)){ ST.veraltet=true; ST.veraltetSeit=ST.veraltetSeit||Date.now(); return; }
+    ST.data=(j&&j.ok)?j:null; ST.fehler=(j&&j.ok===false)?j:null; ST.geladen=true; ST.veraltet=false; ST.veraltetSeit=null;
+  };
+  standUebernehmen(KAL,kal);
+  standUebernehmen(GIT,git); gitRefresh();
+  standUebernehmen(WACHT,wacht);
+  standUebernehmen(DEP,dep);
+  standUebernehmen(POSTF,postf);
+  standUebernehmen(SLACK,slack);
+  standUebernehmen(SICH,sich);
+  standUebernehmen(WETTER,wetter);
+  standUebernehmen(ROUT,rout);
+  standUebernehmen(VEREIN,verein);
   vereinUebernehmen();                      /* Live-Zahlen über den Snapshot legen, BEVOR gerendert wird */
-  VTRAF.data=(vtraf&&vtraf.ok)?vtraf:null; VTRAF.fehler=(vtraf&&vtraf.ok===false)?vtraf:null; VTRAF.geladen=true;
+  standUebernehmen(VTRAF,vtraf);
   vishnuUebernehmen();                      /* dasselbe für den Team-Zähler (09.09.) */
   rhythmMalen();                            /* Website-Zugänge: die Zeile „🔐“ hängt am Vereins-Stand (03.09.) */
-  FIN.data=(finanz&&finanz.ok)?finanz:null; FIN.fehler=(finanz&&finanz.ok===false)?finanz:null; FIN.geladen=true;
+  standUebernehmen(FIN,finanz);
   finUebernehmen();
-  NUTZ.data=(nutzer&&nutzer.ok)?nutzer:null; NUTZ.fehler=(nutzer&&nutzer.ok===false)?nutzer:null; NUTZ.geladen=true;
-  TRI.data=(trichter&&trichter.ok)?trichter:null; TRI.fehler=(trichter&&trichter.ok===false)?trichter:null; TRI.geladen=true;
-  AUS.data=(ausschr&&ausschr.ok)?ausschr:null; AUS.fehler=(ausschr&&ausschr.ok===false)?ausschr:null; AUS.geladen=true;
+  standUebernehmen(NUTZ,nutzer);
+  standUebernehmen(TRI,trichter);
+  standUebernehmen(AUS,ausschr);
   ausUebernehmen();                         /* gemessene Zahlen über die Neukunden-Karte legen, BEVOR gerendert wird */
   rhythmMalen();                            /* die Zeile „🫂 Menschen im Trichter“ hängt am Trichter-Stand */
   LOT.data={arbeit,jira,porsche,kal:KAL.data,wacht:WACHT.data,dep:DEP.data,postf:POSTF.data,slack:SLACK.data,sich:SICH.data,rout:ROUT.data,verein:VEREIN.data,vtraf:VTRAF.data,finanz:FIN.data,nutzer:NUTZ.data,trichter:TRI.data,ausschr:AUS.data}; LOT.geladen=true;
@@ -7443,6 +7454,14 @@ document.addEventListener('click',e=>{
   const a=e.target.closest('a[href^="kennzahlen.html"]'); if(!a) return;
   S.z.kennzahlen++; S.xp+=(R.xp.kennzahlen||0); badgesPruefen(); speichern();
 });
+/* Postfach- und Slack-Zeilen (16.09.2026): der Link steht als data-url am Element statt als Inline-onclick —
+   die Adressen stammen aus fremden Inhalten (Mail, Slack) und lagen dort unescaped in JavaScript. Geöffnet
+   wird nur http(s), nie javascript: o. ä.; die Reaktionsknöpfe aus compass-live.js stoppen ihr Ereignis selbst. */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-url]'); if(!el) return;
+  const u=String(el.dataset.url||''); if(!/^https?:\/\//i.test(u)) return;
+  window.open(u,'_blank','noopener');
+});
 
 /* Tastatur */
 document.addEventListener('keydown',e=>{
@@ -7691,7 +7710,7 @@ function johnKontext(){
   if(dasEine()) L.push(`Das Eine heute: ${dasEine()}`);
   const mc=(R.morgenchecks||[]).find(x=>x.datum===heute());
   if(mc&&mc.auftrag) L.push(`Übergabe an Claude heute: ${mc.auftrag}`);
-  const of=offeneFragen(); if(of.length) L.push(`Offene Offene Entscheidungen (${of.length}): `+of.slice(0,3).map(q=>q.frage).join(' | '));
+  const of=offeneFragen(); if(of.length) L.push(`Offene Entscheidungen (${of.length}): `+of.slice(0,3).map(q=>q.frage).join(' | '));
   /* Checkin von heute (24.08.): damit Coach direkt darauf antworten kann, statt dass die Nutzerin den Text kopiert */
   const lu=S.letzteUebergabe;
   if(lu && lu.datum===heute() && lu.text) L.push(`Sein ${lu.titel||lu.art} von heute im Wortlaut:\n${lu.text}`);
