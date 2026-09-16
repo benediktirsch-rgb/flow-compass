@@ -17,7 +17,9 @@ $script:TtsCache = Join-Path $env:LOCALAPPDATA 'john-compass\tts-cache'
 # Besetzung je Sprache und Figur: Piper-Modellname ohne .onnx. Fehlt das Modell, nimmt Resolve-TtsModell ein
 # anderes derselben Sprache; fehlt auch das, gibt es für diese Sprache keine Serverstimme.
 $script:TtsBesetzung = @{
-  de = @{ john = 'de_DE-thorsten-high';    madeleine = 'de_DE-kerstin-low';   picard = 'de_DE-thorsten-medium' }
+  # Madeleine: Sprecherin 12 aus dem MLS-Mehrsprecher-Modell (Probe 16.09.2026: 204 Hz, normales Tempo, geringstes
+  # Rauschen von 236). Andere Nummer = hier ändern; Hörproben: POST /api/tts mit probe:'de_DE-mls-medium#<n>'.
+  de = @{ john = 'de_DE-thorsten-high';    madeleine = 'de_DE-mls-medium#12';  picard = 'de_DE-thorsten-medium' }
   en = @{ john = 'en_US-ryan-high';        madeleine = 'en_US-amy-medium';    picard = 'en_GB-alan-medium' }
   fr = @{ john = 'fr_FR-tom-medium';       madeleine = 'fr_FR-siwis-medium';  picard = 'fr_FR-tom-medium' }
   it = @{ john = 'it_IT-riccardo-x_low';   madeleine = 'it_IT-paola-medium';  picard = 'it_IT-riccardo-x_low' }
