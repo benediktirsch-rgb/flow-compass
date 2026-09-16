@@ -20,5 +20,13 @@
   "jira": {
     "site": "",
     "projekt": ""
+  },
+  "firma": {
+    "stimme": "",
+    "finanzUrl": "",
+    "nutzerUrl": "",
+    "poolUrl": "",
+    "pflegeUrl": "",
+    "statsUrl": ""
   }
 }

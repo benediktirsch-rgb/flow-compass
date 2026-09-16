@@ -133,7 +133,7 @@ if ($Status) {
 $stage = Join-Path $env:TEMP ("wolke-deploy-" + [DateTime]::Now.Ticks)
 New-Item -ItemType Directory -Force (Join-Path $stage 'paket\vorlagen'), (Join-Path $stage 'daten') | Out-Null
 $paketQuelle = Join-Path $repo 'produkt\server'
-foreach ($f in 'compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','README.md') { Write-Lf (Join-Path $stage "paket\$f") (Read-Utf8 (Join-Path $paketQuelle $f)) }
+foreach ($f in 'compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','firmen-daten.ps1','README.md') { Write-Lf (Join-Path $stage "paket\$f") (Read-Utf8 (Join-Path $paketQuelle $f)) }
 foreach ($f in 'persona.md','TASKS.md') { Write-Lf (Join-Path $stage "paket\vorlagen\$f") (Read-Utf8 (Join-Path $paketQuelle "vorlagen\$f")) }
 $sha = [Security.Cryptography.SHA256]::Create(); $ms = New-Object IO.MemoryStream
 foreach ($f in (Get-ChildItem (Join-Path $stage 'paket') -Recurse -File | Sort-Object FullName)) { $b = [IO.File]::ReadAllBytes($f.FullName); $ms.Write($b, 0, $b.Length) }
@@ -146,7 +146,18 @@ $trPrivat = ''; $trArbeit = ''; $jiraSite = ''
 if ($dash -match "privat:\s*\{[^}]*url:'https://trello\.com/b/([A-Za-z0-9]{8})") { $trPrivat = $Matches[1] }
 if ($dash -match "arbeit:\s*\{[^}]*url:'https://trello\.com/b/([A-Za-z0-9]{8})") { $trArbeit = $Matches[1] }
 if ($dash -match "jiraBase:'https://([^/']+)/") { $jiraSite = $Matches[1] }
-function Konfig-Json([string]$name, [string]$coach, [int]$port, [string]$backend, [string]$daten, [string]$privat, [string]$arbeit, [string]$site, [string]$projekt, [string]$hinweis) {
+# Firmensicht (16.09.2026, Bene: „Philipp bekommt als Geschäftsführer volle Transparenz“): wer hier steht, bekommt im
+# Compass Finanzen samt Entscheidungen, Nutzerzahlen, Pool/Trichter und Website-Aufrufe (produkt\serverirmen-daten.ps1).
+# Schlüssel = Instanz ('' = Hauptinstanz), Wert = Name, unter dem die Person im Finanzlauf abstimmt. Staging bleibt draußen:
+# nichts von Staging erreicht Prod-Daten. Den FINANZ_TOKEN dieses Rechners bekommen nur diese Instanzen.
+$FirmaSicht = @{ '' = 'Benedikt Irsch'; 'philipp-heitz' = 'Philipp Heitz' }
+function Firma-Block([string]$stimme) {
+  if (-not $stimme) { return $null }
+  [ordered]@{ stimme = $stimme; finanzUrl = 'https://vishnuartists.com/finanzlauf/'; nutzerUrl = 'https://vishnuartists.com/nutzer-kpi.php'
+              poolUrl = 'https://vishnuartists.com/pool-api.php'; pflegeUrl = 'https://vishnuartists.com/portal-admin.php?v=bewerbungen'
+              statsUrl = 'https://vishnuartists.com/stats.php' }
+}
+function Konfig-Json([string]$name, [string]$coach, [int]$port, [string]$backend, [string]$daten, [string]$privat, [string]$arbeit, [string]$site, [string]$projekt, [string]$hinweis, $firma = $null) {
   $k = [ordered]@{
     _hinweis = $hinweis
     name = $name; coach = $coach; sprache = 'Deutsch'; port = $port; backend = $backend; modell = $Modell; effort = $Effort
@@ -158,9 +169,10 @@ function Konfig-Json([string]$name, [string]$coach, [int]$port, [string]$backend
     # ohne diese Zeile bekam jede Compass-Seite auf *.vishnuartists.com 403 ORIGIN.
     origins = @('https://*.vishnuartists.com')
   }
+  if ($firma) { $k.firma = $firma }
   return (($k | ConvertTo-Json -Depth 5) + "`n")
 }
-Write-Lf (Join-Path $stage 'compass-server.json') (Konfig-Json $Name $Coach 8787 'cli' '/var/lib/compass-server/daten' $trPrivat $trArbeit $jiraSite $JiraProjekt 'Konfiguration des Compass-Servers auf dem Wolkenserver — geschrieben von deploy-wolkenserver.ps1. Schlüssel liegen in /etc/compass-server/env.')
+Write-Lf (Join-Path $stage 'compass-server.json') (Konfig-Json $Name $Coach 8787 'cli' '/var/lib/compass-server/daten' $trPrivat $trArbeit $jiraSite $JiraProjekt 'Konfiguration des Compass-Servers auf dem Wolkenserver — geschrieben von deploy-wolkenserver.ps1. Schlüssel liegen in /etc/compass-server/env.' (Firma-Block $FirmaSicht['']))
 
 # Schlüssel: nur aus Benutzer-Umgebungsvariablen, nie ausgeben. Auf dem Server heißt der Claude-Token
 # CLAUDE_CODE_OAUTH_TOKEN — hier trägt er einen eigenen Namen, damit er das lokale Claude Code nicht umstellt.
@@ -171,12 +183,15 @@ $paare = @(
   @('CLAUDE_CODE_OAUTH_TOKEN','WOLKE_CLAUDE_TOKEN')
 )
 $envZeilen = @('# Umgebung des Dienstes compass-server — geschrieben von deploy-wolkenserver.ps1, nur root lesbar.', 'COMPASS_BACKEND=cli')
+$finTok = Env-User 'FINANZ_TOKEN'
+if (-not $finTok) { Sag 'FINANZ_TOKEN fehlt auf diesem Rechner — die Firmensicht bleibt auf dem Server ohne Zahlen (NO_KEY).' }
 $da = @(); $fehlt = @()
 foreach ($p in $paare) {
   $v = Env-User $p[1]
   if ($v) { $envZeilen += (Env-Zeile $p[0] $v); $da += $p[0] } else { $fehlt += $p[1] }
 }
-Write-Lf (Join-Path $stage 'env') (($envZeilen -join "`n") + "`n")
+# Staging bekommt $envZeilen als Kopie (siehe unten) — FINANZ_TOKEN deshalb nur in die Hauptinstanz-Datei.
+Write-Lf (Join-Path $stage 'env') ((($envZeilen + $(if ($finTok -and $FirmaSicht.ContainsKey('')) { @(Env-Zeile 'FINANZ_TOKEN' $finTok) } else { @() })) -join "`n") + "`n")
 Sag ("Schlüssel für den Server: {0}" -f ($da -join ', '))
 if ($fehlt.Count) { Sag ("FEHLT auf diesem Rechner (bleibt auf dem Server leer): {0}" -f ($fehlt -join ', ')) }
 if ($fehlt -contains 'WOLKE_CLAUDE_TOKEN') { Sag 'Ohne WOLKE_CLAUDE_TOKEN läuft der Coach ohne Anmeldung (NO_LOGIN) - Trello, Jira und der Stapel aus Dateien gehen trotzdem. Setzen: claude setup-token, dann [Environment]::SetEnvironmentVariable(''WOLKE_CLAUDE_TOKEN'',''<token>'',''User'') und erneut deployen.' }
@@ -221,7 +236,8 @@ foreach ($s in $inst.Keys) {
   $tok = Env-User $tokVar
   $backend = $(if ($tok) { 'cli' } else { 'ohne' })
   $d = Join-Path $stage "instanzen\$s"; New-Item -ItemType Directory -Force $d | Out-Null
-  Write-Lf (Join-Path $d 'compass-server.json') (Konfig-Json $w.name 'Coach' ([int]$e.port) $backend "/var/lib/compass-server/instanzen/$s/daten" $w.privat $w.arbeit $w.site $w.projekt "Compass-Server der Instanz $s auf dem Wolkenserver — geschrieben von deploy-wolkenserver.ps1. Schlüssel: /etc/compass-server/instanzen/$s.env.")
+  $fs = $(if ($FirmaSicht.ContainsKey($s)) { $FirmaSicht[$s] } else { '' })
+  Write-Lf (Join-Path $d 'compass-server.json') (Konfig-Json $w.name 'Coach' ([int]$e.port) $backend "/var/lib/compass-server/instanzen/$s/daten" $w.privat $w.arbeit $w.site $w.projekt "Compass-Server der Instanz $s auf dem Wolkenserver — geschrieben von deploy-wolkenserver.ps1. Schlüssel: /etc/compass-server/instanzen/$s.env." (Firma-Block $fs))
   $ez = @("# Umgebung des Dienstes compass-server@$s — nur root lesbar.", "COMPASS_BACKEND=$backend")
   if ($tok) { $ez += (Env-Zeile 'CLAUDE_CODE_OAUTH_TOKEN' $tok) }
   # Trello/Jira der Person (Schritt 3, 15.09.2026): TRELLO_<SLUG>_KEY/_TOKEN (ein Trello-Konto, gilt für Privat- und
@@ -239,6 +255,7 @@ foreach ($s in $inst.Keys) {
     if ($jsite) { $ez += (Env-Zeile 'JIRA_SITE' $jsite) }
     $schl += 'Jira'
   }
+  if ($fs -and $finTok) { $ez += (Env-Zeile 'FINANZ_TOKEN' $finTok); $schl += "Firmensicht ($fs)" }
   Write-Lf (Join-Path $d 'env') (($ez -join "`n") + "`n")
   Write-Lf (Join-Path $d "$s.caddy") ("handle_path /$($e.pfad)/* {`n`treverse_proxy localhost:$($e.port) {`n`t`theader_up Host localhost:$($e.port)`n`t}`n}`n")
   Sag ("Instanz {0}: Name {1} · Port {2} · Backend {3} · Trello {4}/{5} · Jira {6}/{7} · Schlüssel der Person: {8}" -f $s, $w.name, $e.port, $backend, $w.privat, $w.arbeit, $w.site, $w.projekt, $(if ($schl.Count) { $schl -join ', ' } else { "keine (TRELLO_${sv}_*, JIRA_${sv}_* nicht gesetzt)" }))

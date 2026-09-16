@@ -113,6 +113,11 @@ $AnbieterModell = [string](Get-Feld (Get-Feld $K 'anbieter' $null) 'modell' '')
 # schon den Ursprung, von dem du es geladen hast. Geprueft wird in Test-OriginErlaubt.
 $Origins = @()
 foreach ($og in @(Get-Feld $K 'origins' $null)) { $v = ([string]$og).Trim().TrimEnd('/'); if ($v) { $Origins += $v.ToLowerInvariant() } }
+# Firmensicht (16.09.2026): liegt firmen-daten.ps1 neben diesem Skript, kommen Finanzen, Nutzerzahlen, Pool und
+# Website-Aufrufe dazu — eingeschaltet über den Block "firma" in compass-server.json (siehe Kopf jener Datei).
+$FirmaModul = Join-Path $Here 'firmen-daten.ps1'
+$FirmaGeladen = $false
+if (Test-Path -LiteralPath $FirmaModul) { . $FirmaModul; $FirmaGeladen = $true }
 
 # Datenordner beim ersten Start anlegen — die Vorlagen kommen aus vorlagen\ (werden nie überschrieben).
 if (-not (Test-Path -LiteralPath $DatenDir)) { New-Item -ItemType Directory -Force $DatenDir | Out-Null }
@@ -1140,6 +1145,7 @@ switch ($be0) {
 }
 if ($be0 -ne 'anbieter') { Write-Host "  Modell:   $Model · Effort $Effort" }
 Write-Host ("  Trello:   " + $(if ($TrelloBoards.Count) { (($TrelloBoards.Keys | Sort-Object | ForEach-Object { "$_=$($TrelloBoards[$_]) " + $(if (Get-TrelloAuth $_) { '✓' } else { '(kein Schlüssel)' }) }) -join ' · ') } else { 'kein Board in compass-server.json' }))
+if ($FirmaGeladen) { Write-Host ("  Firma:    " + $(if ($FirmaAn) { "an · Stimme $(if ($FirmaStimme) { $FirmaStimme } else { '(keine)' }) · FINANZ_TOKEN $(if (Get-FinanzToken) { '✓' } else { 'fehlt' })" } else { 'aus (Block firma in compass-server.json leer)' })) }
 Write-Host ("  Jira:     " + $(try { if (Get-JiraAuth) { 'JIRA_EMAIL/JIRA_TOKEN ✓' } else { 'kein Token — optional' } } catch { 'JIRA_SITE fehlt (Umgebungsvariable oder jira.site in compass-server.json)' }))
 if ($RootFull) { Write-Host "  Dateien:  $RootFull wird unter / ausgeliefert" }
 Write-Host "  Stop:     ${prefix}__stop  (POST oder GET ohne fremden Origin)"
@@ -1313,7 +1319,8 @@ try {
         continue
       }
       # --- alles andere unter /api/: ehrlich sagen, dass es dieses Paket nicht hat ---
-      if ($path -like '/api/*') { Send-Json $ctx @{ ok = $false; error = 'NICHT_IM_PAKET'; hint = "$path gibt es im Compass-Server-Paket nicht (nur Coach, Stapel, Trello, Jira)." } 404; continue }
+      if ($FirmaGeladen -and (Invoke-FirmaRoute $ctx $req $path)) { continue }
+      if ($path -like '/api/*') { Send-Json $ctx @{ ok = $false; error = 'NICHT_IM_PAKET'; hint = "$path gibt es im Compass-Server-Paket nicht (nur Coach, Stapel, Trello, Jira$(if ($FirmaGeladen) { ', Firmensicht' }))." } 404; continue }
       # --- Statusseite bzw. optional ein Compass-Build ---
       if (-not $RootFull) {
         if ($path -eq '/') { Send-Html $ctx (Get-StatusSeite) } else { Send-Html $ctx "<!doctype html><meta charset=utf-8><p>404 $(Esc-Html $path) — <a href='/'>Status</a>" 404 }

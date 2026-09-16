@@ -40,7 +40,7 @@ $enc  = New-Object Text.UTF8Encoding($false)
 function Read-Utf8([string]$p) { [IO.File]::ReadAllText($p, [Text.Encoding]::UTF8) }
 
 # Die Dateien des Pakets — in dieser Reihenfolge (die Reihenfolge geht in den Hash ein).
-$dateien = @('compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','compass-server.json','start-compass-server.cmd',
+$dateien = @('compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','firmen-daten.ps1','compass-server.json','start-compass-server.cmd',
              'README.md','vorlagen\persona.md','vorlagen\TASKS.md')
 foreach ($f in $dateien) { if (-not (Test-Path -LiteralPath (Join-Path $src $f))) { throw "Paketdatei fehlt: produkt\server\$f" } }
 
