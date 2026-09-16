@@ -179,7 +179,7 @@ try {
 try {
   $ps = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass-server.ps1') 2>&1
   if ($LASTEXITCODE -ne 0) { throw (($ps | Select-Object -Last 4) -join ' / ') }
-} catch { Log "WARNUNG: Compass-Server-Paket (site/compass-demo/compass-server.zip) nicht gebaut: $($_.Exception.Message)" }
+} catch { $script:PublishFehler++; Log "WARNUNG: Compass-Server-Paket (site/compass-demo/compass-server.zip) nicht gebaut: $($_.Exception.Message)" }
 
 # 2d) Staging (15.09.2026): dieselben Builds noch einmal nach site\staging\<sub>\, gekennzeichnet
 #     (build-stufe.ps1) und an den Staging-Compass-Server gehaengt. Quelle ist die Arbeitskopie —
@@ -237,7 +237,7 @@ if ($stagingZiele.Count -or $stagingInst.Count) {
       & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-stufe.ps1') -Ordner $w -Stufe staging -Prod $prodUrl -Stand $stStand | Out-Null
       if ($LASTEXITCODE -ne 0) { throw 'build-stufe.ps1 fehlgeschlagen' }
       $stagingOk[$z] = $true
-    } catch { Log ("WARNUNG: Staging {0} nicht gebaut: {1}" -f $z, $_.Exception.Message) }
+    } catch { $script:PublishFehler++; Log ("WARNUNG: Staging {0} nicht gebaut: {1}" -f $z, $_.Exception.Message) }
   }
   foreach ($slugWunsch in $stagingInst) {
     $inst = $INSTANZEN | Where-Object { $_.sub -eq $slugWunsch -or (($_.name.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')) -eq $slugWunsch } | Select-Object -First 1
@@ -260,7 +260,7 @@ if ($stagingZiele.Count -or $stagingInst.Count) {
       if ($LASTEXITCODE -ne 0) { throw 'build-portal.ps1 (Staging) fehlgeschlagen' }
       & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-stufe.ps1') -Ordner $w -Stufe staging -Prod ('https://' + $inst.sub + '.vishnuartists.com/') -Stand $stStand | Out-Null
       $stagingOk[$inst.sub] = $true
-    } catch { Log ("WARNUNG: Staging-Instanz {0} nicht gebaut: {1}" -f $inst.name, $_.Exception.Message) }
+    } catch { $script:PublishFehler++; Log ("WARNUNG: Staging-Instanz {0} nicht gebaut: {1}" -f $inst.name, $_.Exception.Message) }
   }
   if ($stagingOk.Count) { Log ("Staging gebaut: " + (@($stagingOk.Keys) -join ', ')) }
 }
@@ -387,7 +387,7 @@ if ($zugang -and $prodFrei) {
         # Compass-Server-Paket mit vorbelegter Konfiguration (Name, Trello, Jira aus instanz.js) neben die
         # index.html der Instanz (07.09.2026). Fehler nur loggen — die Instanz rollt trotzdem aus.
         $ps = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'build-compass-server.ps1') -Instanz $inst.name 2>&1
-        if ($LASTEXITCODE -ne 0) { Log ("WARNUNG: Compass-Server-Paket fuer {0} nicht gebaut: {1}" -f $inst.name, (($ps | Select-Object -Last 3) -join ' / ')) }
+        if ($LASTEXITCODE -ne 0) { $script:PublishFehler++; Log ("WARNUNG: Compass-Server-Paket fuer {0} nicht gebaut: {1}" -f $inst.name, (($ps | Select-Object -Last 3) -join ' / ')) }
       }
       # Portal an die Wurzel der Subdomain (04.09.2026): Kacheln zu Backstage, Team-Cockpit,
       # Vaikuntha und dem Compass daneben. portal.js bleibt dabei unangetastet.
