@@ -286,6 +286,12 @@ param(
     # 10.09.2026: fehlte hier, seit sie am 08.09. angelegt wurde — derselbe blinde Fleck wie am 06.09.
     @{ id = 'produkt-meldungen-abarbeiten'; art = 'claude';  cron = '30 9,15 * * 1-5';  ktx = 'va'
        name = 'Produkt-Meldungen';          wirkung = 'Bugs aus #produkt-feedback: Ticket, Fix, Antwort im Thread' }
+    # 16.09.2026: Vishnu-Meetings werden mit Zoom aufgezeichnet und automatisch ausgewertet
+    # (C:\dev\_tools\zoom-meetings\ANLEITUNG.md). Windows transkribiert, Claude verteilt.
+    @{ id = 'Vishnu Meeting-Transkript';    art = 'windows'; cron = '*/15 * * * *';     ktx = 'va'
+       name = 'Meeting-Transkript';         wirkung = 'Zoom-Aufnahmen umwandeln und mit Whisper transkribieren' }
+    @{ id = 'vishnu-meeting-auswertung';    art = 'claude';  cron = '50 9-21 * * 1-5';  ktx = 'va'
+       name = 'Meeting-Auswertung';         wirkung = 'Summary in Confluence, Actions/Entscheidungen nach Jira und Compass, Kurz-Summary in Slack' }
     @{ id = 'porsche-agile-triage';         art = 'cloud';   cron = '0 8,16 * * 1-5';   ktx = 'va'
        name = 'Porsche AGILE triagieren';   wirkung = 'labelt und kommentiert AGILE-Tickets (Cloud-Aufgabe)' }
   ),
