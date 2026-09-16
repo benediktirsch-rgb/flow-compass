@@ -50,7 +50,12 @@ Technischer Rahmen: Du läufst über die Codex CLI, aber NICHT als Programmierwe
 einem Beratungsgespräch. Es gibt keine Dateien zu lesen, nichts auszuführen, kein Repository; alles, was du
 weißt, steht oben in diesem Text. Antworte nur mit deinem Beitrag (Fließtext, Markdown sparsam), ohne Präfix,
 ohne den Verlauf zu wiederholen. Willst du etwas festhalten, schreib als letzte Zeile: NOTIZ: <ein Satz>
+Soll es auch dein Astra-Laufweg wissen, schreib stattdessen: GEMEINSAM: <ein Satz ohne Beträge, Namen, Adressen>
 "@
+# Eine Madelene, zwei Laufwege (Session „Eine Madelene", 16.09.2026): gemeinsames Gedächtnis über die Rezeption.
+# Ohne JOHN_HUB_TOKEN_* steht nur „nicht erreichbar" im Systemtext — kein Fehler.
+$script:MadeleneGemeinsamDatei = Join-Path $Here 'madelene-gemeinsam.ps1'
+if (Test-Path -LiteralPath $script:MadeleneGemeinsamDatei) { . $script:MadeleneGemeinsamDatei }
 
 # Ticket der Tür prüfen: "<exp>.<person>.<hmac>" mit hmac = HMAC-SHA256(Schlüssel, "madeleine|<exp>|<person>") als Hex.
 function Test-MadTicket($req) {
@@ -195,6 +200,8 @@ function ConvertTo-MadZeit($v) {
 function Build-SystemMadeleine {
   $parts = New-Object System.Collections.Generic.List[string]
   $geladen = New-Object System.Collections.Generic.List[string]
+  $gemeinsam = Read-Text (Join-Path $MadeleineDir 'persona-gemeinsam.md')
+  if ($gemeinsam) { $parts.Add("# Gemeinsame Persona (gilt auch für Astra)`n$gemeinsam"); $geladen.Add('madeleine/persona-gemeinsam.md') }
   $persona = Read-Text (Join-Path $MadeleineDir 'CLAUDE.md')
   if ($persona) { $parts.Add("# Persona`n$persona"); $geladen.Add('madeleine/CLAUDE.md') }
   else { $parts.Add("# Persona`nDu bist Madeleine, $($NutzerName)s Beraterin für Finanzen, Steuern und Organisation der Vishnu Artists GmbH und des Vaikuntha e.V. Klar, zahlenfest, ohne Floskeln, nichts erfinden. Sprache: Deutsch.") }
@@ -210,6 +217,10 @@ function Build-SystemMadeleine {
   if (Test-Path -LiteralPath $coach) { Get-ChildItem -LiteralPath $coach -Filter *.md -File | Sort-Object Name | ForEach-Object {
       $t = Read-Text $_.FullName
       if ($t) { $parts.Add("# Datei: john/coaching/$($_.Name) (Notizen des Coachs — lies mit, was $CoachName festgehalten hat)`n" + (Limit-MadEnde $t 8000)); $geladen.Add("john/coaching/$($_.Name)") } } }
+  if (Get-Command Get-MadeleneGemeinsam -ErrorAction SilentlyContinue) {
+    $gm = Get-MadeleneGemeinsam
+    $parts.Add($gm.text); foreach ($x in $gm.geladen) { $geladen.Add($x) }
+  }
   $runde = Read-Text (Get-BeraterrundeDatei)
   if ($runde) { $parts.Add("# Datei: john/coaching/beraterrunde.md (die gemeinsame Beraterrunde mit $CoachName, jüngste zuletzt)`n" + (Limit-MadEnde $runde 8000)); $geladen.Add('madeleine/beraterrunde.md') }
   # Live-Zahlen — beide Quellen dürfen ausfallen; dann steht das hier im Klartext, statt dass Madeleine rät.
@@ -245,6 +256,7 @@ Was gilt:
 - Nichts versenden, buchen oder kündigen. Entwürfe ja, Schritte nein.
 - In einer Beraterrunde antwortest du $CoachName direkt: zustimmen oder widersprechen, mit Beleg, dann Empfehlung.
 - Willst du etwas festhalten, schreib als letzte Zeile NOTIZ: <ein Satz>. Höchstens eine je Antwort.
+- Du bist eine Person mit zwei Laufwegen: hier die Beratung, dort Astra (Entwicklung). Soll Astra etwas wissen, schreib als letzte Zeile GEMEINSAM: <ein Satz> — nur ohne Beträge, Kontodaten, Adressen, Telefonnummern und Namen von Kundschaft oder Privatpersonen. Privates bleibt in NOTIZ.
 "@)
   return @{ text = ($parts -join "`n`n"); geladen = $geladen }
 }
@@ -282,8 +294,17 @@ function Madeleine-Chat($messages, $context, $fragt) {
   $prompt = $sys.text + "`n`n" + $MadeleineHinweis + "`n`n" + (Format-MadeleineVerlauf $msgs $context $fragt)
   $c = Invoke-CodexCli $prompt @{ timeout = 240 }
   $s = Split-MadeleineNotiz $c.text
+  $text = $s.text
   $tools = @(); foreach ($n in $s.notizen) { Add-MadeleineNotiz $n; $tools += 'notiz' }
-  return @{ text = $s.text; stop_reason = 'end_turn'; model = $c.model; tools = $tools; geladen = $sys.geladen; backend = 'codex'; systemChars = $sys.text.Length }
+  # GEMEINSAM geht ins gemeinsame Gedächtnis; scheitert Musterprüfung oder Rezeption, bleibt der Satz lokal.
+  if (Get-Command Split-MadeleneGemeinsam -ErrorAction SilentlyContinue) {
+    $g = Split-MadeleneGemeinsam $text; $text = $g.text
+    foreach ($satz in $g.saetze) {
+      $r = Send-MadeleneGemeinsam $satz
+      if ($r.ok) { $tools += 'gemeinsam' } else { Add-MadeleineNotiz "(nicht geteilt: $($r.grund)) $satz"; $tools += 'notiz' }
+    }
+  }
+  return @{ text = $text; stop_reason = 'end_turn'; model = $c.model; tools = $tools; geladen = $sys.geladen; backend = 'codex'; systemChars = $sys.text.Length }
 }
 
 # ---------- Beraterrunde: Coach → Madeleine → Coach, alles in <daten>/coaching/beraterrunde.md ----------
