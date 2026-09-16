@@ -20,6 +20,7 @@ john-api-key.txt
 *-api-key.txt
 .env
 *.secret
+rezeption-lokal.js
 !jira-keys.example.json
 
 # ── Persönliche Datenschicht der eigenen Instanz ─────────────────────────────
