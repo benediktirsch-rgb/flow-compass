@@ -1,6 +1,6 @@
 # Holodeck · Produktionsmappe für Calliope
 
-> Erzeugt am 2026-09-15 von `tools/holodeck-storyboard.mjs` aus `holodeck-engine/scenes.js`, `production.js`, `studio-direction.js`.
+> Erzeugt am 2026-09-16 von `tools/holodeck-storyboard.mjs` aus `holodeck-engine/scenes.js`, `production.js`, `studio-direction.js`.
 > Nichts hier von Hand ändern — Quelle anpassen, Generator neu laufen lassen. Maschinenlesbar: `docs/holodeck-storyboard.json`.
 
 ## 1 · Calliope anschließen (Benes Schritt, einmalig)
@@ -24,6 +24,16 @@ Für Claude Code (CLI, ohne OAuth-Fenster) bräuchte es einen Calliope-API-Key a
 | Timeline (split, retime, regenerate), Render, Download | ja | Nachbessern einzelner Clips |
 
 Rate-Limits laut Anbieter: Starter 100/min · 5 000/Tag, Pro ×2, Creator ×4. Die Claude-Nutzungsgrenzen des Gratis-Plans drosseln lange Mehrschritt-Läufe — deshalb **ein Clip je Chat-Runde**, nicht „alle 32 auf einmal“.
+
+**Geprüft am 16.09.2026 mit dem verbundenen Connector (Gratis-Plan):** frei sind nur `free_tools` (Skript, Storyboard) und `estimate_generation_cost`. Alles, was Aufträge liest oder anlegt (`list_templates`, `list_jobs`, `get_editor`, `read_skill`, Render), antwortet mit „Upgrade required“. Rendern beginnt mit **Starter, 39 $/Monat = 3 900 Credits** (Pro 79 $/8 000, Creator 149 $/15 000).
+
+| Gemessene Schätzung | Credits | Modelle |
+|---|---|---|
+| 10 s Loop, Qualität medium, animiert, ohne Sprecher | 83 | Bild High · Video Medium |
+| 12 s Loop, Qualität high, animiert, ohne Sprecher | 185 | Bild Extra High · Video High |
+| 60 s Trailer, Qualität high, animiert, mit Sprecher | 936 | Bild Extra High · Video High |
+
+Stufe 1 (sieben Räume) kostet damit rund 580 Credits in medium oder 1 300 in high — beides passt in einen Starter-Monat. **Offen bleibt, ob Calliopes Render ein Startbild annimmt:** die Werkzeuge kennen `character_reference` (Referenzbilder für ein Figuren-Blatt) und `register_upload` (eigene Bilder/Videos in die Timeline), aber kein Image-to-Video aus einem exakten Still. Die drei Gesichter bleiben also ein Test mit Referenzblatt, kein sicherer Treffer.
 
 ## 3 · Der Ablauf, sobald Calliope verbunden ist
 
