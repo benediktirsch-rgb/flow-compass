@@ -1,0 +1,10 @@
+[Unit]
+Description=Madeleine-Abholer alle 10 Minuten
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -21,11 +21,11 @@ if (-not $Server) {
 if (-not $Server) { throw 'Kein Server bekannt — -Server <IP> angeben.' }
 $opt = @('-i', $Schluessel, '-o', 'StrictHostKeyChecking=accept-new')
 if ($Status) {
-  & ssh.exe @opt "root@$Server" "su - compass -c '~/.local/bin/codex login status'"
+  & ssh.exe @opt "root@$Server" "su - compass -c '/home/compass/.local/bin/codex login status'"
   return
 }
 Write-Host 'Gleich erscheinen eine Adresse und ein Code. Adresse im Browser öffnen, mit deinem ChatGPT-Konto anmelden, Code bestätigen.'
-& ssh.exe -t @opt "root@$Server" "su - compass -c '~/.local/bin/codex login --device-auth'"
+& ssh.exe -t @opt "root@$Server" "su - compass -c '/home/compass/.local/bin/codex login --device-auth'"
 Write-Host ''
-& ssh.exe @opt "root@$Server" "su - compass -c '~/.local/bin/codex login status'"
+& ssh.exe @opt "root@$Server" "su - compass -c '/home/compass/.local/bin/codex login status'"
 Write-Host 'Wenn dort „Logged in using ChatGPT“ steht: im Compass bei Madeleine auf ↻ — sie antwortet jetzt vom Server.'

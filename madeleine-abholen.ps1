@@ -142,7 +142,11 @@ if (-not $st.key) { Log "Codex nicht angemeldet ($($st.hint)) — nichts abgehol
 $gut = 0; $fehler = 0; $budget = $MaxProLauf
 
 # ================= 1) Finanz-Raumschiff =================
-if ($kopfRs) {
+# Seit 17.09.2026 holt der Wolkenserver diese Fragen ab (wolkenserver\madeleine-abholer.ps1), sobald
+# MADELEINE_TOKEN gesetzt und deployt ist. Dann hier nicht mehr — sonst antworten zwei Abholer auf dieselbe Frage.
+$wolkeHolt = [bool](Hole-Umgebung 'MADELEINE_TOKEN')
+if ($wolkeHolt -and -not $Leise) { Log 'Raumschiff: holt der Wolkenserver (MADELEINE_TOKEN gesetzt) — hier übersprungen.' }
+if ($kopfRs -and -not $wolkeHolt) {
   $liste = $null
   try { $liste = Invoke-RestMethod -Uri ($Url + '?offen=1') -Headers $kopfRs -TimeoutSec 25 -UseBasicParsing }
   catch { Log "Raumschiff nicht erreichbar: $($_.Exception.Message)" }

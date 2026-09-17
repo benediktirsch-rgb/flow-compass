@@ -218,6 +218,19 @@ if ($gateKey) { $madEnv += (Env-Zeile 'MADELEINE_TICKET_KEY' $gateKey) } else { 
 $vkTok = Env-User 'VAIKUNTHA_TOKEN'
 if ($vkTok) { $hauptFirma += (Env-Zeile 'VAIKUNTHA_TOKEN' $vkTok) }
 $hauptFirma += $madEnv
+# Zwei Schlüssel nur für die Hauptinstanz (17.09.2026, Bene: „bereite die Schlüssel vor"), beide erzeugt von
+# wolkenserver\madeleine-schluessel.ps1:
+#   MADELEINE_TOKEN (hier)  → MADELEINE_RAUMSCHIFF_TOKEN (Server): Raumschiff-Briefkasten, sonst nichts
+#   JOHN_HUB_TOKEN_MADELENE_GERAET: Geräteschlüssel der Rezeption fürs gemeinsame Gedächtnis
+$mt = Env-User 'MADELEINE_TOKEN'
+if ($mt) { $hauptFirma += (Env-Zeile 'MADELEINE_RAUMSCHIFF_TOKEN' $mt); Sag 'Madeleine: Raumschiff-Ausweis geht auf den Server (Abholer dort aktiv).' }
+else { Sag 'Madeleine: MADELEINE_TOKEN fehlt — Raumschiff-Fragen holt weiter der lokale Abholer.' }
+$ht = Env-User 'JOHN_HUB_TOKEN_MADELENE_GERAET'
+if ($ht) {
+  $hauptFirma += (Env-Zeile 'JOHN_HUB_TOKEN_MADELENE_GERAET' $ht)
+  $hu = Env-User 'JOHN_HUB_URL'; if ($hu) { $hauptFirma += (Env-Zeile 'JOHN_HUB_URL' $hu) }
+  Sag 'Madeleine: Rezeptions-Schlüssel geht auf den Server (gemeinsames Gedächtnis).'
+} else { Sag 'Madeleine: JOHN_HUB_TOKEN_MADELENE_GERAET fehlt — gemeinsames Gedächtnis auf dem Server „nicht erreichbar".' }
 # Eine Madelene (17.09.2026, Bene: „ja"): eigener, gebundener Geräteschlüssel der Rezeption (Gerät wolke-madelene,
 # hub-deploy.ps1) — nur für die Hauptinstanz. Staging bekommt ihn nie, sonst schriebe es ins echte gemeinsame Gedächtnis.
 $hubMad = Env-User 'JOHN_HUB_TOKEN_WOLKE_MADELENE'
@@ -312,7 +325,7 @@ foreach ($s in $inst.Keys) {
   Sag ("Instanz {0}: Name {1} · Port {2} · Backend {3} · Trello {4}/{5} · Jira {6}/{7} · Schlüssel der Person: {8}" -f $s, $w.name, $e.port, $backend, $w.privat, $w.arbeit, $w.site, $w.projekt, $(if ($schl.Count) { $schl -join ', ' } else { "keine (TRELLO_${sv}_*, JIRA_${sv}_* nicht gesetzt)" }))
 }
 
-foreach ($f in 'install.sh','compass-server.service','compass-server@.service','Caddyfile.tmpl') { Write-Lf (Join-Path $stage $f) (Read-Utf8 (Join-Path $hier $f)) }
+foreach ($f in 'install.sh','compass-server.service','compass-server@.service','Caddyfile.tmpl','madeleine-abholer.ps1','madeleine-abholer.service','madeleine-abholer.timer') { Write-Lf (Join-Path $stage $f) (Read-Utf8 (Join-Path $hier $f)) }
 Sag "Staging-Ordner: $stage (Paket $hash · Host $Hostname · Pfad t-… · $($inst.Count) Instanz(en)$(if ($inst.Contains('staging')) { ' inkl. Staging-Dienst' }))"
 if ($NurStaging) { Get-ChildItem $stage -Recurse -File | ForEach-Object { $_.FullName.Substring($stage.Length + 1) }; Sag 'NurStaging: nichts hochgeladen. Den Ordner danach löschen — die Dateien env enthalten Schlüssel.'; return }
 

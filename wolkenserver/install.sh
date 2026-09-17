@@ -169,6 +169,17 @@ systemctl daemon-reload
 systemctl enable compass-server >/dev/null 2>&1 || true
 systemctl restart compass-server
 
+# Madeleine-Abholer (17.09.2026): Raumschiff-Fragen von Bene und Martin, alle 10 Minuten. Läuft nur los, wenn
+# MADELEINE_RAUMSCHIFF_TOKEN in /etc/compass-server/env steht — sonst sagt er das und endet.
+if [ -f "$QUELLE/madeleine-abholer.ps1" ]; then
+  install -o compass -g compass -m 640 "$QUELLE/madeleine-abholer.ps1" /opt/compass-server/madeleine-abholer.ps1
+  install -o root -g root -m 644 "$QUELLE/madeleine-abholer.service" /etc/systemd/system/madeleine-abholer.service
+  install -o root -g root -m 644 "$QUELLE/madeleine-abholer.timer" /etc/systemd/system/madeleine-abholer.timer
+  systemctl daemon-reload
+  systemctl enable --now madeleine-abholer.timer >/dev/null 2>&1 || true
+  systemctl list-timers madeleine-abholer.timer --no-pager | sed -n 2p || true
+fi
+
 # Team- und Kundeninstanzen: je Ordner $QUELLE/instanzen/<slug>/ mit compass-server.json, env, <slug>.caddy
 # → eigener Dienst compass-server@<slug> auf eigenem Port, eigener Datenordner, eigener Caddy-Pfad.
 install -d -o root -g compass -m 750 /etc/compass-server/instanzen

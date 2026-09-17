@@ -1,0 +1,19 @@
+[Unit]
+Description=Madeleine-Abholer — Fragen aus dem Finanz-Raumschiff beantworten (einmaliger Lauf)
+After=network-online.target compass-server.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=compass
+Group=compass
+WorkingDirectory=/opt/compass-server
+# Dieselbe Umgebung wie der Compass-Server: MADELEINE_RAUMSCHIFF_TOKEN, MADELEINE_TICKET_KEY (nur root lesbar).
+EnvironmentFile=-/etc/compass-server/env
+Environment=TZ=Europe/Berlin
+Environment=LANG=de_DE.UTF-8
+Environment=HOME=/home/compass
+Environment=POWERSHELL_TELEMETRY_OPTOUT=1
+ExecStart=/usr/bin/pwsh -NoProfile -NonInteractive -File /opt/compass-server/madeleine-abholer.ps1
+# Drei Antworten von Madeleine können zusammen einige Minuten dauern.
+TimeoutStartSec=20min
