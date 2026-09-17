@@ -310,6 +310,11 @@ D.addEventListener('keydown',function(e){
     }
 
     if(k==='Enter'&&!e.isComposing){
+      /* Strg+Enter in einem eigenen Eingabebereich (data-strg-enter="<Knopf>") drückt dessen Knopf, nicht
+         „weiter“ — sonst ginge z. B. eine eigene Antwort auf eine Rückfrage verloren (VA-13727). */
+      var se=(e.ctrlKey||e.metaKey)&&t.closest?t.closest('[data-strg-enter]'):null;
+      var sk=se?se.querySelector(se.getAttribute('data-strg-enter')):null;
+      if(sk){ schlucken(e); if(!sk.disabled) sk.click(); return; }
       if(e.ctrlKey||e.metaKey){ var p0=primaer(w); schlucken(e); if(p0) p0.click(); return; }
       if(e.altKey) return;
       if(t.tagName==='TEXTAREA'&&(e.shiftKey||t.hasAttribute('data-mehrzeilig'))) return;
