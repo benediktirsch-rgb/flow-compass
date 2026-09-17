@@ -1625,8 +1625,8 @@ function starte(art){
      die Vereins-Freigabe ist jetzt eine der drei Bahnen, kein eigener Schritt mehr. */
   const trichterSchritt={id:'trichter',typ:'trichter',icon:'🫂',titel:'Menschen im Trichter',
     frage:'Wer wartet gerade auf eine Entscheidung von dir — und was ist der nächste Schritt?',
-    hint:'Drei Bahnen: Registrierung auf vaikuntha.eu freigeben · Aufnahme ins Kollektiv weiterschieben · Vorgang beim Kunden weiterschieben. Jeder Klick schreibt in die Quelle zurück; „später“ lässt die Zeile stehen.',sek:90};
-  const triMehr=()=>triOffen().length?[trichterSchritt]:[];
+    hint:'Registrierungen auf vaikuntha.eu freigeben. Aufnahme ins Kollektiv und Vorgänge beim Kunden schiebt das Kernteam im Portal weiter. Jeder Klick schreibt in die Quelle zurück; „später“ lässt die Zeile stehen.',sek:90};
+  const triMehr=()=>triMeine().length?[trichterSchritt]:[];
   if(art==='morgen')            FLOW={art,titel:'Morgencheck',schritte:(R.morgen||[]).concat(gitPakete().length?[gitSchritt]:[]).concat(triMehr()),xp:R.xp.morgencheck};
   else if(art==='freigaben')    FLOW={art,titel:'Freigaben',schritte:[gitSchritt],xp:0};
   /* 'zugaenge' bleibt als Kennung gültig: ältere Links und Tastenwege landen so im Trichter. */
@@ -1887,7 +1887,7 @@ function koerper(s){
     const warn=namen.length?`<div class="hint" style="margin-bottom:8px">⚠️ ${namen.join(' und ')} ${namen.length>1?'antworten':'antwortet'} gerade nicht — diese Liste ist unvollständig.</div>`:'';
     /* Dieselbe Liste wie in der Karte (06.09.): wer heute schon entschieden ist, steht kompakt darunter —
        nicht noch einmal mit Knöpfen, als wäre nichts geschehen. */
-    const leer = z.length ? '' : (namen.length ? '' : `<div class="empty">${h.length?`✓ Alle entschieden — ${h.length} heute erledigt.`:'Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.'}</div>`);
+    const leer = z.length ? '' : (namen.length ? '' : `<div class="empty">${h.length?`✓ Alle entschieden — ${h.length} heute erledigt.`:'Niemand wartet auf dich — alle Registrierungen sind entschieden.'}</div>`);
     return warn+z.map(x=>triZeile(x,triKnoepfe)).join('')+leer+h.map(triKompakt).join('');
   }
   if(s.typ==='auftrag'){
@@ -5228,7 +5228,16 @@ function triMerken(w,wahl,text){
   speichern();
 }
 function triVergessen(schluessel){ if(S.tri&&S.tri[schluessel]){ delete S.tri[schluessel]; speichern(); } triAlleMalen(); }
-function triAktiv(){ return triOffen().filter(w=>!triMerk(w)); }          /* wartet noch auf dich */
+/* Wessen Entscheidung? (17.09.2026, Bene: „Diese Fragen müssten doch vom Kernteam selbst beantwortet werden.
+   Nicht von Bene.“) Die Vereins-Registrierung ist Benes Sache als Vorsitzender; Aufnahme ins Kollektiv (FAP)
+   und Vorgang beim Kunden (JAP) schiebt das Kernteam im Freelancer-Portal weiter. Diese Zeilen stehen weiter
+   in der Karte — ohne Knöpfe, unter „Beim Kernteam“ — und kommen nie in Morgen-/Abendcheck, Blüte oder Stapel.
+   Eine Instanz, deren Inhaber alles selbst entscheidet, setzt COMPASS.trichter.meineBahnen. */
+const TRI_MEINE=((typeof COMPASS!=='undefined'&&COMPASS.trichter&&COMPASS.trichter.meineBahnen)||['ankommen']);
+function triMeins(w){ return TRI_MEINE.indexOf(w.bahn)>=0; }
+function triMeine(){ return triOffen().filter(triMeins); }
+function triTeam(){ return triOffen().filter(w=>!triMeins(w)); }
+function triAktiv(){ return triMeine().filter(w=>!triMerk(w)); }          /* wartet noch auf dich */
 function triHeute(){ const t=S.tri||{}, h=heute();                        /* heute entschieden oder auf später gelegt */
   return Object.keys(t).filter(k=>t[k].ts===h).map(k=>Object.assign({schluessel:k},t[k],{zeile:triOffen().find(w=>w.schluessel===k)||null}))
     .sort((a,b)=>(a.um||'')<(b.um||'')?1:-1); }
@@ -5383,7 +5392,15 @@ function triRefresh(){
   const liste = (w.length||h.length)
     ? `<div class="tri-liste">${w.slice(0,8).map(x=>triZeile(x,triKnoepfe)).join('')}${h.map(triKompakt).join('')}</div>`
       + (w.length>8?`<div class="hint">… und ${w.length-8} weitere — im Ritual „🫂 Trichter“ kommen sie nach.</div>`:'')
-    : (luecken.length?'':`<div class="empty">✓ Niemand wartet — alle Registrierungen sind entschieden und kein Vorgang liegt.</div>`);
+    : (luecken.length?'':`<div class="empty">✓ Niemand wartet auf dich — alle Registrierungen sind entschieden.</div>`);
+  /* Beim Kernteam (17.09.): zum Hinsehen, nicht zum Entscheiden. Kein Knopf außer dem Weg ins Portal —
+     wer hier klickt, nimmt dem Team die Entscheidung wieder ab. Wer ≥ TRI_STILL Tage liegt, wird benannt:
+     das ist der eine Fall, in dem du nachhakst — beim Team, nicht im Vorgang. */
+  const tm=triTeam(), still=tm.filter(x=>(x.liegtTage==null?x.tage:x.liegtTage)>=TRI_STILL).length;
+  const team = tm.length ? `<details class="tri-mehr"${still?' open':''}><summary>🤝 Beim Kernteam: ${tm.length} ${tm.length===1?'Vorgang':'Vorgänge'} im Portal${still?` · ⏳ ${still} ${still===1?'liegt':'liegen'} seit ${TRI_STILL}+ Tagen`:''}</summary>
+      ${tm.map(x=>{ const b=TRI_BAHN[x.bahn]||{ic:'•',t:x.bahn}, l=(x.liegtTage==null?x.tage:x.liegtTage), link=triLink(x);
+        return `<div class="m">${b.ic} ${esc(x.name||'ohne Namen')} — ${esc(x.was||b.t)}${l!=null?` · ${esc(triSeit(l))}`:''}${l!=null&&l>=TRI_STILL?' ⏳':''}${link?` · <a href="${esc(link)}" target="_blank" rel="noopener">Portal ↗</a>`:''}</div>`; }).join('')}
+      <div class="m">Aufnahme ins Kollektiv und Vorgänge beim Kunden entscheidet das Kernteam selbst. ${still?'Liegt etwas zu lange: beim Team nachhaken, nicht selbst weiterschieben.':'Nichts hängt — nichts zu tun.'}</div></details>` : '';
   /* Die Tore aus ziele.php (10.09.): sichtbar bleibt nur die größte Lücke — mit dem Satz, wo sie
      sich schließen lässt. Die volle Zahlenreihe und die Grenzen des Abgleichs stehen einen Klick
      tiefer: Zahlen, an denen keine Handlung hängt, gehören nicht auf die Höhe einer Entscheidung
@@ -5402,7 +5419,7 @@ function triRefresh(){
       <div class="m">${pz.mitPortal} von ${pz.gesamt} waren schon im Portal · ${pz.mitMail} mit Mailadresse</div>
       ${t.doppelt?`<div class="m">🔗 ${t.doppelt} ${t.doppelt===1?'Person ist':'Personen sind'} in beiden Häusern — über die Mailadresse erkannt; der Trichter legt nichts zusammen, er sagt es dir nur.</div>`:''}
       <div class="m">Abgleich über die Mailadresse: für eine Bewerbung sieht der Trichter nur, ob dieselbe Person <b>gerade auch</b> auf den Vereinszugang wartet — ob sie Vereinsmitglied ist, gibt die Vereins-Schnittstelle nicht her.</div></details>` : '';
-  body.innerHTML = kopf + warn + tore + liste + pflege + mehr;
+  body.innerHTML = kopf + warn + tore + liste + team + pflege + mehr;
 }
 /* Welches Tor liegt am weitesten zurück — und wo schließt es sich? Gemessen am Anteil, der zum Ziel
    fehlt, damit 0/3 nicht hinter 35/40 verschwindet. Der Satz dazu nennt nur Wege, die es wirklich
@@ -6160,9 +6177,10 @@ const LOTUS_KATALOG={
   aufnahme:{icon:'🫂',label:'Menschen warten auf dich',besser:'weniger',ziele:[3,1,0],
             quelle:'Trichter (live über john-server, GET /api/trichter — Vereins-Registrierungen + offene Vorgänge im Freelancer-Portal)',
             wert:()=>{ if(!TRI.data||(TRI.data.fehlt||[]).length) return null;   /* teilweise blind = keine Zahl */
-                       const w=triOffen(), b=TRI.data.nachBahn||{};
+                       const w=triMeine(), b=TRI.data.nachBahn||{}, team=triTeam().length;   /* nur, was deine Entscheidung ist (17.09.) */
+                       const alt=w.reduce((m,x)=>Math.max(m,x.tage==null?-1:x.tage),-1);
                        return {heute:w.length,gestern:histWert('aufnahme'),
-                               sub:`${TRI.data.aeltesteTage!=null?`ältester seit ${TRI.data.aeltesteTage} T`:'nichts offen'} · ${b.ankommen||0} ankommen · ${b.kollektiv||0} Kollektiv · ${b.einsatz||0} Einsatz`}; }},
+                               sub:`${alt>=0?`ältester seit ${alt} T`:'nichts offen'} · ${b.ankommen||0} ankommen · ${team} beim Kernteam`}; }},
   /* Mandats-Puls (06.09.). Gezählt wird, was ohne Bewegung liegt: Treffer ohne Kette plus die
      überfälligen Zeilen deiner eigenen Pipeline. Die laufenden Fristen stehen bewusst NICHT drin —
      die sind eine Sache von Stunden und gehören in die Karte, nicht in eine Tageskennzahl.
@@ -6929,7 +6947,7 @@ function stapelKandidaten(){
           : `Strategische Initiative: ${x.lage.offen} von ${x.lage.gesamt} Storys offen, keine in Arbeit, letzte Bewegung vor ${x.lage.still} Tagen${x.lage.letzterKey?' ('+x.lage.letzterKey+')':''}. Nächste Story ziehen oder die Initiative zurückschieben — das Alter allein ist kein Grund.`,
         url:x.karte.url||''}); });
   }catch(e){}
-  try{ triOffen().slice(0,6).forEach(w=>k.push({key:'trichter:'+String(w.schluessel||w.name||'').slice(0,60),art:'trichter',titel:(w.name||'ohne Namen')+' — '+((TRI_BAHN[w.bahn]||{}).t||w.bahn),
+  try{ triMeine().slice(0,6).forEach(w=>k.push({key:'trichter:'+String(w.schluessel||w.name||'').slice(0,60),art:'trichter',titel:(w.name||'ohne Namen')+' — '+((TRI_BAHN[w.bahn]||{}).t||w.bahn),
        warum:[w.was,w.rolle,w.kunde,w.tage!=null?('wartet seit '+w.tage+' Tagen'):''].filter(Boolean).join(' · ').slice(0,300),url:triLink(w)||''})); }catch(e){}
   return k;
 }
