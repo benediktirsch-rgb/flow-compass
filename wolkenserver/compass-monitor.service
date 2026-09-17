@@ -1,0 +1,22 @@
+[Unit]
+Description=Compass Cloud-Betriebsmonitor und Rezeptionsantworten
+After=network-online.target compass-server.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=compass
+Group=compass
+Environment=HOME=/home/compass
+EnvironmentFile=/etc/compass-server/env
+UMask=0077
+# Only the own server and its two existing timers; no customer units.
+ExecStartPre=+/usr/bin/systemctl start --no-block compass-server.service compass-connectors.timer compass-vertretung.timer
+ExecStart=/usr/bin/python3 /opt/compass-vertretung/cloud_monitor.py
+TimeoutStartSec=90
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/compass-server/daten/vertretung
+

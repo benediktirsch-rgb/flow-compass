@@ -1,0 +1,11 @@
+[Unit]
+Description=Compass Cloud-Monitor alle zwei Minuten
+
+[Timer]
+OnBootSec=60
+OnUnitInactiveSec=2min
+AccuracySec=10s
+Unit=compass-monitor.service
+
+[Install]
+WantedBy=timers.target

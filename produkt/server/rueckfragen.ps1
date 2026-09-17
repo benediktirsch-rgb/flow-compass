@@ -33,8 +33,14 @@ function Get-CloudRueckfragen {
   $decisionFile = Join-Path $DatenDir 'vertretung/codex-decisions.json'
   if (Test-Path -LiteralPath $decisionFile) { $decisions = [IO.File]::ReadAllText($decisionFile) | ConvertFrom-Json -AsHashtable }
   $closed = @($known.Keys) + @($hub.rueckfragen | Where-Object { $_.status -eq 'zurueckgezogen' } | ForEach-Object { [string]$_.id })
+  $monitor = $null
+  $events = @{}
+  $monitorFile = Join-Path $DatenDir 'vertretung/cloud-monitor.json'
+  $eventsFile = Join-Path $DatenDir 'vertretung/decision-events.json'
+  if (Test-Path -LiteralPath $monitorFile) { $monitor = [IO.File]::ReadAllText($monitorFile) | ConvertFrom-Json -AsHashtable }
+  if (Test-Path -LiteralPath $eventsFile) { $events = [IO.File]::ReadAllText($eventsFile) | ConvertFrom-Json -AsHashtable }
   return @{ok=$true;vollstaendig=$hubOk -and ($null -ne $local);rueckfragen=$open;antworten=$known
-    codexVorgaenge=$decisions;erledigteFragen=$closed
+    codexVorgaenge=$decisions;erledigteFragen=$closed;cloudMonitor=$monitor;antwortEingaenge=$events
     importStand=$local.quellstand;rezeptionErreichbar=$hubOk;lokalerBestandImportiert=($null -ne $local)
     hinweis='Lokaler Bestand ist ein Import; neue Rezeptionsfragen und Cloud-Antworten werden live abgeglichen.'}
 }

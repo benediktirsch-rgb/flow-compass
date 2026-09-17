@@ -9,6 +9,12 @@ c = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(c)
 
 class Tests(unittest.TestCase):
+    def test_cloud_answer_is_receipt_not_execution(self):
+        out = c.candidates({'rueckfragen': {'antwortEingaenge': {'x':
+            {'id': 'x', 'status': 'eingegangen', 'title': 'Task', 'answer': {'a': 'Yes'}}}}})
+        self.assertEqual(out[0]['key'], 'antwort:x')
+        self.assertIn('noch nicht bestaetigt', out[0]['warum'])
+
     def test_answered_and_withdrawn_questions_not_restored(self):
         fresh = {'rueckfragen': {'antworten': {'a': {'a': 'yes'}}, 'erledigteFragen': ['b']}}
         self.assertTrue(c.question_closed('frage:a', fresh))
