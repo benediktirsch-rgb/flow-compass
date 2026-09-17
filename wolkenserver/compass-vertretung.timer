@@ -1,0 +1,11 @@
+[Unit]
+Description=Compass Quellen alle 15 Minuten pruefen
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=15min
+AccuracySec=30s
+Unit=compass-vertretung.service
+
+[Install]
+WantedBy=timers.target

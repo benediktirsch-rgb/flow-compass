@@ -133,8 +133,12 @@ if (Test-Path -LiteralPath $FirmaModul) { . $FirmaModul; $FirmaGeladen = $true }
 #   ausgabe.ps1      /api/ausgabe (Erfolgs-Ausgabe, Morgen- und Abendausgabe)
 #   systembild.ps1   /api/systembild (Wirkungsbild neben der Coach-Karte)
 #   madeleine.ps1    /api/madeleine, /api/beraterrunde (zweite Beraterin über Codex; nur mit Block "madeleine")
+function Invoke-ClaudeCli([string]$systemText, [string]$prompt, [hashtable]$o) {
+  return Invoke-ClaudeCliPrimary $systemText $prompt $o
+}
 $ModulGeladen = @{}
-foreach ($mn in 'gedaechtnis','ausgabe','systembild','madeleine') {
+foreach ($mn in 'gedaechtnis','ausgabe','systembild','madeleine','vertretung','kalender') {
+  if ($mn -eq 'kalender' -and $env:COMPASS_VERTRETUNG -ne '1') { continue }
   $mp = Join-Path $Here "$mn.ps1"
   if (Test-Path -LiteralPath $mp) { . $mp; $ModulGeladen[$mn] = $true }
 }
@@ -377,7 +381,7 @@ function Invoke-Prozess([string]$exe, [string[]]$argv, [string]$stdin, [int]$tim
 #   --setting-sources "" und --strict-mcp-config: keine Nutzer-Einstellungen, Hooks oder fremden MCP-Server.
 #   --tools "": keine eingebauten Werkzeuge. Werkzeuge nur über coach-mcp.ps1, freigegeben per --allowedTools.
 #   Arbeitsordner außerhalb jedes Projekts (keine CLAUDE.md-Funde).
-function Invoke-ClaudeCli([string]$systemText, [string]$prompt, [hashtable]$o) {
+function Invoke-ClaudeCliPrimary([string]$systemText, [string]$prompt, [hashtable]$o) {
   $exe = Find-ClaudeExe; if (-not $exe) { throw 'NO_CLI' }
   $puf = Join-Path $Here '_puffer'; if (-not (Test-Path -LiteralPath $puf)) { New-Item -ItemType Directory -Force $puf | Out-Null }
   $cwd = Join-Path $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'compass-server' } else { $puf }) 'cli-cwd'; if (-not (Test-Path -LiteralPath $cwd)) { New-Item -ItemType Directory -Force $cwd | Out-Null }
@@ -406,7 +410,7 @@ function Invoke-ClaudeCli([string]$systemText, [string]$prompt, [hashtable]$o) {
       $m = [string]$j.result
       if ($m -match '(?i)not logged in|/login|authentication|OAuth token') { $script:CliLogin = $null; throw 'NO_LOGIN' }
       if ($m -match '(?i)credit balance') { throw 'NO_CREDIT' }
-      if ($m -match '(?i)usage limit|rate limit|limit reached|extra usage|too many requests|overloaded') { throw 'LIMIT' }
+      if ($m -match '(?i)usage limit|rate limit|spend limit|weekly limit|monthly limit|limit reached|extra usage|too many requests|overloaded') { throw 'LIMIT' }
       throw "CLI: $m"
     }
     $tools = @(); if (Test-Path -LiteralPath $log) { $tools = @([IO.File]::ReadAllLines($log, [Text.Encoding]::UTF8) | Where-Object { $_ }) }
@@ -751,6 +755,14 @@ function Coach-Stapel($in) {
   }
   $fresh = [bool]$in.fresh
   $l = $s.letzte
+  # Background publication is also returned to an opening browser. A different
+  # browser candidate hash must not start a second model run or hide the cloud result.
+  if ($env:COMPASS_VERTRETUNG -eq '1' -and -not $fresh -and $l) {
+    $age = $null; try { $age = ($jetzt - (ConvertTo-Zeitpunkt $l.stand)).TotalMinutes } catch { }
+    if ($null -ne $age -and $age -ge 0 -and $age -lt 60) {
+      return @{ ok = $true; punkte = @($l.punkte); stand = $s.stand; datum = [string]$l.datum; model = [string]$l.model; cache = $true; stand_um = [string]$l.stand }
+    }
+  }
   if (-not $fresh -and $l -and [string]$l.hash -eq $hash) {
     $alter = $null; try { $alter = ($jetzt - (ConvertTo-Zeitpunkt $l.stand)).TotalMinutes } catch { $alter = $null }
     if ($alter -ne $null -and $alter -lt 240) {
@@ -818,6 +830,23 @@ Antworte NUR mit JSON, ohne Erklärung, ohne Code-Zaun:
   $o = $null
   try { $o = $text.Substring($a, $z - $a + 1) | ConvertFrom-Json } catch { return @{ ok = $false; error = 'JSON_KAPUTT'; hint = $_.Exception.Message; roh = $text } }
   $punkte = @(Test-StapelPunkte $o.punkte)
+  if ($env:COMPASS_VERTRETUNG -eq '1') {
+    $erlaubt = @{}; foreach ($k in $kand) { if ($k.key) { $erlaubt[[string]$k.key] = $true } }
+    $gesehen = @{}
+    foreach ($p in $punkte) {
+      if (-not $erlaubt.ContainsKey([string]$p.key) -or $gesehen.ContainsKey([string]$p.key)) {
+        return @{ ok = $false; error = 'UNBELEGTE_KENNUNG'; hint = 'Letzten Stapel bewahrt: Antwort enthaelt unbekannte oder doppelte Kennungen.' }
+      }
+      $gesehen[[string]$p.key] = $true
+      $st = $s.stand[[string]$p.key]
+      if ($st -and ($st.status -eq 'ok' -or ($st.status -eq 'wieder' -and (ConvertTo-Zeitpunkt $st.bis) -gt $jetzt))) {
+        return @{ ok = $false; error = 'ERLEDIGT_ODER_VERTAGT'; hint = 'Letzten Stapel bewahrt: Antwort widerspricht deinem Bearbeitungsstand.' }
+      }
+    }
+    if ($punkte.Count -eq 0 -or @($o.punkte).Count -ne $punkte.Count) {
+      return @{ ok = $false; error = 'LEERE_ODER_UNGUELTIGE_ANTWORT'; hint = 'Letzten Stapel bewahrt.' }
+    }
+  }
   $s.letzte = @{ datum = $jetzt.ToString('yyyy-MM-dd'); stand = $jetzt.ToString('o'); hash = $hash; punkte = $punkte; model = [string]$r.model }
   Save-Stapel
   Write-Host ("[{0}] Stapel: {1} Punkte vom Coach ({2} Kandidaten)" -f (Get-Date -Format 'HH:mm:ss'), $punkte.Count, $kand.Count) -ForegroundColor Green
@@ -1345,6 +1374,8 @@ try {
       if ($ModulGeladen['ausgabe'] -and (Invoke-AusgabeRoute $ctx $req $path)) { continue }
       if ($ModulGeladen['systembild'] -and (Invoke-SystembildRoute $ctx $req $path)) { continue }
       if ($ModulGeladen['madeleine'] -and (Invoke-MadeleineRoute $ctx $req $path)) { continue }
+      if ($ModulGeladen['vertretung'] -and (Invoke-VertretungRoute $ctx $req $path)) { continue }
+      if ($ModulGeladen['kalender'] -and (Invoke-KalenderRoute $ctx $req $path)) { continue }
       if ($FirmaGeladen -and (Invoke-FirmaRoute $ctx $req $path)) { continue }
       if ($path -like '/api/*') { Send-Json $ctx @{ ok = $false; error = 'NICHT_IM_PAKET'; hint = "$path gibt es im Compass-Server-Paket nicht (nur Coach, Stapel, Trello, Jira$(if ($FirmaGeladen) { ', Firmensicht' })$(if ($ModulGeladen['madeleine'] -and $MadeleineAn) { ', Madeleine' }))." } 404; continue }
       # --- Statusseite bzw. optional ein Compass-Build ---
