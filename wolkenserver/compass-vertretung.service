@@ -1,0 +1,19 @@
+[Unit]
+Description=Compass Quellenpflege und Textvertretung der eigenen Instanz
+After=network-online.target compass-server.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=compass
+Group=compass
+Environment=HOME=/home/compass
+Environment=TZ=Europe/Berlin
+UMask=0077
+ExecStart=/usr/bin/python3 /opt/compass-vertretung/collector.py
+TimeoutStartSec=20min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/compass-server/daten/vertretung
