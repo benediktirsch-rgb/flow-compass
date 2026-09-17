@@ -137,8 +137,8 @@ function Invoke-ClaudeCli([string]$systemText, [string]$prompt, [hashtable]$o) {
   return Invoke-ClaudeCliPrimary $systemText $prompt $o
 }
 $ModulGeladen = @{}
-foreach ($mn in 'gedaechtnis','ausgabe','systembild','madeleine','vertretung','kalender') {
-  if ($mn -eq 'kalender' -and $env:COMPASS_VERTRETUNG -ne '1') { continue }
+foreach ($mn in 'gedaechtnis','ausgabe','systembild','madeleine','vertretung','kalender','rueckfragen') {
+  if ($mn -in @('kalender','rueckfragen') -and $env:COMPASS_VERTRETUNG -ne '1') { continue }
   $mp = Join-Path $Here "$mn.ps1"
   if (Test-Path -LiteralPath $mp) { . $mp; $ModulGeladen[$mn] = $true }
 }
@@ -1059,15 +1059,30 @@ function Get-JiraMeine([bool]$fresh = $false) {
   $cc = $script:JiraMeineCache
   if ($cc.out -and -not $fresh -and ((Get-Date) - $cc.zeit).TotalSeconds -lt 180) { return $cc.out }
   Assert-JiraAuth $auth
-  $r = Invoke-JiraJson $auth '/rest/api/3/search/jql' @{ jql = 'assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC'
+  $query = @{ jql = 'assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC'
         fields = @('summary','status','updated','created','project','priority','issuetype','duedate'); maxResults = 100 }
+  $r = Invoke-JiraJson $auth '/rest/api/3/search/jql' $query
+  $rawIssues = @($r.issues)
+  $pages = 1; $started = Get-Date; $tokensSeen = @{}
+  if ($env:COMPASS_VERTRETUNG -eq '1') {
+    while ($r.nextPageToken) {
+      $token = [string]$r.nextPageToken
+      if ($tokensSeen.ContainsKey($token) -or ((Get-Date) - $started).TotalSeconds -gt 25) { throw 'JIRA_PAGINATION_UNVOLLSTAENDIG' }
+      $tokensSeen[$token] = $true
+      $query.nextPageToken = $token
+      $r = Invoke-JiraJson $auth '/rest/api/3/search/jql' $query
+      $rawIssues += @($r.issues); $pages++
+    }
+    if ($r.isLast -eq $false) { throw 'JIRA_PAGINATION_UNVOLLSTAENDIG' }
+  }
   $liste = New-Object System.Collections.ArrayList
-  foreach ($i in @($r.issues)) {
+  foreach ($i in @($rawIssues | Sort-Object key -Unique)) {
     [void]$liste.Add(@{ key = $i.key; titel = $i.fields.summary; status = $i.fields.status.name; kategorie = $i.fields.status.statusCategory.key
                         projekt = $i.fields.project.key; typ = $i.fields.issuetype.name; prio = $(if ($i.fields.priority) { $i.fields.priority.name } else { $null })
                         aktiv = $i.fields.updated; erstellt = $i.fields.created; due = $i.fields.duedate; url = "https://$($auth.site)/browse/$($i.key)" })
   }
-  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); site = $auth.site; anzahl = $liste.Count; issues = $liste }
+  $out = @{ ok = $true; stand = (Get-Date).ToString('o'); site = $auth.site; anzahl = $liste.Count; issues = $liste
+            vollstaendig = ($env:COMPASS_VERTRETUNG -eq '1' -or -not $r.nextPageToken); seiten = $pages }
   $script:JiraMeineCache = @{ zeit = Get-Date; out = $out }
   return $out
 }
@@ -1376,6 +1391,7 @@ try {
       if ($ModulGeladen['madeleine'] -and (Invoke-MadeleineRoute $ctx $req $path)) { continue }
       if ($ModulGeladen['vertretung'] -and (Invoke-VertretungRoute $ctx $req $path)) { continue }
       if ($ModulGeladen['kalender'] -and (Invoke-KalenderRoute $ctx $req $path)) { continue }
+      if ($ModulGeladen['rueckfragen'] -and (Invoke-RueckfragenRoute $ctx $req $path)) { continue }
       if ($FirmaGeladen -and (Invoke-FirmaRoute $ctx $req $path)) { continue }
       if ($path -like '/api/*') { Send-Json $ctx @{ ok = $false; error = 'NICHT_IM_PAKET'; hint = "$path gibt es im Compass-Server-Paket nicht (nur Coach, Stapel, Trello, Jira$(if ($FirmaGeladen) { ', Firmensicht' })$(if ($ModulGeladen['madeleine'] -and $MadeleineAn) { ', Madeleine' }))." } 404; continue }
       # --- Statusseite bzw. optional ein Compass-Build ---

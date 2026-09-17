@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import urllib.error
 import urllib.request
+import argparse
 
 BASE = 'http://localhost:8787'
 ROOT = Path('/var/lib/compass-server/daten/vertretung')
@@ -24,8 +25,11 @@ SOURCES = {
     'tower': '/api/tower?fresh=1',
     'ausgabe': '/api/ausgabe?fresh=1',
     'kalender': '/api/kalender?fresh=1',
+    'rueckfragen': '/api/rueckfragen',
+    'postfach': '/api/postfach',
+    'slack': '/api/slack',
 }
-MISSING = ('postfach', 'slack')
+MISSING = ()
 
 def now():
     return dt.datetime.now(dt.timezone.utc).isoformat()
@@ -65,6 +69,17 @@ def age_seconds(stamp):
 
 def candidates(data):
     out = []
+    for source in ('postfach', 'slack'):
+        for row in data.get(source, {}).get('wartend', []):
+            if row.get('id') and row.get('art') == 'antwort':
+                out.append({'key': source + ':' + row['id'], 'titel': row.get('worum', ''),
+                            'art': source, 'warum': row.get('worum', ''), 'quelle': source,
+                            'url': row.get('url')})
+    for question in data.get('rueckfragen', {}).get('rueckfragen', []):
+        if question.get('id'):
+            out.append({'key': 'frage:' + question['id'], 'titel': question.get('frage', ''),
+                        'art': 'frage', 'warum': question.get('warum', ''),
+                        'quelle': 'rueckfragen', 'url': question.get('link')})
     for issue in data.get('jira', {}).get('issues', []):
         if not issue.get('key') or issue.get('kategorie') == 'done':
             continue
@@ -85,7 +100,7 @@ def candidates(data):
     out.sort(key=lambda item: (not bool(item.get('faellig')), str(item.get('faellig') or '')))
     return out[:60]
 
-def run():
+def run(force=False):
     state = read(ROOT / 'status.json', {'quellen': {}, 'redaktion': {}})
     state.update({'letzterVersuch': now(), 'betrieb': 'wolke', 'intervallMinuten': 15})
     fresh = {}
@@ -96,7 +111,10 @@ def run():
             value = request(path)
             save(ROOT / (name + '.json'), value)
             entry.update({'status': 'aktuell', 'letzterErfolg': now(), 'fehler': None})
-            if name == 'jira' and value.get('anzahl', 0) >= 100:
+            if name in ('postfach', 'slack'):
+                entry['quellstand'] = value['stand']
+            entry.pop('einschraenkung', None)
+            if name == 'jira' and value.get('anzahl', 0) >= 100 and value.get('vollstaendig') is not True:
                 entry['einschraenkung'] = 'Bestehende Jira-Schnittstelle liefert hoechstens 100 Vorgaenge'
             fresh[name] = value
         except Exception as exc:
@@ -104,17 +122,19 @@ def run():
     for name in MISSING:
         state['quellen'][name] = {'status': 'nicht_angebunden', 'letzterErfolg': None,
                                   'fehler': 'Kein gepruefter Cloud-Zugang'}
+    state['quellenAbrufeVollstaendig'] = all(x['status'] == 'aktuell' and not x.get('einschraenkung') for x in state['quellen'].values())
     state['datenVollstaendig'] = False
+    state['abdeckung'] = 'Angeschlossene Quellen; lokale Profil-/Pipeline-Dateien und Rueckfragenimport sind keine kontinuierliche Synchronisierung.'
     save(ROOT / 'status.json', state)
     red = state['redaktion']
     # Back off after a failed model run as well; avoid burning both subscriptions.
-    if age_seconds(red.get('letzterVersuch')) < 3600:
+    if not force and age_seconds(red.get('letzterVersuch')) < 3600:
         print('Quellen geprueft; naechste Redaktion nach Stundenfrist.')
         return
     red['letzterVersuch'] = now()
     save(ROOT / 'status.json', state)
     items = candidates(fresh)
-    if not any(name in fresh for name in ('jira', 'trello-arbeit', 'trello-privat')):
+    if not any(name in fresh for name in ('jira', 'trello-arbeit', 'trello-privat', 'rueckfragen', 'postfach', 'slack')):
         red.update({'status': 'keine_aktuellen_aufgabenquellen', 'fehler': 'Letzten Stapel bewahrt'})
         save(ROOT / 'status.json', state)
         return
@@ -132,6 +152,7 @@ def run():
                    'antworten': fresh.get('antworten', {}), 'checkins': fresh.get('checkins', {}),
                    'pool': fresh.get('pool', {}), 'tower': fresh.get('tower', {}),
                    'kalender': fresh.get('kalender', {}),
+                   'rueckfragen': fresh.get('rueckfragen', {}),
                    'regel': 'Nur vorbereiten. Keine Entscheidungen treffen, nichts senden. '
                             'Fehlende Quellen nicht als aktuell darstellen. Bestand nur mit belegtem Stand verwenden.'}
         if missing:
@@ -150,6 +171,9 @@ def run():
     print('Quellenlauf abgeschlossen; Redaktion: ' + red['status'])
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--publish', action='store_true', help='Einmal ausdruecklich frisch aufbereiten')
+    options = parser.parse_args()
     ROOT.mkdir(parents=True, exist_ok=True)
     os.umask(0o077)
     with (ROOT / 'lauf.lock').open('w') as lock:
@@ -157,4 +181,4 @@ if __name__ == '__main__':
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise SystemExit('Anderer Quellenlauf aktiv')
-        run()
+        run(options.publish)

@@ -15,7 +15,15 @@ Wenn das Claude-Kontingent erschöpft ist, blieb die Textaufbereitung bisher ste
 
 Der Collector nutzt Jira, beide bestehenden Trello-Boards, Antworten, Checkins, Pool, Tower, Ausgabe und Kalender. Die bisherigen privaten Kalenderfeeds werden über eine root-lesbare systemd-EnvironmentFile bereitgestellt. Feed-Adressen gehören weder in Git noch in Logs. Die Kalenderimplementierung stammt aus dem bisherigen lokalen Server; lokale Titelergänzungen zu Frei/Gebucht-Feeds werden nicht übernommen.
 
-Postfach und Slack haben noch keinen geprüften Cloud-Zugang und werden als nicht angebunden ausgewiesen. Die vorhandene Jira-Schnittstelle liefert maximal 100 Vorgänge; dieser Grenzfall wird im Quellenstatus ausgewiesen. Cloud-Dateien wie Pipeline/Profil sind vorhandene Bestände, keine live synchronisierten Quellen. Der Collector bewahrt vorhandene Stapelpunkte als Bestand, kann aber keinen vollständigen Import aller lokal gepflegten Rückfragen behaupten.
+Postfach und Slack werden durch `compass-connectors.timer` stündlich nach Abschluss des vorherigen Laufs direkt aus der Wolke gelesen. Die vorhandene ChatGPT-Anmeldung und verbundenen Apps werden verwendet. Ein fehlendes `codex-code-mode-host` wurde aus derselben offiziellen Codex-Version mit SHA-256-Prüfung ergänzt. Die Routine deaktiviert standardmäßig Apps und deren Werkzeuge und aktiviert ausschließlich die benannten Lese-Werkzeuge der jeweiligen Quelle. Shell, Websuche und Unteragenten sind deaktiviert. [Konfigurationsreferenz](https://learn.chatgpt.com/docs/config-file/config-sample).
+
+Die private Datei `vertretung/connector-scope.json` enthält die bisherigen Konten und kuratierten Kanäle, keine Zugangsschlüssel. Das Mail-Fenster beträgt 60 Tage, Slack 30 Tage. Pagination und relevante Threads werden gelesen; nur Metadaten und selbst formulierte Zusammenfassungen werden als Snapshot gespeichert. Ungültige/unvollständige Ergebnisse ersetzen keinen vorherigen Erfolg. Beide ersten Quellenläufe wurden erfolgreich geprüft. Ein zunächst zurückgewiesener Mail-Lauf wurde erst nach erfolgreicher Wiederholung als aktuell gemeldet.
+
+`/api/postfach` und `/api/slack` liefern diese privaten Snapshots an die vorhandenen Compass-Karten. Stand, Alter und Fehler bleiben sichtbar; nach zwei Stunden gilt der Stand als veraltet. Der Collector nimmt wartende Punkte mit stabilen Quellkennungen in die Aufbereitung auf. Der allgemeine Quellenlauf liest alle 15 Minuten, erzeugt damit aber keinen neuen Gmail-/Slack-Quellstand.
+
+Der lokale Rückfragen- und Entscheidungsbestand wurde einmal vollständig privat importiert. Fehlende lokale Antworten wurden über `/api/antworten` ergänzt; vorhandene Cloud-Antworten wurden nicht überschrieben. `/api/rueckfragen` führt den Import, Cloud-Antworten und aktuelle Rezeptionsfragen zusammen. Beantwortetes und zurückgezogene Fragen werden nicht neu vorgelegt. Neue Fragen sollen künftig über die Rezeption laufen; neue Änderungen an lokalen Dateien werden nicht automatisch kontinuierlich synchronisiert.
+
+Jira lädt im Opt-in-Betrieb alle Folgeseiten über `nextPageToken`; wiederholte Cursor, fehlende Schlussseite und überschrittene Zeitgrenze brechen ab, ohne den erfolgreichen Cache zu ersetzen. [Jira-Schnittstelle](https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/). Cloud-Dateien wie Pipeline/Profil bleiben vorhandene Bestände. `quellenAbrufeVollstaendig` bezeichnet die angeschlossenen Abrufe; `datenVollstaendig` bleibt bewusst false, da damit keine vollständige Synchronisierung aller lokalen Arbeitsdaten nachgewiesen ist.
 
 ## Betrieb
 
@@ -23,7 +31,7 @@ Dateien: `produkt/server/vertretung.ps1`, `produkt/server/kalender.ps1`, `wolken
 
 `GET /api/vertretung` zeigt je Quelle den letzten Versuch, letzten Erfolg und Fehler sowie Modellanbieter und Veröffentlichung. Nach 45 Minuten ohne erfolgreichen Abruf gilt eine Quelle beim Statusabruf als veraltet. Zeitstempel sind keine Garantie durchgängiger Verfügbarkeit. Scheitern beide Modelle, bleibt die letzte erfolgreiche Veröffentlichung erhalten.
 
-Der laufende Betrieb wurde auf der eigenen Instanz aktiviert; Kundeninstanzen wurden nicht neu gestartet. Vor späteren Standard-Deploys muss dieser Branch übernommen oder die Abweichung bewusst erhalten werden. Die zusätzliche Kalender-EnvironmentFile und der Timer werden nicht vom bisherigen allgemeinen Deploy neu provisioniert.
+Der laufende Betrieb wurde auf der eigenen Instanz aktiviert; Kundeninstanzen wurden nicht neu gestartet. Vor späteren Standard-Deploys muss dieser Branch übernommen oder die Abweichung bewusst erhalten werden. Die zusätzliche Kalender-EnvironmentFile und beide Timer werden nicht vom bisherigen allgemeinen Deploy neu provisioniert. Connector-Service, Scope und Import müssen bei einer Neuinstallation separat übernommen werden. Die Cloud ist für diese neuen Quellen-Snapshots zuständig; der Desktop-Monitor startet keine zweite Quellenpflege. Auf Anweisung des Nutzers wird ohne Claude-Review weitergearbeitet; die Übergabe dient dem späteren Wiedereinstieg.
 
 ## Prüfungen
 
@@ -31,8 +39,9 @@ Der laufende Betrieb wurde auf der eigenen Instanz aktiviert; Kundeninstanzen wu
 - `tests/vertretung.test.ps1`: Primärbetrieb, Quota-Fallback, Wartefrist, Wiederaufnahme, Werkzeuggrenze, Opt-in, unbekannte Fehler, beide Anbieter ausgefallen.
 - `tests/collector_test.py <Pfad zu collector.py>` unter Linux: stabile Kennungen, erledigte Karten, fehlgeschlagene Quellen ohne falschen Erfolgszeitpunkt, beschädigter Status, Veröffentlichung ausschließlich über bestehende API und Stundenfrist.
 - `tests/kalender.test.ps1`: ICS-Escaping, Serien, Ausnahmen, Dauer und fehlgeschlagene Quelle, auch unter Linux pwsh.
+- Zusätzlich: sieben Rückfragen-/Snapshot-Tests, fünf Connector-Validierungsprüfungen, drei Jira-Paginationstests sowie verifizierte Lese-Werkzeugfreigabe.
 - Reale Cloud-Probe: erschöpftes Claude-Kontingent führte zu Codex-Text, validierter Stapel wurde über die bestehende HTTPS-Schnittstelle gelesen; beide Kalenderfeeds lieferten Daten.
 
 ## Rücknahme
 
-Timer mit `systemctl disable --now compass-vertretung.timer` abschalten; gegebenenfalls laufenden Collector kontrolliert stoppen. `Environment=COMPASS_VERTRETUNG=0` in der eigenen systemd-Drop-in setzen, daemon-reload und ausschließlich den eigenen Compass-Dienst neu starten. Damit entfällt auch der zusätzliche Kalender-Router. Die vor dem Rollout gesicherte Serverdatei liegt unter `/var/backups/compass-vertretung/`. Benutzerantworten und Geschäftsdaten wurden nicht ersetzt.
+Beide Timer mit `systemctl disable --now compass-vertretung.timer compass-connectors.timer` abschalten; gegebenenfalls laufenden Collector kontrolliert stoppen. `Environment=COMPASS_VERTRETUNG=0` in der eigenen systemd-Drop-in setzen, daemon-reload und ausschließlich den eigenen Compass-Dienst neu starten. Damit entfällt auch der zusätzliche Kalender-Router. Die vor dem Rollout gesicherte Serverdatei liegt unter `/var/backups/compass-vertretung/`. Benutzerantworten und Geschäftsdaten wurden nicht ersetzt.

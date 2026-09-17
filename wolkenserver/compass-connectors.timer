@@ -1,0 +1,11 @@
+[Unit]
+Description=Compass Postfach und Slack stuendlich pruefen
+
+[Timer]
+OnBootSec=3min
+OnUnitInactiveSec=60min
+AccuracySec=30s
+Unit=compass-connectors.service
+
+[Install]
+WantedBy=timers.target
