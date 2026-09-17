@@ -29,7 +29,12 @@ function Get-CloudRueckfragen {
     -not $known.ContainsKey([string]$_.id) -and
     (-not $_.wann -or $_.wann -eq 'immer' -or [string]$_.wann -le (Get-Date -Format 'yyyy-MM-dd'))
   } | Sort-Object @{Expression={[bool]$_.dringend};Descending=$true},wann,id)
+  $decisions = @{}
+  $decisionFile = Join-Path $DatenDir 'vertretung/codex-decisions.json'
+  if (Test-Path -LiteralPath $decisionFile) { $decisions = [IO.File]::ReadAllText($decisionFile) | ConvertFrom-Json -AsHashtable }
+  $closed = @($known.Keys) + @($hub.rueckfragen | Where-Object { $_.status -eq 'zurueckgezogen' } | ForEach-Object { [string]$_.id })
   return @{ok=$true;vollstaendig=$hubOk -and ($null -ne $local);rueckfragen=$open;antworten=$known
+    codexVorgaenge=$decisions;erledigteFragen=$closed
     importStand=$local.quellstand;rezeptionErreichbar=$hubOk;lokalerBestandImportiert=($null -ne $local)
     hinweis='Lokaler Bestand ist ein Import; neue Rezeptionsfragen und Cloud-Antworten werden live abgeglichen.'}
 }
