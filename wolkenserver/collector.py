@@ -75,6 +75,13 @@ def question_closed(key, fresh):
 
 def candidates(data):
     out = []
+    for event in data.get('rueckfragen', {}).get('antwortEingaenge', {}).values():
+        if event.get('status') == 'eingegangen':
+            out.append({'key': 'antwort:' + event['id'],
+                        'titel': 'Antwort eingegangen: ' + event.get('title', ''),
+                        'art': 'board', 'quelle': 'Rezeption auf wolke',
+                        'warum': 'Antwort gesichert; Ausfuehrung noch nicht bestaetigt. ' +
+                                 str((event.get('answer') or {}).get('a', 'Zurueckgezogen'))})
     for source in ('postfach', 'slack'):
         for row in data.get(source, {}).get('wartend', []):
             if row.get('id') and row.get('art') == 'antwort':
