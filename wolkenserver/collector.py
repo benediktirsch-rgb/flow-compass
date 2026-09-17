@@ -67,6 +67,12 @@ def age_seconds(stamp):
         return float('inf')
     return (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(stamp)).total_seconds()
 
+
+def question_closed(key, fresh):
+    questions = fresh.get('rueckfragen', {})
+    closed = set(questions.get('erledigteFragen', [])) | set(questions.get('antworten', {}))
+    return key.startswith('frage:') and key[6:] in closed
+
 def candidates(data):
     out = []
     for source in ('postfach', 'slack'):
@@ -143,7 +149,7 @@ def run(force=False):
         # Preserve pending existing questions/actions as candidates, without executing them.
         seen = {item['key'] for item in items}
         for point in (previous.get('letzte') or {}).get('punkte', []):
-            if point.get('key') and point['key'] not in seen:
+            if point.get('key') and point['key'] not in seen and not question_closed(point['key'], fresh):
                 items.append({'key': point['key'], 'titel': point.get('titel', ''),
                               'art': 'bestand', 'warum': point.get('satz', ''),
                               'quelle': 'bestehender Stapel; Quellenstand nicht neu verifiziert'})

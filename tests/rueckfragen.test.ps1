@@ -13,6 +13,12 @@ try {
  Assert ($r.vollstaendig -and @($r.rueckfragen).Count -eq 2) 'merge local and live questions'
  Assert (@($r.rueckfragen.id) -contains 'remote') 'live reception included'
  Assert (@($r.rueckfragen.id) -notcontains 'answered' -and @($r.rueckfragen.id) -notcontains 'decided' -and @($r.rueckfragen.id) -notcontains 'closed') 'answers and decisions never reasked'
+ Assert ($r.erledigteFragen -contains 'closed') 'closed identifiers exported for collector'
+ $decisionFile=Join-Path $dir 'codex-decisions.json'
+ [IO.File]::WriteAllText($decisionFile,'{"example":{"decision":"erteilt","execution":"in_bearbeitung"}}')
+ $r=Get-CloudRueckfragen
+ Assert ($r.codexVorgaenge.example.execution -eq 'in_bearbeitung') 'decision and execution remain separate'
+ Remove-Item -LiteralPath $decisionFile -Force
  $script:fail=$true;$r=Get-CloudRueckfragen
  Assert (-not $r.vollstaendig -and -not $r.rezeptionErreichbar) 'outage reported'
  function Send-Json($ctx,$data,$code){$script:response=$data;$script:httpCode=$code}

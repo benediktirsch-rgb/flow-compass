@@ -9,6 +9,14 @@ c = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(c)
 
 class Tests(unittest.TestCase):
+    def test_answered_and_withdrawn_questions_not_restored(self):
+        fresh = {'rueckfragen': {'antworten': {'a': {'a': 'yes'}}, 'erledigteFragen': ['b']}}
+        self.assertTrue(c.question_closed('frage:a', fresh))
+        self.assertTrue(c.question_closed('frage:b', fresh))
+        self.assertFalse(c.question_closed('frage:c', fresh))
+        self.assertFalse(c.question_closed('jira:a', fresh))
+        self.assertFalse(c.question_closed('frage:a', {}))
+
     def test_stable_ids_and_completed(self):
         out = c.candidates({'jira': {'issues': [{'key':'VA-1','titel':'open'}, {'key':'VA-2','kategorie':'done'}]},
                             'trello-arbeit': {'lists':[{'name':'Doing','cards':[{'id':'a','name':'A'}, {'id':'b','dueComplete':True}]}]}})
