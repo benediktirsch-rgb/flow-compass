@@ -218,6 +218,14 @@ if ($gateKey) { $madEnv += (Env-Zeile 'MADELEINE_TICKET_KEY' $gateKey) } else { 
 $vkTok = Env-User 'VAIKUNTHA_TOKEN'
 if ($vkTok) { $hauptFirma += (Env-Zeile 'VAIKUNTHA_TOKEN' $vkTok) }
 $hauptFirma += $madEnv
+# Eine Madelene (17.09.2026, Bene: „ja"): eigener, gebundener Geräteschlüssel der Rezeption (Gerät wolke-madelene,
+# hub-deploy.ps1) — nur für die Hauptinstanz. Staging bekommt ihn nie, sonst schriebe es ins echte gemeinsame Gedächtnis.
+$hubMad = Env-User 'JOHN_HUB_TOKEN_WOLKE_MADELENE'
+if ($hubMad) {
+  $hubUrl = Env-User 'JOHN_HUB_URL'; if (-not $hubUrl) { $hubUrl = 'https://hotel-vaikuntha.de/john' }
+  $hauptFirma += (Env-Zeile 'JOHN_HUB_TOKEN_MADELENE_GERAET' $hubMad)
+  $hauptFirma += (Env-Zeile 'JOHN_HUB_URL' $hubUrl)
+} else { Sag 'JOHN_HUB_TOKEN_WOLKE_MADELENE fehlt — Madeleine auf dem Server liest das gemeinsame Gedächtnis nicht (hub-deploy.ps1, Gerät wolke-madelene).' }
 # Madeleines Wissen: vom Rechner in den Staging-Ordner (daten\madeleine), install.sh legt es nach <daten>/madeleine.
 # notizen\beratung.md und beraterrunde.md übernimmt der Server nur beim ersten Mal — danach schreibt Madeleine dort selbst.
 $madZiel = Join-Path $stage 'daten\madeleine'
