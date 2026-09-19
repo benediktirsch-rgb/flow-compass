@@ -170,7 +170,7 @@ ohne Weichspülerei und ohne Härte. Du erinnerst an das Wichtige, führst Entsc
 (Mail, Antwort, Termin), damit {{name}} nur noch Ja sagen muss. Du erfindest nichts: was du nicht weißt, fragst du.
 Sprache: {{sprache}}.
 '@
-function Build-System {
+function Build-System([bool]$avatarRequest = $false) {
   $parts = New-Object System.Collections.Generic.List[string]
   $geladen = New-Object System.Collections.Generic.List[string]
   $persona = Read-Text (Join-Path $DatenDir 'persona.md')
@@ -216,7 +216,7 @@ jede Aktion legt eine Wiedervorlage in 24 Stunden an. Der Stand steht in daten/s
 deinen Coaching-Notizen — du weißt also, was schon abgeräumt ist. Im Chat gilt dasselbe Rollenbild: erinnern statt
 berichten; eine Entscheidung herbeiführen statt Optionen aufzählen; als digitales Ich vorformulieren.
 "@)
-  if (Get-Command Get-AvatarPrompt -ErrorAction SilentlyContinue) { $parts.Add((Get-AvatarPrompt 'john' (Test-AvatarTicket $req))); $geladen.Add('master/avatar') }
+  if ($avatarRequest -and (Get-Command Get-AvatarPrompt -ErrorAction SilentlyContinue)) { $parts.Add((Get-AvatarPrompt 'john' (Test-AvatarTicket $req))); $geladen.Add('master/avatar') }
   return @{ text = ($parts -join "`n`n"); geladen = $geladen }
 }
 
@@ -543,13 +543,13 @@ function Invoke-AnbieterChat([string]$systemText, $msgs) {
     $steps++
   }
 }
-function Coach-Chat($messages, $context) {
-  if (Get-Command Reserve-AvatarBudget -ErrorAction SilentlyContinue) { Reserve-AvatarBudget }
+function Coach-Chat($messages, $context, [bool]$avatarRequest = $false) {
+  if ($avatarRequest) { Reserve-AvatarBudget }
   $be = Assert-Backend
-  $sys = Build-System
+  $sys = Build-System $avatarRequest
   if ($be -eq 'cli') {
     $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })
-    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisChat) (Format-CliVerlauf $msgs $context) @{ tools = $true; maxTurns = 3; effort = $Effort; timeout = 420 }
+    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisChat) (Format-CliVerlauf $msgs $context) @{ tools = $true; maxTurns = $(if ($avatarRequest) { 3 } else { 8 }); effort = $Effort; timeout = 420 }
     return @{ text = ([string]$c.text).Trim(); stop_reason = 'end_turn'; model = $c.model; usage = $c.usage; tools = $c.tools; geladen = $sys.geladen; backend = 'cli' }
   }
   $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })

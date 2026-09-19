@@ -107,10 +107,10 @@ function Invoke-AvatareRoute($ctx,$req,[string]$path) {
       if ($msgs.Count -lt 1 -or $msgs.Count -gt 7) { throw 'INVALID_MESSAGES' }
       foreach($msg in $msgs){ if($msg.role -notin @('user','assistant')){throw 'INVALID_ROLE'}; Assert-AvatarText $msg.content 4000 }
       if ($msgs[-1].role -ne 'user') { throw 'INVALID_MESSAGES' }
-      if ($data.avatar -eq 'john') { $answer=Coach-Chat $msgs '' }
+      if ($data.avatar -eq 'john') { $answer=Coach-Chat $msgs '' $true }
       elseif (Get-Command Madeleine-Chat -ErrorAction SilentlyContinue) {
         if (-not $MadeleineAn) { throw 'AVATAR_NOT_CONNECTED' }
-        $answer=Madeleine-Chat $msgs '' $null
+        $answer=Madeleine-Chat $msgs '' $null $true
       } else { throw 'AVATAR_NOT_CONNECTED' }
       Send-Json $ctx @{ok=$true;master=(Get-AvatarMaster);profile=(Get-AvatarState);text=[string]$answer.text}
     } elseif ($valid) { Send-Json $ctx @{ok=$true;master=(Get-AvatarMaster);profile=(Set-AvatarState $data)} }
