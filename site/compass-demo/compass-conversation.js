@@ -13,10 +13,10 @@
   const save = () => { try { localStorage.setItem(key, JSON.stringify(messages.slice(-60))); } catch (_) {} };
   const roots = () => [...document.querySelectorAll('[data-compass-conversation]')];
   function participants(text) {
-    if (target !== 'auto') return [target];
     const addressed = text.match(/(?:^\s*(?:(?:hey|hallo|bitte)\s+)?|@)(john|madeleine|madlene|madele)\b/i)
       || text.match(/,\s*(john|madeleine|madlene|madele)\s*[?!.]*$/i);
-    if (addressed) return [addressed[1].toLowerCase() === 'john' ? 'john' : 'madeleine'];
+    if (addressed) { target = addressed[1].toLowerCase() === 'john' ? 'john' : 'madeleine'; return [target]; }
+    if (target !== 'auto') return [target];
     return [messages.filter(m => m.who !== 'user').at(-1)?.who || 'john'];
   }
   function history(root) {
@@ -31,6 +31,7 @@
     root.querySelector('.cc-send').disabled = !!busy || !draft.trim();
     root.querySelector('.cc-stop').hidden = !busy;
     root.querySelector('select').disabled = !!busy;
+    root.querySelector('select').value = target;
     root.querySelector('option[value="madeleine"]').disabled = madeleineState === 'unavailable';
     root.querySelectorAll('[data-person]').forEach(el => {
       el.classList.toggle('cc-thinking', el.dataset.person === busy);
@@ -142,6 +143,38 @@
     });
     probe();
   }
+  function open(who = 'auto', text = '') {
+    target = ['john','madeleine'].includes(who) ? who : 'auto';
+    if (text) draft = String(text);
+    let dialog = document.getElementById('compass-conversation-dialog');
+    if (!dialog) {
+      dialog = document.createElement('dialog'); dialog.id = 'compass-conversation-dialog';
+      dialog.setAttribute('aria-label','Gespräch mit John und Madeleine');
+      dialog.innerHTML = '<div class="cc-modal-head"><strong>Dein Gespräch</strong><button type="button" aria-label="Gespräch schließen">✕</button></div><div data-compass-conversation></div>';
+      dialog.querySelector('button').addEventListener('click', () => dialog.close());
+      document.body.append(dialog);
+    }
+    if (!dialog.open) dialog.showModal();
+    mount();
+    const input = dialog.querySelector('textarea'); input.value = draft;
+    dialog.querySelector('select').value = target; history(dialog.querySelector('[data-compass-conversation]'));
+    input.focus();
+  }
+  window.CompassConversation = {open};
+  // Keep existing entry points, but give them one conversation surface.
+  for (const name of ['johnOpen','madOpen']) if (typeof window[name] === 'function') {
+    window[name] = text => open(name === 'johnOpen' ? 'john' : 'madeleine', text);
+  }
+  for (const name of ['johnToggle','madToggle']) if (typeof window[name] === 'function') {
+    const original = window[name];
+    window[name] = force => {
+      const dialog = document.getElementById('compass-conversation-dialog');
+      if (force === false || (force == null && dialog?.open)) { original(false); dialog?.close(); }
+      else open(name === 'johnToggle' ? 'john' : 'madeleine');
+    };
+  }
+  const fab = document.getElementById('johnFab');
+  if (fab) fab.addEventListener('click', event => { event.stopImmediatePropagation(); open('john'); }, true);
   mount();
   new MutationObserver(mount).observe(document.getElementById('grid') || document.body, {childList:true, subtree:true});
 })();

@@ -1,4 +1,7 @@
 /* Shared spacing, surfaces and interaction states for the personal advisory area. */
+#compass-conversation-dialog{box-sizing:border-box;width:min(1060px,calc(100vw - 28px));max-height:94dvh;overflow:auto;padding:18px;border:1px solid var(--line);border-radius:22px;background:var(--panel);color:var(--ink);container-type:inline-size}
+#compass-conversation-dialog::backdrop{background:#050a12bb;backdrop-filter:blur(5px)}
+.cc-modal-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:0 3px 15px;font:16px system-ui,sans-serif}.cc-modal-head button{width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:var(--panel2);color:var(--ink);cursor:pointer}
 #madKachel,#johnKachel:has([data-compass-conversation]){grid-column:1/-1;padding:22px;border-radius:22px;container-type:inline-size}
 #madKachel>h3{font-family:inherit;font-size:18px;letter-spacing:-.02em;margin-bottom:18px}
 .cc-archive{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
