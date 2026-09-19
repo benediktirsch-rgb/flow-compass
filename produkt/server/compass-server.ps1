@@ -137,7 +137,7 @@ function Invoke-ClaudeCli([string]$systemText, [string]$prompt, [hashtable]$o) {
   return Invoke-ClaudeCliPrimary $systemText $prompt $o
 }
 $ModulGeladen = @{}
-foreach ($mn in 'gedaechtnis','ausgabe','systembild','madeleine','vertretung','kalender','rueckfragen') {
+foreach ($mn in 'gedaechtnis','avatare','ausgabe','systembild','madeleine','vertretung','kalender','rueckfragen') {
   if ($mn -in @('kalender','rueckfragen') -and $env:COMPASS_VERTRETUNG -ne '1') { continue }
   $mp = Join-Path $Here "$mn.ps1"
   if (Test-Path -LiteralPath $mp) { . $mp; $ModulGeladen[$mn] = $true }
@@ -212,6 +212,7 @@ jede Aktion legt eine Wiedervorlage in 24 Stunden an. Der Stand steht in daten/s
 deinen Coaching-Notizen — du weißt also, was schon abgeräumt ist. Im Chat gilt dasselbe Rollenbild: erinnern statt
 berichten; eine Entscheidung herbeiführen statt Optionen aufzählen; als digitales Ich vorformulieren.
 "@)
+  if (Get-Command Get-AvatarPrompt -ErrorAction SilentlyContinue) { $parts.Add((Get-AvatarPrompt 'john' (Test-AvatarTicket $req))); $geladen.Add('master/avatar') }
   return @{ text = ($parts -join "`n`n"); geladen = $geladen }
 }
 
@@ -539,11 +540,12 @@ function Invoke-AnbieterChat([string]$systemText, $msgs) {
   }
 }
 function Coach-Chat($messages, $context) {
+  if (Get-Command Reserve-AvatarBudget -ErrorAction SilentlyContinue) { Reserve-AvatarBudget }
   $be = Assert-Backend
   $sys = Build-System
   if ($be -eq 'cli') {
     $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })
-    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisChat) (Format-CliVerlauf $msgs $context) @{ tools = $true; maxTurns = 8; effort = $Effort; timeout = 420 }
+    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisChat) (Format-CliVerlauf $msgs $context) @{ tools = $true; maxTurns = 3; effort = $Effort; timeout = 420 }
     return @{ text = ([string]$c.text).Trim(); stop_reason = 'end_turn'; model = $c.model; usage = $c.usage; tools = $c.tools; geladen = $sys.geladen; backend = 'cli' }
   }
   $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })
@@ -1385,6 +1387,7 @@ try {
         continue
       }
       # --- alles andere unter /api/: ehrlich sagen, dass es dieses Paket nicht hat ---
+      if ($ModulGeladen['avatare'] -and (Invoke-AvatareRoute $ctx $req $path)) { continue }
       if ($ModulGeladen['gedaechtnis'] -and (Invoke-GedaechtnisRoute $ctx $req $path)) { continue }
       if ($ModulGeladen['ausgabe'] -and (Invoke-AusgabeRoute $ctx $req $path)) { continue }
       if ($ModulGeladen['systembild'] -and (Invoke-SystembildRoute $ctx $req $path)) { continue }

@@ -938,6 +938,10 @@ if ($Instanz) {
   }
 }
 
+# Shared avatars are product personalities; personal data stays on the instance server.
+foreach ($avatarFile in @('avatar-core.js','avatar-ui.js','avatar-compass.js','avatar-guides.json')) {
+  Write-Lf (Join-Path $Ziel $avatarFile) (Read-Utf8 (Join-Path $Quelle $avatarFile))
+}
 # ── 18b. Wortpruefung ueber ALLE ausgelieferten Dateien ──────────────────────
 # Nicht nur die gebaute index.html: auch Kennzahlenseite, Produktschicht und die
 # mitgelieferte Datenschicht duerfen nichts Persoenliches enthalten.
@@ -954,6 +958,8 @@ $alleFunde = @()
 Get-ChildItem $Ziel -File -Include *.html,*.js -Recurse | ForEach-Object {
   $alt = $script:verboten
   if ($_.Name -eq 'instanz.js') { $script:verboten = $verbotenInstanz }
+  # John is now an explicitly shared product avatar, only in these dedicated modules.
+  if ($_.Name -in @('avatar-ui.js','avatar-compass.js')) { $script:verboten = @($script:verboten | Where-Object { $_ -ne '\bJohn\b' }) }
   $alleFunde += Pruefe (Read-Utf8 $_.FullName) $_.Name
   $script:verboten = $alt
 }
