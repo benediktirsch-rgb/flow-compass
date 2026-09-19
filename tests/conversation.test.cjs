@@ -9,7 +9,7 @@ function setup(fetchImpl, initial='[]') {
     '  globalThis.testChat={submit(text,to="auto"){draft=text;target=to;return send();},unavailable(){madeleineState="unavailable";},stop(){controller?.abort();},state(){return {messages,error,busy,draft}}};\n  mount();\n  new MutationObserver');
   const sandbox={JOHN_API:'http://localhost:8787',location:{protocol:'http:'},johnKontext:()=> 'Instance-specific context',
     localStorage:{getItem:()=>saved,setItem:(_,v)=>{saved=v;}},document:{querySelectorAll:()=>[],getElementById:()=>null,body:{}},
-    MutationObserver:class{observe(){}},AbortController,setTimeout,clearTimeout,fetch:fetchImpl};
+    window:{},MutationObserver:class{observe(){}},AbortController,setTimeout,clearTimeout,fetch:fetchImpl};
   vm.runInNewContext(source,sandbox);
   return {chat:sandbox.testChat,saved:()=>saved};
 }
