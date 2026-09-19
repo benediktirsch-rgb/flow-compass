@@ -213,6 +213,8 @@ if ($FirmaSicht.ContainsKey('')) {
 # Maschinenschlüssel signiert — der Server prüft es mit demselben Wert. Ohne ihn bleibt Madeleine zu.
 # VAIKUNTHA_TOKEN liest nur die Vereinsstatistik.
 $madEnv = @()
+$ownerId = Env-User 'AVATAR_OWNER_PERSON_ID'
+if ($ownerId -match '^[1-9][0-9]{0,8}$') { $madEnv += (Env-Zeile 'AVATAR_OWNER_PERSON_ID' $ownerId) }
 $gateKey = Env-User 'VA_GATE_KEY'
 if ($gateKey) { $madEnv += (Env-Zeile 'MADELEINE_TICKET_KEY' $gateKey) } else { Sag 'VA_GATE_KEY fehlt auf diesem Rechner — Madeleine bleibt auf dem Server zu (NO_TICKET_KEY).' }
 $vkTok = Env-User 'VAIKUNTHA_TOKEN'

@@ -12,7 +12,7 @@ John: realistischer Unternehmer, Klarheit, Sicherheit und Gegenprüfung. Madlene
 
 ## Betrieb und Veröffentlichung
 
-1. Serverpaket inklusive avatare.ps1, avatar-master-v1.json und avatar-guides.json ausrollen; pro Instanz eigenen Datenordner und eigenen MADELEINE_TICKET_KEY verwenden.
+1. Serverpaket inklusive avatare.ps1, avatar-master-v1.json und avatar-guides.json ausrollen; pro Instanz eigenen Datenordner und eigenen MADELEINE_TICKET_KEY verwenden. Die bestätigte CRM-Besitzer-ID muss als avatars.ownerPersonId (oder AVATAR_OWNER_PERSON_ID) gesetzt sein. Fehlende oder fremde Besitzer-ID verweigert den Zugriff auch bei gültiger Signatur. Der Deployment-Helfer übernimmt AVATAR_OWNER_PERSON_ID aus der Benutzerumgebung.
 2. Website-Assets und avatare-api.php ausrollen. avatare-config.example.php als private avatare-config.php einrichten: bestätigte CRM-Person-ID explizit auf ihre Wolkeninstanz und deren Besitzerticket-Schlüssel abbilden. Kein Standardnutzer. Keine Schlüssel im Frontend. Erlaubte Cockpit-/Portal-Ursprünge einzeln eintragen.
 3. Compass und Cockpit aus den jeweiligen Builds veröffentlichen. Ohne Zuordnung zeigt die UI eine Vorschau und deaktiviert das Speichern. Bestehende Website-Rollen werden nicht erweitert.
 4. Bene-Denkimpulse über Mein Kompass eintragen; bestehende Profile nicht durch eine Vorlage überschreiben. Auf einem zweiten Konto prüfen, dass keine Bene-Daten erscheinen.

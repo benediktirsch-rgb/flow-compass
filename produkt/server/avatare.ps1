@@ -71,6 +71,9 @@ function Test-AvatarTicket($request) {
   $ticket = ([string]$request.Headers['X-Mad-Ticket']).Trim()
   if ($ticket -notmatch '^(\d{9,11})\.(\d{1,9})\.([0-9a-f]{64})$') { return $false }
   $exp=[long]$Matches[1]; $person=$Matches[2]; $sig=$Matches[3]
+  $owner=[string](Get-Feld (Get-Feld $K 'avatars' $null) 'ownerPersonId' '')
+  if (-not $owner -or $owner -eq '0') { $owner=[string]$env:AVATAR_OWNER_PERSON_ID }
+  if ($owner -notmatch '^[1-9][0-9]{0,8}$' -or $person -ne $owner) { return $false }
   $now=[DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
   if ($exp -lt $now -or $exp -gt $now+900) { return $false }
   $h=New-Object Security.Cryptography.HMACSHA256 (,[Text.Encoding]::UTF8.GetBytes($key))

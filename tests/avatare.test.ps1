@@ -4,7 +4,7 @@ function Read-Text($p){if(Test-Path -LiteralPath $p){return [IO.File]::ReadAllTe
 . "$PSScriptRoot/../produkt/server/gedaechtnis.ps1"
 . "$PSScriptRoot/../produkt/server/avatare.ps1"
 $DatenDir=Join-Path $PSScriptRoot ('tmp-avatar-'+[guid]::NewGuid());New-Item -ItemType Directory $DatenDir|Out-Null
-$K=[pscustomobject]@{avatars=[pscustomobject]@{dailyCalls=1;masterVersion='v1'}}
+$K=[pscustomobject]@{avatars=[pscustomobject]@{dailyCalls=1;masterVersion='v1';ownerPersonId=123}}
 function Assert($v,$name){if(-not $v){throw $name};Write-Output "PASS $name"}
 function Throws($code,[scriptblock]$run){try{& $run|Out-Null;throw 'DID_NOT_THROW'}catch{Assert ($_.Exception.Message -eq $code) $code}}
 try{
@@ -30,6 +30,11 @@ try{
  $sig=-join($h.ComputeHash([Text.Encoding]::UTF8.GetBytes("madeleine|$exp|123"))|ForEach-Object{$_.ToString('x2')});$h.Dispose()
  Assert (Test-AvatarTicket @{Headers=@{'X-Mad-Ticket'="$exp.123.$sig"}}) 'owner ticket verifies'
  Assert (-not(Test-AvatarTicket @{Headers=@{'X-Mad-Ticket'="$exp.124.$sig"}})) 'wrong identity rejected'
+ $K.avatars.ownerPersonId=124
+ Assert (-not(Test-AvatarTicket @{Headers=@{'X-Mad-Ticket'="$exp.123.$sig"}})) 'valid signature for another owner rejected'
+ $K.avatars.ownerPersonId=0
+ Assert (-not(Test-AvatarTicket @{Headers=@{'X-Mad-Ticket'="$exp.123.$sig"}})) 'unconfigured owner fails closed'
+ $K.avatars.ownerPersonId=123
  Reserve-AvatarBudget;Throws 'MODEL_BUDGET' {Reserve-AvatarBudget}
  $env:MADELEINE_TICKET_KEY=$savedKey
 }finally{

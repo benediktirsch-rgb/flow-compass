@@ -64,6 +64,9 @@ function Test-MadTicket($req) {
   $t = ([string]$req.Headers['X-Mad-Ticket']).Trim()
   if ($t -notmatch '^(\d{9,11})\.(\d{1,9})\.([0-9a-f]{64})$') { return 'NUR_BESITZER' }
   $exp = [long]$Matches[1]; $person = $Matches[2]; $sig = $Matches[3]
+  $owner = [string](Get-Feld (Get-Feld $K 'avatars' $null) 'ownerPersonId' '')
+  if (-not $owner -or $owner -eq '0') { $owner=[string]$env:AVATAR_OWNER_PERSON_ID }
+  if ($owner -and $owner -ne '0' -and $person -ne $owner) { return 'NUR_BESITZER' }
   $jetzt = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
   if ($exp -lt $jetzt -or $exp -gt $jetzt + 900) { return 'TICKET_ABGELAUFEN' }
   $h = New-Object Security.Cryptography.HMACSHA256 (,[Text.Encoding]::UTF8.GetBytes($key))
