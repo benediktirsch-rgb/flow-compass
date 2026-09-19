@@ -543,13 +543,13 @@ function Invoke-AnbieterChat([string]$systemText, $msgs) {
     $steps++
   }
 }
-function Coach-Chat($messages, $context) {
-  if (Get-Command Reserve-AvatarBudget -ErrorAction SilentlyContinue) { Reserve-AvatarBudget }
+function Coach-Chat($messages, $context, [bool]$avatarRequest = $false) {
+  if ($avatarRequest) { Reserve-AvatarBudget }
   $be = Assert-Backend
   $sys = Build-System
   if ($be -eq 'cli') {
     $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })
-    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisChat) (Format-CliVerlauf $msgs $context) @{ tools = $true; maxTurns = 3; effort = $Effort; timeout = 420 }
+    $c = Invoke-ClaudeCli ($sys.text + "`n`n" + $CliHinweisChat) (Format-CliVerlauf $msgs $context) @{ tools = $true; maxTurns = $(if ($avatarRequest) { 3 } else { 8 }); effort = $Effort; timeout = 420 }
     return @{ text = ([string]$c.text).Trim(); stop_reason = 'end_turn'; model = $c.model; usage = $c.usage; tools = $c.tools; geladen = $sys.geladen; backend = 'cli' }
   }
   $msgs = @($messages | ForEach-Object { @{ role = $_.role; content = [string]$_.content } })

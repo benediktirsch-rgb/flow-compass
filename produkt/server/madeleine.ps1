@@ -291,8 +291,8 @@ function Add-MadeleineNotiz([string]$text) {
   $dir = Join-Path $MadeleineDir 'notizen'; if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
   [IO.File]::AppendAllText((Join-Path $dir 'beratung.md'), "- **$((Get-Date).ToString('yyyy-MM-dd HH:mm'))** — $($text.Trim())`n", $script:Utf8NoBom)
 }
-function Madeleine-Chat($messages, $context, $fragt) {
-  if (Get-Command Reserve-AvatarBudget -ErrorAction SilentlyContinue) { Reserve-AvatarBudget }
+function Madeleine-Chat($messages, $context, $fragt, [bool]$avatarRequest = $false) {
+  if ($avatarRequest) { Reserve-AvatarBudget }
   $sys = Build-SystemMadeleine
   $msgs = @($messages | ForEach-Object { @{ role = [string]$_.role; content = [string]$_.content } })
   if (-not $msgs.Count) { throw 'KEINE_ANTWORT' }
