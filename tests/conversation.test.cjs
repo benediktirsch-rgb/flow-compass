@@ -6,7 +6,7 @@ const path=require('node:path');
 function setup(fetchImpl, initial='[]') {
   let saved=initial;
   const source=fs.readFileSync(path.join(__dirname,'../compass-conversation.js'),'utf8').replace('  mount();\n  new MutationObserver',
-    '  globalThis.testChat={submit(text,to="auto"){draft=text;target=to;return send();},stop(){controller?.abort();},state(){return {messages,error,busy}}};\n  mount();\n  new MutationObserver');
+    '  globalThis.testChat={submit(text,to="auto"){draft=text;target=to;return send();},unavailable(){madeleineState="unavailable";},stop(){controller?.abort();},state(){return {messages,error,busy,draft}}};\n  mount();\n  new MutationObserver');
   const sandbox={JOHN_API:'http://localhost:8787',location:{protocol:'http:'},johnKontext:()=> 'Instance-specific context',
     localStorage:{getItem:()=>saved,setItem:(_,v)=>{saved=v;}},document:{querySelectorAll:()=>[],getElementById:()=>null,body:{}},
     MutationObserver:class{observe(){}},AbortController,setTimeout,clearTimeout,fetch:fetchImpl};
@@ -46,4 +46,11 @@ test('ending the wait cancels the request and releases the composer',async()=>{
   const {chat}=setup((url,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(Object.assign(new Error(),{name:'AbortError'})))));
   const pending=chat.submit('Lange Frage');await Promise.resolve();chat.stop();await pending;
   assert.equal(chat.state().busy,'');assert(chat.state().error.includes('Warten beendet'));
+});
+test('an unconfigured adviser cannot receive a request and the draft remains editable',async()=>{
+  let calls=0;const {chat}=setup(async()=>{calls++;});chat.unavailable();
+  await chat.submit('Madeleine, kannst du helfen?');
+  assert.equal(calls,0);assert.equal(chat.state().messages.length,0);
+  assert.equal(chat.state().draft,'Madeleine, kannst du helfen?');
+  assert(chat.state().error.includes('noch nicht angebunden'));
 });

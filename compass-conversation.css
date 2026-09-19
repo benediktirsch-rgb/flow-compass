@@ -1,9 +1,9 @@
 /* Shared spacing, surfaces and interaction states for the personal advisory area. */
 #madKachel,#johnKachel:has([data-compass-conversation]){grid-column:1/-1;padding:22px;border-radius:22px;container-type:inline-size}
 #madKachel>h3{font-family:inherit;font-size:18px;letter-spacing:-.02em;margin-bottom:18px}
-#madKachel .cc-archive{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
-#madKachel .cc-archive>summary{cursor:pointer;color:var(--sub);font-size:13px;font-weight:600;padding:8px 0}
-#madKachel .cc-archive[open]>summary{margin-bottom:14px}
+.cc-archive{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+.cc-archive>summary{cursor:pointer;color:var(--sub);font-size:13px;font-weight:600;padding:8px 0}
+.cc-archive[open]>summary{margin-bottom:14px}
 .cc-room{display:grid;grid-template-columns:minmax(230px,31%) minmax(0,1fr);border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--panel)}
 .cc-guides{position:relative;display:flex;flex-direction:column;justify-content:space-between;padding:26px 20px;background:radial-gradient(ellipse at 50% 45%,#253948,#101b27 75%);color:#f0f4fa;min-width:0}
 .cc-eyebrow{font-size:10px;letter-spacing:.19em;color:#bac9d8;font-weight:700}
