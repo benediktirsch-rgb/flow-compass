@@ -5,8 +5,9 @@
   const key = 'compassConversationV1';
   const names = {john:'John', madeleine:'Madeleine', user:'Du'};
   let messages = [], draft = '', target = 'auto', busy = '', error = '', controller;
+  let madeleineState = 'unknown', probed = false;
   try { const stored = JSON.parse(localStorage.getItem(key) || '[]');
-    if (Array.isArray(stored)) messages = stored.filter(m => m && names[m.who] && typeof m.text === 'string').slice(-60);
+    if (Array.isArray(stored)) messages = stored.filter(m => m && ['john','madeleine','user'].includes(m.who) && typeof m.text === 'string').slice(-60);
   } catch (_) {}
   const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const save = () => { try { localStorage.setItem(key, JSON.stringify(messages.slice(-60))); } catch (_) {} };
@@ -20,22 +21,36 @@
   }
   function history(root) {
     const log = root.querySelector('.cc-log');
+    const oldTop = log.scrollTop;
     const atEnd = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
     log.innerHTML = messages.length ? messages.map(m => `<article class="cc-message cc-${m.who}"><b>${names[m.who]}</b><p>${esc(m.text)}</p></article>`).join('') :
       '<div class="cc-welcome"><span>RAUM FÜR KLARHEIT</span><h4>Was beschäftigt dich gerade?</h4><p>John hilft dir, den nächsten Schritt zu finden.<br>Madeleine bringt Zahlen und Struktur dazu.</p></div>';
-    if (atEnd || busy) log.scrollTop = log.scrollHeight;
+    log.scrollTop = atEnd || busy ? log.scrollHeight : oldTop;
     root.querySelector('.cc-status').textContent = busy ? `${names[busy]} denkt nach …` : error || 'Dein Gespräch bleibt auf diesem Gerät erhalten.';
     root.querySelector('.cc-status').classList.toggle('cc-error', !!error);
     root.querySelector('.cc-send').disabled = !!busy || !draft.trim();
     root.querySelector('.cc-stop').hidden = !busy;
     root.querySelector('select').disabled = !!busy;
+    root.querySelector('option[value="madeleine"]').disabled = madeleineState === 'unavailable';
     root.querySelectorAll('[data-person]').forEach(el => {
       el.classList.toggle('cc-thinking', el.dataset.person === busy);
-      el.querySelector('.cc-presence').textContent = busy === el.dataset.person ? 'Ist gerade dran' : busy ? 'Hört zu' : 'Ansprechen';
-      el.disabled = !!busy;
+      const unavailable = el.dataset.person === 'madeleine' && madeleineState === 'unavailable';
+      el.querySelector('.cc-presence').textContent = unavailable ? 'Noch nicht angebunden' : busy === el.dataset.person ? 'Ist gerade dran' : busy ? 'Hört zu' : 'Ansprechen';
+      el.disabled = !!busy || unavailable;
     });
   }
   function update() { roots().forEach(history); }
+  async function probe() {
+    if (probed || !roots().length) return;
+    probed = true;
+    try {
+      const response = await fetch(JOHN_API + '/api/madeleine/status', {cache:'no-store', signal:AbortSignal.timeout(10000)});
+      const data = await response.json();
+      if (response.status === 404 || (response.ok && (!data.ok || !data.key))) madeleineState = 'unavailable';
+      else if (response.ok && data.ok && data.key) madeleineState = 'ready';
+    } catch (_) { /* A temporary network failure is not proof of a missing integration. */ }
+    update();
+  }
   async function headers(who) {
     const result = {'Content-Type':'application/json'};
     if (who === 'madeleine' && /^https:/.test(JOHN_API) && location.protocol === 'https:') {
@@ -49,9 +64,13 @@
   async function send() {
     const text = draft.trim();
     if (!text || busy) return;
+    const people = participants(text);
+    if (people[0] === 'madeleine' && madeleineState === 'unavailable') {
+      error = 'Madeleine ist in dieser Instanz noch nicht angebunden. Deine Nachricht bleibt stehen; du kannst John auswählen.';
+      update(); return;
+    }
     messages.push({who:'user', text}); save(); draft = ''; error = '';
     roots().forEach(root => { root.querySelector('textarea').value = ''; });
-    const people = participants(text);
     controller = new AbortController();
     let timeout;
     try {
@@ -121,6 +140,7 @@
       }));
       history(root);
     });
+    probe();
   }
   mount();
   new MutationObserver(mount).observe(document.getElementById('grid') || document.body, {childList:true, subtree:true});
