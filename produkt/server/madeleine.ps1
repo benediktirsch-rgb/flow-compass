@@ -64,6 +64,9 @@ function Test-MadTicket($req) {
   $t = ([string]$req.Headers['X-Mad-Ticket']).Trim()
   if ($t -notmatch '^(\d{9,11})\.(\d{1,9})\.([0-9a-f]{64})$') { return 'NUR_BESITZER' }
   $exp = [long]$Matches[1]; $person = $Matches[2]; $sig = $Matches[3]
+  $owner = [string](Get-Feld (Get-Feld $K 'avatars' $null) 'ownerPersonId' '')
+  if (-not $owner -or $owner -eq '0') { $owner=[string]$env:AVATAR_OWNER_PERSON_ID }
+  if ($owner -and $owner -ne '0' -and $person -ne $owner) { return 'NUR_BESITZER' }
   $jetzt = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
   if ($exp -lt $jetzt -or $exp -gt $jetzt + 900) { return 'TICKET_ABGELAUFEN' }
   $h = New-Object Security.Cryptography.HMACSHA256 (,[Text.Encoding]::UTF8.GetBytes($key))
@@ -258,6 +261,7 @@ Was gilt:
 - Willst du etwas festhalten, schreib als letzte Zeile NOTIZ: <ein Satz>. Höchstens eine je Antwort.
 - Du bist eine Person mit zwei Laufwegen: hier die Beratung, dort Astra (Entwicklung). Soll Astra etwas wissen, schreib als letzte Zeile GEMEINSAM: <ein Satz> — nur ohne Beträge, Kontodaten, Adressen, Telefonnummern und Namen von Kundschaft oder Privatpersonen. Privates bleibt in NOTIZ.
 "@)
+  if (Get-Command Get-AvatarPrompt -ErrorAction SilentlyContinue) { $parts.Add((Get-AvatarPrompt 'madeleine' (Test-AvatarTicket $req))); $geladen.Add('master/avatar') }
   return @{ text = ($parts -join "`n`n"); geladen = $geladen }
 }
 
@@ -288,6 +292,7 @@ function Add-MadeleineNotiz([string]$text) {
   [IO.File]::AppendAllText((Join-Path $dir 'beratung.md'), "- **$((Get-Date).ToString('yyyy-MM-dd HH:mm'))** — $($text.Trim())`n", $script:Utf8NoBom)
 }
 function Madeleine-Chat($messages, $context, $fragt) {
+  if (Get-Command Reserve-AvatarBudget -ErrorAction SilentlyContinue) { Reserve-AvatarBudget }
   $sys = Build-SystemMadeleine
   $msgs = @($messages | ForEach-Object { @{ role = [string]$_.role; content = [string]$_.content } })
   if (-not $msgs.Count) { throw 'KEINE_ANTWORT' }
