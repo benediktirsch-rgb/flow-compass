@@ -6,7 +6,8 @@ $f=$ast.Find({param($n)$n -is [System.Management.Automation.Language.FunctionDef
 Invoke-Expression $f.Extent.Text
 function Get-JiraAuth {return @{site='example.invalid'}}
 function Assert-JiraAuth {}
-function Invoke-JiraJson($auth,$path,$body){$script:calls++;if($script:broken){return @{issues=@();nextPageToken='repeat';isLast=$false}};if($body.nextPageToken){return @{issues=@(@{key='T-2';fields=@{summary='second'}});isLast=$true}};return @{issues=@(@{key='T-1';fields=@{summary='first'}});nextPageToken='page2';isLast=$false}}
+# Match ConvertFrom-Json: issue objects must expose properties in PowerShell 5.1 too.
+function Invoke-JiraJson($auth,$path,$body){$script:calls++;if($script:broken){return @{issues=@();nextPageToken='repeat';isLast=$false}};if($body.nextPageToken){return @{issues=@([pscustomobject]@{key='T-2';fields=[pscustomobject]@{summary='second'}});isLast=$true}};return @{issues=@([pscustomobject]@{key='T-1';fields=[pscustomobject]@{summary='first'}});nextPageToken='page2';isLast=$false}}
 function Assert($v,$n){if(-not $v){throw $n};Write-Output ('PASS: '+$n)}
 $env:COMPASS_VERTRETUNG='1';$script:calls=0;$script:JiraMeineCache=@{}
 $r=Get-JiraMeine $true

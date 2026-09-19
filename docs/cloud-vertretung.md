@@ -27,6 +27,12 @@ Jira lädt im Opt-in-Betrieb alle Folgeseiten über `nextPageToken`; wiederholte
 
 ## Betrieb
 
+### Laufzeitvoraussetzungen
+
+Der opt-in-Betrieb mit `COMPASS_VERTRETUNG=1` braucht **PowerShell 7** (`pwsh`), auch unter Windows. Das gilt insbesondere für die Kalender- und Rückfragenmodule; deren JSON-Verarbeitung verwendet `ConvertFrom-Json -AsHashtable`. Der Server prüft die Version vor dem Lesen der Konfiguration und dem Laden von Modulen und bricht unter Windows PowerShell 5.1 mit `COMPASS_POWERSHELL_7_REQUIRED` und einer Startanleitung ab. Ohne das Opt-in bleibt der bisherige Start mit Windows PowerShell 5.1 möglich.
+
+Die vier Python-Dienste `collector.py`, `connectors.py`, `decisions.py` und `cloud_monitor.py` sind für den **Linux-Cloudbetrieb** gebaut. Sie verwenden `fcntl.flock` für exklusive Dateisperren und systemd für den Betrieb. Ihre vier Python-Tests müssen ebenfalls unter Linux laufen; ein Importfehler für `fcntl` unter Windows bedeutet eine nicht unterstützte Testumgebung, keinen fehlgeschlagenen Cloudlauf. Die Sperren dürfen nicht für einen Windows-Test durch wirkungslose Ersatzfunktionen ersetzt werden.
+
 Dateien: `produkt/server/vertretung.ps1`, `produkt/server/kalender.ps1`, `wolkenserver/collector.py`, Timer/Service im selben Ordner. Collector-Code unter `/opt/compass-vertretung`; Zustand und private Snapshots unter `/var/lib/compass-server/daten/vertretung`, Verzeichnis 0700, Dateien 0600. Der Service läuft als `compass`, ohne eigene Quellschlüssel, und nutzt nur den bestehenden lokalen Server.
 
 `GET /api/vertretung` zeigt je Quelle den letzten Versuch, letzten Erfolg und Fehler sowie Modellanbieter und Veröffentlichung. Nach 45 Minuten ohne erfolgreichen Abruf gilt eine Quelle beim Statusabruf als veraltet. Zeitstempel sind keine Garantie durchgängiger Verfügbarkeit. Scheitern beide Modelle, bleibt die letzte erfolgreiche Veröffentlichung erhalten.
@@ -36,6 +42,8 @@ Der laufende Betrieb wurde auf der eigenen Instanz aktiviert; Kundeninstanzen wu
 ## Prüfungen
 
 - PowerShell-Parser für die Serverdateien.
+- `tests/runtime.test.ps1` unter Windows PowerShell 5.1 und PowerShell 7: frühe, verständliche Ablehnung des Opt-ins auf 5.1, weiterhin erreichbare Konfigurationsprüfung ohne Opt-in und unter PowerShell 7. Kein Dienststart und keine echten Daten.
+- `tests/jira-pages.test.ps1` unter beiden PowerShell-Versionen: Folgeseiten, wiederholte Cursor und Erhalt des erfolgreichen Caches. Die Mock-Vorgänge haben dieselbe Objektform wie `ConvertFrom-Json`.
 - `tests/vertretung.test.ps1`: Primärbetrieb, Quota-Fallback, Wartefrist, Wiederaufnahme, Werkzeuggrenze, Opt-in, unbekannte Fehler, beide Anbieter ausgefallen.
 - `tests/collector_test.py <Pfad zu collector.py>` unter Linux: stabile Kennungen, erledigte Karten, fehlgeschlagene Quellen ohne falschen Erfolgszeitpunkt, beschädigter Status, Veröffentlichung ausschließlich über bestehende API und Stundenfrist.
 - `tests/kalender.test.ps1`: ICS-Escaping, Serien, Ausnahmen, Dauer und fehlgeschlagene Quelle, auch unter Linux pwsh.

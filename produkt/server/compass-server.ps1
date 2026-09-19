@@ -42,6 +42,7 @@
   Start
     start-compass-server.cmd doppelklicken   — oder —
     powershell -NoProfile -ExecutionPolicy Bypass -File compass-server.ps1
+    Mit COMPASS_VERTRETUNG=1 ist PowerShell 7 erforderlich: pwsh -File compass-server.ps1
     Linux/macOS (PowerShell 7, rund um die Uhr auf einem kleinen Server):  pwsh -File compass-server.ps1
       Anmeldung ohne Browser dort: auf dem eigenen Rechner `claude setup-token` ausführen und den Wert als
       CLAUDE_CODE_OAUTH_TOKEN in die Umgebung des Servers geben — siehe README, Abschnitt Linux-Server.
@@ -57,6 +58,9 @@ param(
   [switch]$OpenBrowser
 )
 $ErrorActionPreference = 'Stop'
+if ($env:COMPASS_VERTRETUNG -eq '1' -and $PSVersionTable.PSVersion.Major -lt 7) {
+  throw 'COMPASS_POWERSHELL_7_REQUIRED: COMPASS_VERTRETUNG=1 braucht PowerShell 7. Bitte mit pwsh -File compass-server.ps1 starten oder COMPASS_VERTRETUNG deaktivieren.'
+}
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Net.Http
 $script:Utf8NoBom = New-Object Text.UTF8Encoding($false)
