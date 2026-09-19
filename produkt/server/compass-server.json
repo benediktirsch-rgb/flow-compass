@@ -29,5 +29,10 @@
     "pflegeUrl": "",
     "statsUrl": "",
     "towerUrl": ""
+  },
+  "avatars": {
+    "masterVersion": "v1",
+    "dailyCalls": 20,
+    "ownerPersonId": 0
   }
 }

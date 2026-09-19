@@ -1901,6 +1901,10 @@ function koerper(s){
   }
   if(s.typ==='wahl'){
     const gewaehlt=(FLOW.wahl||{})[s.id];
+    if(s.id==='erholung' && window.AvatarUI){
+      const optionen=AvatarUI.options();
+      return '<div class="qa" data-w="erholung"><div class="opts">'+optionen.map(o=>'<button data-a="'+esc(o.label).replace(/"/g,'&quot;')+'" data-avatar-option="'+o.id+'">'+esc(o.label)+'</button>').join('')+'</div></div><div id="avatarRitualReaction" role="status" aria-live="polite"></div><button type="button" id="avatarRitualDetails" class="btn">Eigene Definitionen, Favoriten und Rückblick</button><input id="ovIn" type="text" maxlength="400" placeholder="Dein konkreter nächster Schritt">';
+    }
     const M=R.abendMotivation||[];
     const motiv = (FLOW.art==='abend' && s.id==='erholung' && M.length) ? M[new Date().getDate()%M.length] : '';
     return `<div class="qa" data-w="${esc(s.id)}">
@@ -1932,6 +1936,7 @@ function koerper(s){
 
 function verdrahten(s){
   const inp=document.getElementById('ovIn');
+  const avatarDetails=document.getElementById('avatarRitualDetails'); if(avatarDetails)avatarDetails.onclick=()=>AvatarUI.open('kompass');
   /* Fokus (11.09.2026): compass-tasten.js setzt ihn auf eine offene Wahl, sonst ins Feld —
      so greifen 1–9 sofort, und wer tippt, landet trotzdem im Feld. Ohne die Datei wie bisher. */
   setTimeout(()=>{ if(window.compassTasten) compassTasten.fokusRein(ov); else if(inp) inp.focus(); },60);
@@ -1944,6 +1949,12 @@ function verdrahten(s){
     const box=b.closest('.qa');
     box.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
     FLOW.wahl[box.dataset.w]=b.dataset.a;
+    if(b.dataset.avatarOption && window.AvatarUI){
+      const o=AvatarUI.options().find(x=>x.id===b.dataset.avatarOption),f=AvatarUI.feedback(o);
+      FLOW.avatarOption=o;
+      document.getElementById('avatarRitualReaction').textContent='Madlene: '+f.madeleine+' John: '+f.john+(AvatarUI.ready()?'':' Hinweis: Wolkenprofil nicht verbunden; dieses Vorhaben wird dort noch nicht gespeichert.');
+      const next=document.getElementById('ovIn'); if(next){if(!next.value || next.value===next.dataset.suggested)next.value=f.next;next.dataset.suggested=f.next;}
+    }
   }));
   document.querySelectorAll('#ovBody .qa[data-q]').forEach(frageVerdrahten);
   /* „Was heute ansteht“: Antippen streicht eine Sache für heute (11.09.) — der Hinweis „Wenn nicht: eine
@@ -2020,7 +2031,7 @@ function fragenNachziehen(){
   if(typeof kinoHoehe==='function') kinoHoehe();
 }
 
-function weiter(){
+async function weiter(){
   const s=FLOW.schritte[IDX];
   const inp=document.getElementById('ovIn');
   if(s.typ==='wahl'){
@@ -2032,6 +2043,11 @@ function weiter(){
     if(s.id==='morgen' && FLOW.art==='abend'){ S.fokusMorgen={datum:heute(),text:inp.value.trim()}; }
     if(s.id==='auftrag'){ S.auftrag=inp.value.trim(); }
     speichern();
+  }
+  if(s.id==='erholung' && FLOW.avatarOption && window.AvatarUI && AvatarUI.ready()){
+    FLOW.avatarEventId=FLOW.avatarEventId||crypto.randomUUID();
+    const o=FLOW.avatarOption,done=await AvatarUI.save({op:'plan',id:o.id,label:o.label,next:inp?.value||o.next,eventId:FLOW.avatarEventId});
+    if(!done){document.getElementById('avatarRitualReaction').textContent='Nicht gespeichert. Bitte erneut versuchen oder im Begleiter-Bereich neu laden.';return;}
   }
   if(IDX < FLOW.schritte.length-1){ IDX++; schrittMalen(); }
   else abschluss();
@@ -2046,7 +2062,7 @@ function abschluss(){
     if(S.lastAbend!==heute()){
       S.lastAbend=heute(); S.z.abend++;
       const w=FLOW.wahl||{};
-      if(w.erholung && !/Heute nichts/.test(w.erholung)){ S.z.erholung++; gewonnen+=(R.xp.erholung||5); }
+      /* Erholungswahl ist ein Vorhaben. Erfolg erst nach bestaetigter Umsetzung im Avatar-Rueckblick. */
       if(w.projekt  && !/Heute nicht/.test(w.projekt)) { S.z.privatprojekt++; gewonnen+=(R.xp.privatprojekt||5); }
     } else gewonnen=0;
   }
@@ -8145,5 +8161,8 @@ addEventListener('pageshow',zeitNachstellen); addEventListener('focus',zeitNachs
 <!-- Tower-Karte (16.09.2026): Summen aus Matching und Prüfkette über /api/tower, direkt hinter der Finanzkarte.
      Haengt sich wie compass-live.js von aussen an; ohne eingerichtete Quelle (NO_FIRMA) erscheint keine Karte. -->
 <script src="compass-tower.js"></script>
+<script src="avatar-core.js"></script>
+<script src="avatar-ui.js"></script>
+<script src="avatar-compass.js"></script>
 </body>
 </html>

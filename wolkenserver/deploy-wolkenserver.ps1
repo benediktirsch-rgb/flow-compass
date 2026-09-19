@@ -135,7 +135,7 @@ if ($Status) {
 $stage = Join-Path $env:TEMP ("wolke-deploy-" + [DateTime]::Now.Ticks)
 New-Item -ItemType Directory -Force (Join-Path $stage 'paket\vorlagen'), (Join-Path $stage 'daten') | Out-Null
 $paketQuelle = Join-Path $repo 'produkt\server'
-foreach ($f in 'compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','firmen-daten.ps1','gedaechtnis.ps1','ausgabe.ps1','systembild.ps1','madeleine.ps1','madelene-gemeinsam.ps1','vertretung.ps1','kalender.ps1','rueckfragen.ps1','README.md') { Write-Lf (Join-Path $stage "paket\$f") (Read-Utf8 (Join-Path $paketQuelle $f)) }
+foreach ($f in 'compass-server.ps1','coach-tools.ps1','coach-mcp.ps1','firmen-daten.ps1','gedaechtnis.ps1','avatare.ps1','avatar-master-v1.json','avatar-guides.json','ausgabe.ps1','systembild.ps1','madeleine.ps1','madelene-gemeinsam.ps1','vertretung.ps1','kalender.ps1','rueckfragen.ps1','README.md') { Write-Lf (Join-Path $stage "paket\$f") (Read-Utf8 (Join-Path $paketQuelle $f)) }
 foreach ($f in 'persona.md','TASKS.md') { Write-Lf (Join-Path $stage "paket\vorlagen\$f") (Read-Utf8 (Join-Path $paketQuelle "vorlagen\$f")) }
 $sha = [Security.Cryptography.SHA256]::Create(); $ms = New-Object IO.MemoryStream
 foreach ($f in (Get-ChildItem (Join-Path $stage 'paket') -Recurse -File | Sort-Object FullName)) { $b = [IO.File]::ReadAllBytes($f.FullName); $ms.Write($b, 0, $b.Length) }
@@ -213,6 +213,8 @@ if ($FirmaSicht.ContainsKey('')) {
 # Maschinenschlüssel signiert — der Server prüft es mit demselben Wert. Ohne ihn bleibt Madeleine zu.
 # VAIKUNTHA_TOKEN liest nur die Vereinsstatistik.
 $madEnv = @()
+$ownerId = Env-User 'AVATAR_OWNER_PERSON_ID'
+if ($ownerId -match '^[1-9][0-9]{0,8}$') { $madEnv += (Env-Zeile 'AVATAR_OWNER_PERSON_ID' $ownerId) }
 $gateKey = Env-User 'VA_GATE_KEY'
 if ($gateKey) { $madEnv += (Env-Zeile 'MADELEINE_TICKET_KEY' $gateKey) } else { Sag 'VA_GATE_KEY fehlt auf diesem Rechner — Madeleine bleibt auf dem Server zu (NO_TICKET_KEY).' }
 $vkTok = Env-User 'VAIKUNTHA_TOKEN'

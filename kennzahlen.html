@@ -16,6 +16,11 @@
 body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#1a1f2e 0%,var(--bg) 55%);color:var(--ink);
   font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;font-size:15px;line-height:1.5;min-height:100vh}
 a{color:#8ab4ff;text-decoration:none}a:hover{text-decoration:underline}
+a:focus-visible{outline:2px solid #8ab4ff;outline-offset:4px;border-radius:3px}
+.source-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line)}
+.source-links a{font-size:12px}
+.kpi .source-links{position:relative;z-index:1}
+.source-note{width:100%;font-size:11.5px;color:var(--sub)}
 .top{display:flex;align-items:center;gap:14px;padding:22px 30px 6px;flex-wrap:wrap}
 .top h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.3px}
 .top .spacer{flex:1}
@@ -220,6 +225,42 @@ const K = window.KPI || {};
 const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const num = n => (n==null ? null : Number(n).toLocaleString('de-DE'));
 
+/* Every metric keeps its source/context reachable, including fallback and empty states.
+   Never expose the token-bearing fetch URLs: use the configured human-facing report. */
+const attr = s => esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+function safeLink(url, label){
+  try {
+    const u = new URL(url, 'https://compass.invalid/');
+    if (!/^https?:$/.test(u.protocol) || /[?&](token|key|secret|password|access_token)=/i.test(u.search)) return esc(label);
+    return '<a href="'+attr(url)+'" target="_blank" rel="noopener noreferrer">'+esc(label)+' ↗</a>';
+  } catch (_) { return esc(label); }
+}
+const jiraBase = new URL((K.relay||{}).jira || 'https://vishnuartists.atlassian.net/browse/').origin;
+const jiraQuery = jql => jiraBase+'/issues/?jql='+encodeURIComponent(jql);
+const sourceTargets = {
+  members: 'https://vaikuntha.eu/wp-admin/users.php',
+  leads: jiraQuery('labels = "web-lead" ORDER BY created DESC'),
+  bugs: jiraQuery('labels = "web-pro-bene" AND statusCategory != Done ORDER BY created DESC'),
+  open: jiraQuery('assignee = currentUser() AND statusCategory != Done ORDER BY updated DESC'),
+  done: jiraQuery('assignee = currentUser() AND statusCategory = Done AND resolved >= -14d ORDER BY resolved DESC')
+};
+function sourceRow(links, note){
+  return '<div class="source-links" aria-label="Datenquellen und Kontext">'+links.join('')+
+    (note ? '<span class="source-note">'+esc(note)+'</span>' : '')+'</div>';
+}
+function analyticsLinks(){
+  return aktiveIds().map(id=>analyticsZiel(id)).filter(Boolean).map(q=>safeLink(q.url,q.name));
+}
+function withSources(card, links, note){
+  const end = card.lastIndexOf('</div>');
+  return card.slice(0,end)+sourceRow(links,note)+card.slice(end);
+}
+function contextText(text){
+  return esc(text).replace(/\b(?:VA|VAEV|VK)-\d+\b/g, key=>safeLink(jiraBase+'/browse/'+key,key))
+    .replace(/\/f\/kontakt\.html/g, safeLink('https://naturnah-lernen.de/f/kontakt.html','Rückruf-Formular'));
+}
+
+
 let site = 'all', range = 28;
 /* Zeitreise: offset = wie viele Tage das Fenster hinter heute liegt (0 = jetzt),
    vorjahr = dieselben Tage ein Jahr früher als Vergleichslinie dazulegen. */
@@ -404,12 +445,12 @@ function kpiKarten(){
   }
 
   return `<div class="card s12"><div class="kpis">
-    ${tile(tWert, tLabel, trHtml, '#7c5cff')}
-    ${tile(num(mitgl), 'Mitglieder (Vaikuntha)', '', '#89c527')}
+    ${tile(tWert, tLabel, trHtml + sourceRow(analyticsLinks()), '#7c5cff')}
+    ${tile(num(mitgl), 'Mitglieder (Vaikuntha)', sourceRow([safeLink(sourceTargets.members,'Mitgliederverwaltung')]), '#89c527')}
     ${tile(num(leads), 'Rückruf-Anfragen (Vishnu)',
-      an.va && an.va.leadsEcht===0 ? '<div class="d flat">davon 0 echt (nur E2E-Test)</div>' : '', '#1a44ea')}
+      (an.va && an.va.leadsEcht===0 ? '<div class="d flat">davon 0 echt (nur E2E-Test)</div>' : '') + sourceRow([safeLink(sourceTargets.leads,'Rückruf-Tickets')]), '#1a44ea')}
     ${tile(num(b.offen), 'offene Bugs / Feedback',
-      `<div class="d ${b.offen>0?'flat':'up'}">${esc(b.erledigt||0)} erledigt · ${esc(b.gesamt||0)} gesamt</div>`, '#ef5f5f')}
+      `<div class="d ${b.offen>0?'flat':'up'}">${esc(b.erledigt||0)} erledigt · ${esc(b.gesamt||0)} gesamt</div>` + sourceRow([safeLink(sourceTargets.bugs,'Offene Web-Meldungen')]), '#ef5f5f')}
   </div></div>`;
 }
 
@@ -589,12 +630,19 @@ function bindTraffic(){
   });
 }
 
+function pageSource(p){
+  try {
+    const base = new URL('https://'+p.host);
+    const page = new URL(p.path, base);
+    return page.origin === base.origin ? page.href : base.href;
+  } catch (_) { return ''; }
+}
 function topSeiten(){
   const rows = [];
   aktiveIds().forEach(id=>{
     const d = LIVE[id]; if(!d||!d.pages) return;
     const q = (K.quellen||[]).find(s=>s.id===id)||{};
-    d.pages.forEach(p => rows.push({...p, farbe:q.farbe, quelle:q.name}));
+    d.pages.forEach(p => rows.push({...p, farbe:q.farbe, quelle:q.name, host:q.host}));
   });
   rows.sort((a,b)=>b.views-a.views);
   if(!rows.length){
@@ -619,7 +667,7 @@ function topSeiten(){
       <th class="num" title="Anteil der gemessenen Aufrufe, nach denen der Besuch endete">Absprung</th>
       <th class="num" title="Ø Verweildauer auf der Seite">Ø Zeit</th></tr></thead><tbody>
     ${rows.slice(0,10).map(p=>`<tr>
-      <td><div>${esc(p.title||p.path)}</div><div style="font-size:11px;color:var(--dim)">${esc(p.path)}</div></td>
+      <td><div>${safeLink(pageSource(p),p.title||p.path)}</div><div style="font-size:11px;color:var(--dim)">${esc(p.path)}</div></td>
       <td><div class="sharebar"><i style="width:${Math.round(p.views/max*100)}%;background:${p.farbe}"></i></div></td>
       <td class="num">${num(p.views)}</td>
       <td class="num" style="color:${ampel(p.exitPct)}" title="${p.exitPct==null?'Dieser Zähler misst keine Ausgänge.':esc(p.exits+' von '+p.measured+' gemessenen Aufrufen endeten hier')}">${
@@ -640,13 +688,13 @@ function anmeldungenKarte(){
     h += `<div class="item"><div class="ic">🌿</div><div class="body">
       <div class="t">Vaikuntha — Mitglieder: <b>${wert==null?'<span style="color:var(--dim)">noch nicht angebunden</span>':num(wert)}</b>
         ${m?`<span class="tag open">+${esc(m.neu30)} in 30 T · ${esc(m.aktiv30)} aktiv</span>`:''}</div>
-      <div class="m">${esc(m ? 'Live aus dem Vaikuntha-Zähler.' : a.vk.note)}</div></div></div>`;
+      <div class="m">${contextText(m ? 'Live aus dem Vaikuntha-Zähler.' : a.vk.note)}</div>${sourceRow([safeLink(sourceTargets.members,'Mitgliederverwaltung'), ...((analyticsZiel('vk')||{}).url ? [safeLink(analyticsZiel('vk').url,'Vaikuntha-Zähler')] : [])])}</div></div>`;
   }
   if(site!=='vk' && a.va){
     h += `<div class="item"><div class="ic">📞</div><div class="body">
       <div class="t">Vishnu — Rückruf-Anfragen: <b>${num(a.va.leads)}</b>
         <span class="tag open">${esc(a.va.leadsEcht)} echt</span></div>
-      <div class="m">${esc(a.va.note)}</div></div></div>`;
+      <div class="m">${contextText(a.va.note)}</div>${sourceRow([safeLink(sourceTargets.leads,'Alle Rückruf-Tickets')])}</div></div>`;
   }
   return h + `</div>`;
 }
@@ -664,15 +712,15 @@ function bugKarte(){
     ${sichtbar.length ? sichtbar.map(r=>{
       const done = r[1]==='Done';
       return `<div class="item"><div class="ic">${done?'✅':'🐞'}</div><div class="body">
-        <div class="t"><a href="${(K.relay||{}).jira||''}${esc(r[0])}" target="_blank">${esc(r[0])}</a> ${esc(r[2])}
+        <div class="t"><a href="${(K.relay||{}).jira||''}${esc(r[0])}" target="_blank" rel="noopener noreferrer">${esc(r[0])}</a> ${esc(r[2])}
           <span class="tag ${done?'done':'open'}">${esc(r[1])}</span>
           <span class="tag ${r[5]==='claude'?'claude':'bene'}">${r[5]==='claude'?'🤖 Claude':'🙋 du'}</span></div>
-        <div class="m">${esc(r[3])} · gemeldet ${esc(r[4])} — ${esc(r[6])}</div></div></div>`;
+        <div class="m">${esc(r[3])} · gemeldet ${esc(r[4])} — ${contextText(r[6])}</div></div></div>`;
     }).join('') : '<div class="empty">Für dieses Segment ist nichts offen.</div>'}
-    <div class="note">${esc(b.note||'')}</div>
+    <div class="note">${contextText(b.note||'')}</div>
     <div style="margin-top:10px">
       <button class="btn p" onclick="openFb()">💬 Neues melden</button>
-      <a class="btn" target="_blank" href="https://vishnuartists.atlassian.net/issues/?jql=labels%3D%22web-pro-bene%22%20ORDER%20BY%20created%20DESC">Alle in Jira ↗</a>
+      <a class="btn" target="_blank" rel="noopener noreferrer" href="https://vishnuartists.atlassian.net/issues/?jql=labels%3D%22web-pro-bene%22%20ORDER%20BY%20created%20DESC">Alle in Jira ↗</a>
     </div></div>`;
 }
 
@@ -682,10 +730,10 @@ function quellenKarte(){
   const label = {live:'live', pending:'wartet auf Deploy', off:'aus'};
   return `<div class="card s4"><h3>🔌 Datenquellen <span class="cnt">ehrlich, nicht geschönt</span></h3>
     ${q.map(s=>`<div class="src"><span class="dot ${s.status}"></span><div style="flex:1;min-width:0">
-      <div class="t" style="font-size:13px"><b>${esc(s.name)}</b> <span class="pill">${label[s.status]}</span></div>
+      <div class="t" style="font-size:13px"><b>${s.analytics && s.analytics.url ? safeLink(s.analytics.url,s.name) : esc(s.name)}</b> <span class="pill">${label[s.status]}</span></div>
       <div class="m" style="font-size:11.5px;color:var(--sub);margin-top:3px">${esc(s.hinweis)}</div></div></div>`).join('')}
     <div class="src"><span class="dot ${ga.status}"></span><div style="flex:1">
-      <div class="t" style="font-size:13px"><b>GA4</b> <span class="pill">${label[ga.status]}</span></div>
+      <div class="t" style="font-size:13px"><b>${ga.url ? safeLink(ga.url,'GA4 · Property '+(ga.property||'')) : 'GA4'}</b> <span class="pill">${label[ga.status]}</span></div>
       <div class="m" style="font-size:11.5px;color:var(--sub);margin-top:3px">${esc(ga.hinweis)}</div></div></div>
     <div class="note">Jira-Zahlen zieht Claude (Browser kommt wegen Auth+CORS nicht ran) — „Claude, aktualisiere die Kennzahlen“.</div>
   </div>`;
@@ -695,10 +743,10 @@ function durchsatzKarte(){
   const d = K.durchsatz||{};
   return `<div class="card s4"><h3>⚙️ Dein Durchsatz</h3>
     <div class="kpis">
-      <div class="kpi"><div class="v">${num(d.offen)}</div><div class="l">offene Tickets</div></div>
-      <div class="kpi"><div class="v">${num(d.done14)}</div><div class="l">erledigt · 14 Tage</div></div>
+      <div class="kpi"><div class="v">${safeLink(sourceTargets.open,num(d.offen))}</div><div class="l">offene Tickets</div></div>
+      <div class="kpi"><div class="v">${safeLink(sourceTargets.done,num(d.done14))}</div><div class="l">erledigt · 14 Tage</div></div>
     </div>
-    <div class="note">${esc(d.note||'')} — fließt in den Freitags-Review im Cockpit ein.</div></div>`;
+    <div class="note">${contextText(d.note||'')} — fließt in den Freitags-Review im Cockpit ein.</div></div>`;
 }
 
 function render(){
@@ -710,7 +758,10 @@ function render(){
   document.getElementById('fenster').textContent =
     `${dKurz(f[0])} – ${dLang(f[f.length-1]).replace(/^\S+, /,'')}` + (offset ? ` · ${offset} T zurück` : ' · bis heute');
   document.getElementById('grid').innerHTML =
-    kpiKarten() + trafficKarte() + topSeiten() + anmeldungenKarte() + durchsatzKarte() +
+    kpiKarten() + withSources(trafficKarte(), analyticsLinks(), 'Berichtsübersicht der gewählten Quellen; nicht jeder Bericht übernimmt das Zeitfenster.') +
+    withSources(topSeiten(), analyticsLinks(), 'Seiten öffnen das Original; Berichte zeigen die Messdaten seit Zählerstart.') +
+    anmeldungenKarte() + withSources(durchsatzKarte(), [safeLink(sourceTargets.open,'Meine offenen Tickets'), safeLink(sourceTargets.done,'Erledigt · letzte 14 Tage'), '<a href="dashboard.html" target="_blank" rel="noopener noreferrer">Compass · Ziele und Wochen-Rückschau ↗</a>'],
+      'Historischer Snapshot: offen vom 02.09.2026, erledigt vom 17.08.2026. Jira-Links zeigen den aktuellen Stand des angemeldeten Nutzers; die ursprüngliche Abfrage für erledigt ist nicht dokumentiert.') +
     bugKarte() + quellenKarte();
   document.getElementById('foot').textContent =
     'Web-Analytics-Cockpit · lokal · ' + (K.quelle||'');
@@ -796,7 +847,7 @@ document.getElementById('fSend').addEventListener('click', async ()=>{
     const res = await r.json();
     st.className='status on';
     if(res.key){
-      st.innerHTML = `Angelegt: <a href="${(K.relay||{}).jira}${res.key}" target="_blank"><b>${res.key}</b></a> `
+      st.innerHTML = `Angelegt: <a href="${(K.relay||{}).jira}${res.key}" target="_blank" rel="noopener noreferrer"><b>${res.key}</b></a> `
         + (res.sprint?'im aktuellen Sprint':'im Backlog') + ' · '
         + (route==='claude' ? 'Claude arbeitet es in der nächsten Session ab.' : 'liegt zur Klärung bei dir.');
     } else {

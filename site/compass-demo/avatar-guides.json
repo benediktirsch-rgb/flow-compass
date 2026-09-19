@@ -1,0 +1,302 @@
+[
+  {
+    "id": "guide-01",
+    "name": "Yājñavalkya",
+    "period": "1. Jahrtausend v. u. Z.; Datierung unsicher",
+    "tradition": "Upanishaden",
+    "core": "Die Frage nach dem Selbst führt über Besitz, Rollen und einzelne Eigenschaften hinaus.",
+    "practice": "Frage dich, welche Rolle du gerade mit deinem ganzen Selbst verwechselst.",
+    "tension": "Eine metaphysische Lehre, keine empirische Beschreibung des Gehirns.",
+    "source": "https://sacred-texts.com/hin/sbe15/index.htm"
+  },
+  {
+    "id": "guide-02",
+    "name": "Siddhārtha Gautama · Buddha",
+    "period": "etwa 5. Jahrhundert v. u. Z.",
+    "tradition": "Buddhismus",
+    "core": "Leiden und Anhaften verstehen; Ethik, Sammlung und Einsicht als Weg der Befreiung.",
+    "practice": "Beobachte einen Wunsch, bevor du ihm folgst.",
+    "tension": "Nicht-Selbst unterscheidet sich von vedantischen Lehren eines ewigen Selbst.",
+    "source": "https://plato.stanford.edu/entries/buddha/"
+  },
+  {
+    "id": "guide-03",
+    "name": "Laozi",
+    "period": "traditionell 6. Jahrhundert v. u. Z.; historische Person unsicher",
+    "tradition": "Daoismus",
+    "core": "Einfachheit, Nicht-Erzwingen und Orientierung am Dao.",
+    "practice": "Prüfe, wo weniger Eingreifen hilfreicher wäre.",
+    "tension": "Nicht-Erzwingen bedeutet nicht, Verantwortung aufzugeben.",
+    "source": "https://plato.stanford.edu/entries/laozi/"
+  },
+  {
+    "id": "guide-04",
+    "name": "Zhuangzi",
+    "period": "4.–3. Jahrhundert v. u. Z.",
+    "tradition": "Daoismus",
+    "core": "Feste Urteile und Perspektiven lockern; offen und beweglich mit Wandel umgehen.",
+    "practice": "Betrachte einen Konflikt aus einer fremden Perspektive.",
+    "tension": "Perspektivenvielfalt hebt praktische Entscheidungen nicht auf.",
+    "source": "https://plato.stanford.edu/entries/zhuangzi/"
+  },
+  {
+    "id": "guide-05",
+    "name": "Jesus von Nazaret",
+    "period": "etwa 4 v. u. Z.–30 u. Z.",
+    "tradition": "Christentum",
+    "core": "Gottes- und Nächstenliebe, Barmherzigkeit und eine Umkehr des Herzens prägen die überlieferte Lehre.",
+    "practice": "Verbinde eine klare Grenze mit einem barmherzigen Umgang.",
+    "tension": "Historische Rekonstruktion und Glaubensbekenntnis sind zu unterscheiden.",
+    "source": "https://www.bibleserver.com/LUT/Matth%C3%A4us5"
+  },
+  {
+    "id": "guide-06",
+    "name": "Nāgārjuna",
+    "period": "etwa 150–250",
+    "tradition": "Madhyamaka-Buddhismus",
+    "core": "Dinge haben kein unabhängiges Eigenwesen; sie bestehen in Abhängigkeiten.",
+    "practice": "Suche die Bedingungen eines Problems statt einen einzigen Schuldigen.",
+    "tension": "Leerheit bedeutet nicht, dass nichts existiert oder zählt.",
+    "source": "https://plato.stanford.edu/entries/nagarjuna/"
+  },
+  {
+    "id": "guide-07",
+    "name": "Plotin",
+    "period": "204/205–270",
+    "tradition": "Neuplatonismus",
+    "core": "Die Seele kann sich durch geistige Sammlung dem Einen zuwenden.",
+    "practice": "Unterbrich Zerstreuung für eine kurze stille Betrachtung.",
+    "tension": "Das Eine ist ein metaphysischer Begriff, kein messbares Objekt.",
+    "source": "https://plato.stanford.edu/entries/plotinus/"
+  },
+  {
+    "id": "guide-08",
+    "name": "Vasubandhu",
+    "period": "4.–5. Jahrhundert; Datierung umstritten",
+    "tradition": "Buddhistische Philosophie",
+    "core": "Untersuchung von Erfahrung, Wahrnehmung und den geistigen Bedingungen unseres Weltbildes.",
+    "practice": "Trenne eine Beobachtung von deiner Deutung.",
+    "tension": "Seine verschiedenen Werkphasen ergeben keine einfache Formel „alles ist nur Einbildung“.",
+    "source": "https://plato.stanford.edu/entries/vasubandhu/"
+  },
+  {
+    "id": "guide-09",
+    "name": "Pseudo-Dionysius Areopagita",
+    "period": "spätes 5.–frühes 6. Jahrhundert",
+    "tradition": "Christliche Mystik",
+    "core": "Das Göttliche überschreitet unsere Begriffe; negative Theologie betont deren Grenzen.",
+    "practice": "Lass bei einer großen Frage bewusst Raum für Nichtwissen.",
+    "tension": "Unwissenheit allein ist noch keine Einsicht.",
+    "source": "https://plato.stanford.edu/entries/pseudo-dionysius-areopagite/"
+  },
+  {
+    "id": "guide-10",
+    "name": "Huineng",
+    "period": "638–713; Biografie stark überliefert",
+    "tradition": "Chan-Buddhismus",
+    "core": "Unmittelbare Einsicht und Nicht-Anhaften stehen im Zentrum seiner Überlieferung.",
+    "practice": "Bemerke einen Gedanken, ohne ihn sofort festzuhalten.",
+    "tension": "Spätere Traditionen haben das Bild des Lehrers wesentlich geprägt.",
+    "source": "https://iep.utm.edu/huineng/"
+  },
+  {
+    "id": "guide-11",
+    "name": "Śaṅkara",
+    "period": "etwa 8. Jahrhundert",
+    "tradition": "Advaita Vedānta",
+    "core": "Befreiende Erkenntnis betrifft die Nicht-Zweiheit von Ātman und Brahman.",
+    "practice": "Prüfe, worauf dein Gefühl eines getrennten Selbst beruht.",
+    "tension": "Nicht-Zweiheit ist nicht mit allen anderen spirituellen Lehren gleichzusetzen.",
+    "source": "https://plato.stanford.edu/entries/shankara/"
+  },
+  {
+    "id": "guide-12",
+    "name": "Kūkai",
+    "period": "774–835",
+    "tradition": "Shingon-Buddhismus",
+    "core": "Körper, Sprache und Geist wirken in der spirituellen Praxis zusammen; Erwachen ist in diesem Leben möglich.",
+    "practice": "Beachte, ob Haltung, Worte und Absicht zusammenpassen.",
+    "tension": "Traditionelle Mantra- und Ritualpraxis hat einen konkreten religiösen Kontext.",
+    "source": "https://plato.stanford.edu/entries/kukai/"
+  },
+  {
+    "id": "guide-13",
+    "name": "al-Ghazālī",
+    "period": "1058–1111",
+    "tradition": "Islamische Theologie und Sufismus",
+    "core": "Wissen soll durch Läuterung des Herzens und gelebte religiöse Praxis getragen sein.",
+    "practice": "Prüfe die Absicht hinter einer scheinbar guten Handlung.",
+    "tension": "Seine mystische Praxis steht innerhalb islamischer Glaubens- und Lebensordnung.",
+    "source": "https://plato.stanford.edu/entries/al-ghazali/"
+  },
+  {
+    "id": "guide-14",
+    "name": "Rāmānuja",
+    "period": "11.–12. Jahrhundert",
+    "tradition": "Viśiṣṭādvaita Vedānta",
+    "core": "Einheit mit bleibenden Unterschieden: Seelen und Welt stehen in Abhängigkeit zu einem persönlichen Gott.",
+    "practice": "Verbinde Zugehörigkeit mit Respekt vor Unterschiedlichkeit.",
+    "tension": "Dies ist keine vollständige Auflösung aller Unterschiede wie in vereinfachten Nichtdualitätsbildern.",
+    "source": "https://iep.utm.edu/ramanuja/"
+  },
+  {
+    "id": "guide-15",
+    "name": "Farīd ud-Dīn ʿAttār",
+    "period": "etwa 12.–frühes 13. Jahrhundert",
+    "tradition": "Sufismus",
+    "core": "Die spirituelle Suche verlangt, Selbstbezogenheit und vermeintliche Sicherheiten zu durchschauen.",
+    "practice": "Frage, welche Ausrede dich von einer ehrlichen Suche abhält.",
+    "tension": "Die Vogelreise ist eine Dichtung; Alltagstipps sind unsere Übertragung.",
+    "source": "https://sacred-texts.com/isl/"
+  },
+  {
+    "id": "guide-16",
+    "name": "Franz von Assisi",
+    "period": "1181/1182–1226",
+    "tradition": "Christentum",
+    "core": "Armut, Demut, gelebte Nächstenliebe und Verbundenheit mit der Schöpfung.",
+    "practice": "Teile etwas konkret Nützliches und begegne der Natur aufmerksam.",
+    "tension": "Freiwillige Einfachheit darf unfreiwillige Armut nicht romantisieren.",
+    "source": "https://www.vatican.va/content/benedict-xvi/de/audiences/2010/documents/hf_ben-xvi_aud_20100127.html"
+  },
+  {
+    "id": "guide-17",
+    "name": "Ibn ʿArabī",
+    "period": "1165–1240",
+    "tradition": "Sufismus",
+    "core": "Göttliche Wirklichkeit, ihre vielfältigen Erscheinungen und die Grenzen menschlicher Erkenntnis.",
+    "practice": "Prüfe, ob du deine Perspektive für die ganze Wirklichkeit hältst.",
+    "tension": "Seine komplexe Lehre ist nicht auf „alle Religionen sind gleich“ reduzierbar.",
+    "source": "https://plato.stanford.edu/entries/ibn-arabi/"
+  },
+  {
+    "id": "guide-18",
+    "name": "Dschalāl ad-Dīn Rūmī",
+    "period": "1207–1273",
+    "tradition": "Sufismus",
+    "core": "Liebe und die Verwandlung des Selbst führen in seiner Dichtung zur Hinwendung zu Gott.",
+    "practice": "Höre einem Menschen zu, ohne sofort gewinnen zu wollen.",
+    "tension": "Seine Dichtung ist in islamischer Spiritualität verwurzelt.",
+    "source": "https://sacred-texts.com/isl/masnavi/index.htm"
+  },
+  {
+    "id": "guide-19",
+    "name": "Madhva",
+    "period": "13.–14. Jahrhundert; Daten umstritten",
+    "tradition": "Dvaita Vedānta",
+    "core": "Gott, einzelne Seelen und Welt bleiben real unterschieden; Hingabe spielt eine zentrale Rolle.",
+    "practice": "Lass Beziehung zu, ohne Verschiedenheit aufzulösen.",
+    "tension": "Sein Dualismus widerspricht zentralen Annahmen des Advaita.",
+    "source": "https://iep.utm.edu/madhva/"
+  },
+  {
+    "id": "guide-20",
+    "name": "Meister Eckhart",
+    "period": "etwa 1260–1328",
+    "tradition": "Christliche Mystik",
+    "core": "Gelassenheit und innere Abgeschiedenheit öffnen den Menschen für das Göttliche.",
+    "practice": "Lass einen Anspruch auf Anerkennung kurz los.",
+    "tension": "Seine paradoxen Aussagen brauchen ihren theologischen Zusammenhang.",
+    "source": "https://plato.stanford.edu/entries/mysticism/"
+  },
+  {
+    "id": "guide-21",
+    "name": "Julian von Norwich",
+    "period": "1342–nach 1416",
+    "tradition": "Christliche Mystik",
+    "core": "Göttliche Liebe und Barmherzigkeit tragen ihre Betrachtung von Leid und Hoffnung.",
+    "practice": "Formuliere in einer schwierigen Lage einen mitfühlenden Satz.",
+    "tension": "Vertrauen ersetzt keine praktische Hilfe in einer Notlage.",
+    "source": "https://www.newadvent.org/cathen/08557a.htm"
+  },
+  {
+    "id": "guide-22",
+    "name": "Kabīr",
+    "period": "15. Jahrhundert; Lebensdaten umstritten",
+    "tradition": "Sant-Tradition",
+    "core": "Innere Gotteserfahrung und gelebte Wahrhaftigkeit wiegen schwerer als äußerliche Religionsgrenzen.",
+    "practice": "Prüfe, ob ein Ritual zu deiner tatsächlichen Haltung passt.",
+    "tension": "Religionskritik bedeutet bei ihm nicht einfach Religionslosigkeit.",
+    "source": "https://sacred-texts.com/hin/sok/index.htm"
+  },
+  {
+    "id": "guide-23",
+    "name": "Teresa von Ávila",
+    "period": "1515–1582",
+    "tradition": "Christliche Mystik",
+    "core": "Gebet und Selbsterkenntnis führen durch die „innere Burg“ zur Gottesnähe.",
+    "practice": "Nimm dir Zeit für ehrliche innere Betrachtung.",
+    "tension": "Ihre Stufen sind religiöse Deutungen, keine universelle Leistungsskala.",
+    "source": "https://sacred-texts.com/chr/tic/index.htm"
+  },
+  {
+    "id": "guide-24",
+    "name": "Ramakrishna",
+    "period": "1836–1886",
+    "tradition": "Hinduistische Mystik",
+    "core": "Hingabe und religiöse Erfahrung stehen im Mittelpunkt; unterschiedliche religiöse Wege können ernst genommen werden.",
+    "practice": "Begegne einer fremden Praxis mit Neugier.",
+    "tension": "Berichte seiner Anhänger und historische Einordnung sind zu unterscheiden.",
+    "source": "https://sacred-texts.com/hin/"
+  },
+  {
+    "id": "guide-25",
+    "name": "Swami Vivekananda",
+    "period": "1863–1902",
+    "tradition": "Moderner Vedānta",
+    "core": "Spirituelle Entwicklung umfasst selbstloses Handeln, Erkenntnis, Hingabe und geistige Übung.",
+    "practice": "Hilf konkret, ohne dafür Anerkennung einzufordern.",
+    "tension": "Seine moderne Auslegung ist nicht mit sämtlichen historischen Hindu-Traditionen identisch.",
+    "source": "https://sacred-texts.com/hin/kyog/kyog00.htm"
+  },
+  {
+    "id": "guide-26",
+    "name": "Ramana Maharshi",
+    "period": "1879–1950",
+    "tradition": "Advaita-orientierte Selbsterforschung",
+    "core": "Die Frage nach dem Ich lenkt Aufmerksamkeit auf das Selbst statt auf wechselnde Gedanken und Rollen.",
+    "practice": "Untersuche ruhig, wer gerade „ich“ sagt.",
+    "tension": "Selbsterforschung ist keine Aufforderung, reale Pflichten zu ignorieren.",
+    "source": "https://www.archive.arunachala.org/docs/self-enquiry"
+  },
+  {
+    "id": "guide-27",
+    "name": "Jiddu Krishnamurti",
+    "period": "1895–1986",
+    "tradition": "Unabhängige spirituelle Philosophie",
+    "core": "Direkte Selbsterkenntnis verlangt die Prüfung von Konditionierung und spiritueller Autorität.",
+    "practice": "Prüfe auch den Rat eines geschätzten Lehrers selbst.",
+    "tension": "Auch diese Lehre sollte nicht zu einer neuen unprüfbaren Autorität werden.",
+    "source": "https://kfoundation.org/core-of-the-teachings/"
+  },
+  {
+    "id": "guide-28",
+    "name": "Thích Nhất Hạnh",
+    "period": "1926–2022",
+    "tradition": "Engagierter Buddhismus",
+    "core": "Achtsamkeit im Alltag, Mitgefühl und wechselseitige Verbundenheit gehören zusammen.",
+    "practice": "Führe ein Gespräch mit ungeteilter Aufmerksamkeit.",
+    "tension": "Innere Ruhe und gesellschaftliche Verantwortung sind keine Gegensätze.",
+    "source": "https://plumvillage.org/about/thich-nhat-hanh"
+  },
+  {
+    "id": "guide-29",
+    "name": "14. Dalai Lama",
+    "period": "geb. 1935",
+    "tradition": "Tibetischer Buddhismus",
+    "core": "Mitgefühl, menschliche Werte und religiöse Verständigung prägen seine öffentlich formulierten Anliegen.",
+    "practice": "Beziehe die Bedürfnisse anderer in eine Entscheidung ein.",
+    "tension": "Religiöse Lehre und säkulare Ethik sind unterschiedliche Zugänge.",
+    "source": "https://www.dalailama.com/the-dalai-lama/biography-and-daily-life/three-main-commitments"
+  },
+  {
+    "id": "guide-30",
+    "name": "Sadhguru",
+    "period": "geb. 1957",
+    "tradition": "Zeitgenössische Yoga-Spiritualität",
+    "core": "Innere Arbeit und bewusster Umgang mit dem eigenen Erleben sollen Wohlbefinden fördern.",
+    "practice": "Beobachte deine Reaktion, bevor du handelst.",
+    "tension": "Selbstdarstellungen und spirituelle Aussagen sind keine wissenschaftlichen Wirksamkeitsbelege.",
+    "source": "https://isha.sadhguru.org/en/wisdom/article/doing-the-right-things-with-yourself"
+  }
+]
