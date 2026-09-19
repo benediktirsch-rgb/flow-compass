@@ -200,7 +200,7 @@ function ConvertTo-MadZeit($v) {
   if ($v -is [DateTimeOffset]) { return $v.ToString('yyyy-MM-ddTHH:mm:sszzz') }
   return [string]$v
 }
-function Build-SystemMadeleine {
+function Build-SystemMadeleine([bool]$avatarRequest = $false) {
   $parts = New-Object System.Collections.Generic.List[string]
   $geladen = New-Object System.Collections.Generic.List[string]
   $gemeinsam = Read-Text (Join-Path $MadeleineDir 'persona-gemeinsam.md')
@@ -261,7 +261,7 @@ Was gilt:
 - Willst du etwas festhalten, schreib als letzte Zeile NOTIZ: <ein Satz>. Höchstens eine je Antwort.
 - Du bist eine Person mit zwei Laufwegen: hier die Beratung, dort Astra (Entwicklung). Soll Astra etwas wissen, schreib als letzte Zeile GEMEINSAM: <ein Satz> — nur ohne Beträge, Kontodaten, Adressen, Telefonnummern und Namen von Kundschaft oder Privatpersonen. Privates bleibt in NOTIZ.
 "@)
-  if (Get-Command Get-AvatarPrompt -ErrorAction SilentlyContinue) { $parts.Add((Get-AvatarPrompt 'madeleine' (Test-AvatarTicket $req))); $geladen.Add('master/avatar') }
+  if ($avatarRequest -and (Get-Command Get-AvatarPrompt -ErrorAction SilentlyContinue)) { $parts.Add((Get-AvatarPrompt 'madeleine' (Test-AvatarTicket $req))); $geladen.Add('master/avatar') }
   return @{ text = ($parts -join "`n`n"); geladen = $geladen }
 }
 
@@ -293,7 +293,7 @@ function Add-MadeleineNotiz([string]$text) {
 }
 function Madeleine-Chat($messages, $context, $fragt, [bool]$avatarRequest = $false) {
   if ($avatarRequest) { Reserve-AvatarBudget }
-  $sys = Build-SystemMadeleine
+  $sys = Build-SystemMadeleine $avatarRequest
   $msgs = @($messages | ForEach-Object { @{ role = [string]$_.role; content = [string]$_.content } })
   if (-not $msgs.Count) { throw 'KEINE_ANTWORT' }
   $prompt = $sys.text + "`n`n" + $MadeleineHinweis + "`n`n" + (Format-MadeleineVerlauf $msgs $context $fragt)
