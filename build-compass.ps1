@@ -175,6 +175,13 @@ foreach ($f in $begleiter) {
   if (Test-Path $src) { Write-Lf (Join-Path $Ziel $f) (Read-Utf8 $src) } else { Write-Warning "fehlt in der Quelle: $f" }
 }
 
+# Shared Holodeck portraits only; no private scene or conversation data.
+$avatarZiel = Join-Path $Ziel 'avatar-assets'
+New-Item -ItemType Directory -Force $avatarZiel | Out-Null
+foreach ($portrait in @('john.png','madeleine.png')) {
+  Copy-Item -LiteralPath (Join-Path $Quelle "avatar-assets\$portrait") -Destination (Join-Path $avatarZiel $portrait) -Force
+}
+
 # Holodeck-Assets: nur eigener Build, niemals Produkt-Demo.
 $holoQuelle = Join-Path $Quelle 'holodeck-assets'
 if (Test-Path $holoQuelle) {

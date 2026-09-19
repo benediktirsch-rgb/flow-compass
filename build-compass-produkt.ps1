@@ -942,6 +942,14 @@ if ($Instanz) {
 foreach ($avatarFile in @('avatar-core.js','avatar-ui.js','avatar-compass.js','avatar-guides.json')) {
   Write-Lf (Join-Path $Ziel $avatarFile) (Read-Utf8 (Join-Path $Quelle $avatarFile))
 }
+foreach ($conversationFile in @('compass-conversation.js','compass-conversation.css')) {
+  Write-Lf (Join-Path $Ziel $conversationFile) (Read-Utf8 (Join-Path $Quelle $conversationFile))
+}
+$avatarZiel = Join-Path $Ziel 'avatar-assets'
+New-Item -ItemType Directory -Force $avatarZiel | Out-Null
+foreach ($portrait in @('john.png','madeleine.png')) {
+  Copy-Item -LiteralPath (Join-Path $Quelle "avatar-assets\$portrait") -Destination (Join-Path $avatarZiel $portrait) -Force
+}
 # ── 18b. Wortpruefung ueber ALLE ausgelieferten Dateien ──────────────────────
 # Nicht nur die gebaute index.html: auch Kennzahlenseite, Produktschicht und die
 # mitgelieferte Datenschicht duerfen nichts Persoenliches enthalten.
@@ -959,7 +967,7 @@ Get-ChildItem $Ziel -File -Include *.html,*.js -Recurse | ForEach-Object {
   $alt = $script:verboten
   if ($_.Name -eq 'instanz.js') { $script:verboten = $verbotenInstanz }
   # John is now an explicitly shared product avatar, only in these dedicated modules.
-  if ($_.Name -in @('avatar-ui.js','avatar-compass.js')) { $script:verboten = @($script:verboten | Where-Object { $_ -ne '\bJohn\b' }) }
+  if ($_.Name -in @('avatar-ui.js','avatar-compass.js','compass-conversation.js')) { $script:verboten = @($script:verboten | Where-Object { $_ -ne '\bJohn\b' }) }
   $alleFunde += Pruefe (Read-Utf8 $_.FullName) $_.Name
   $script:verboten = $alt
 }

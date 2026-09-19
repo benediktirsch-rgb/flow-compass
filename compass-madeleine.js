@@ -359,7 +359,9 @@
 
   /* ---------- Karte: hinter Johns Karte, gleiche Bauart (.jk) ---------- */
   function madKachel(){
-    return `<div class="card s6 tone-none jk mk" id="madKachel"><h3>👩‍💼 Madeleine <span class="cnt" id="madCnt">Finanzen · Steuer · Organisation</span></h3>
+    return `<div class="card s6 tone-none jk mk" id="madKachel"><h3>👩‍💼 Madeleine <span class="cnt" id="madCnt">Dein Gespräch mit Madeleine & John</span></h3>
+    <div data-compass-conversation></div>
+    <details class="cc-archive"><summary>Beraterrunde, Entscheidungen & Quellen</summary>
     <div class="jkopf"><div class="jav">📊</div><div><div class="jwer">Das Gesamtbild — GmbH, privat, Verein</div>
       <div class="jwas" id="madStat">${H(statusText())}</div></div></div>
     <div id="madBody">${bodyHtml()}</div>
@@ -370,7 +372,7 @@
       <button class="jm2" onclick="madOpen('Was sollte ich organisatorisch als Nächstes ordnen — GmbH oder Verein? Ein Vorschlag mit Begründung.')" title="Struktur, Zuständigkeiten, Routinen">🗂️ Organisation</button>
       <button class="jm2" onclick="madRunde()" title="John und Madeleine beraten sich zu einem Thema — du liest mit">🤝 Beraterrunde</button>
       <button class="jm2" onclick="madToggle(true)" title="Chat mit Madeleine">💬 Sprechen</button>
-    </div></div>`;
+    </div></details></div>`;
   }
   const oKachel=window.johnKachel;
   window.johnKachel=function(){ const h=oKachel.apply(this,arguments); setTimeout(madMalen,0); return h+madKachel(); };
