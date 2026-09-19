@@ -187,7 +187,7 @@ function fussSetzen(k,key,zu,kante){
 /* Nie gefaltet: zugeklappte Karten, die GANZ-Liste, und Karten mit Wirkungsbild — deren
    Zustimmen/Ablehnen steht unter dem Bild, und eine Karte, die eine Entscheidung will,
    darf ihren Knopf nicht hinter „weitere zeigen" verstecken. */
-function faltbar(k){ return !(k.classList.contains('min')||passt(k,GANZ)||k.querySelector('.sysgrid')); }
+function faltbar(k){ return !(k.classList.contains('min')||passt(k,GANZ)||k.querySelector('.sysgrid, [data-compass-conversation]')); }
 function falten(k,key,w){
   if(!faltbar(k)){ fussWeg(k); return; }
   var f=fussVon(k), fussH=(f&&k.classList.contains('r-auf'))?f.offsetHeight+10:0;
