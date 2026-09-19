@@ -184,6 +184,7 @@
     { id: 'kontext', icon: '🎛️', titel: 'Deine Kontexte' },
     { id: 'quellen', icon: '🔌', titel: 'Deine Quellen' },
     { id: 'ki', icon: '🤵', titel: 'Dein Coach' },
+    { id: 'werte', icon: '✺', titel: 'Dein Wertekompass' },
     { id: 'board', icon: '🧭', titel: 'Dein Board' },
     { id: 'fertig', icon: '🚀', titel: 'Fertig' }
   ];
@@ -308,6 +309,7 @@
         '<li><b>Kontexte</b> — die Lebensbereiche, zwischen denen du umschaltest</li>' +
         '<li><b>Quellen</b> — Trello, Jira, Team-Cockpit</li><li><b>Coach</b> — deine KI, auf deinem Konto (oder ohne)</li><li><b>Board</b> — dein WIP-Limit</li></ul>';
 
+      if (s === 'werte') return '<p class="sub">Was heißt für dich ein gutes Leben? Lege eigene Abendmöglichkeiten, Werte und den Ton deiner Begleiter fest. Du kannst alles später ändern.</p><button type="button" class="btn" onclick="window.AvatarUI && AvatarUI.open(&quot;kompass&quot;)">Meinen Wertekompass öffnen</button><p class="shint">Das persönliche Wolkenprofil wird separat gespeichert. Ohne Verbindung kannst du diesen Schritt später nachholen.</p>';
       if (s === 'person') return '' +
         '<p class="sub">Der Compass spricht dich an — dafür braucht er einen Namen. Die E-Mail nutzen die „schick mir …“-Knöpfe; sie geht an niemanden sonst.</p>' +
         '<label class="sf"><span>Wie sollen wir dich nennen?</span><input id="suName" value="' + E(d.name) + '" placeholder="Alex"></label>' +
