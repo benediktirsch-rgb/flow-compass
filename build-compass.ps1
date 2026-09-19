@@ -266,3 +266,6 @@ Write-Host ''
 Write-Host "Compass gebaut → $Ziel"
 Write-Host 'Weiter: git status --short → git add site/compass → git commit -m "compass: Livegang-Build <Datum>" → git push origin main'
 Write-Host 'Danach: https://bene.vishnuartists.com/ (Passphrase siehe Übergabe; ändern per Konsole compass.hash(...) → COMPASS.gate.hash)'
+
+# Avatar catalog is loaded at runtime, so the static reference scanner cannot discover it.
+Write-Lf (Join-Path $Ziel 'avatar-guides.json') (Read-Utf8 (Join-Path $Quelle 'avatar-guides.json'))
